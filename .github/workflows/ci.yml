@@ -13,6 +13,8 @@ jobs:
     container: ubuntu:26.04
     env:
       BUNDLE_PATH: vendor/bundle
+      # The bare image has no locale, so Ruby would read our UTF-8 sources as US-ASCII.
+      LANG: C.UTF-8
       DEBIAN_FRONTEND: noninteractive
     steps:
       # git before checkout, or checkout falls back to a tarball and `git diff` has no repo.

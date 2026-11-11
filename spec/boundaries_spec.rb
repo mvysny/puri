@@ -19,7 +19,8 @@ RSpec.describe 'namespace boundaries' do
       files = Dir.glob("#{dir}{.rb,/**/*.rb}", base: File.expand_path('..', __dir__))
       refute_empty files
       offenders = files.flat_map do |file|
-        File.readlines(File.expand_path("../#{file}", __dir__)).each_with_index.filter_map do |line, i|
+        lines = File.readlines(File.expand_path("../#{file}", __dir__), encoding: 'UTF-8')
+        lines.each_with_index.filter_map do |line, i|
           "#{file}:#{i + 1}: #{line.strip}" if line.match?(pattern) && !line.lstrip.start_with?('#')
         end
       end
