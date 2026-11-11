@@ -33,8 +33,8 @@ uses no GL, so a native GL/Vulkan renderer adds some memory on top (Mesa); not m
 
 What the numbers mean: **1.2 s is too slow to start on the hotkey**, so a Ruby UI stays resident
 (`desktop-popup-app.md`, *Hidden, not closed*). The owner accepts ~116 MB for that. And the
-daemon is resident anyway, so Ruby + GTK4 *inside the daemon* costs only the GTK half and needs
-no D-Bus between UI and agent (`Q_one_process` in `desktop-popup-app.md`).
+backend is resident anyway, so Ruby + GTK4 *in the backend's process* costs only the GTK half and
+needs no D-Bus between UI and agent: decided, `desktop-popup-app.md`, *Process architecture*.
 
 ## Facts that hold for every option
 
@@ -43,22 +43,22 @@ no D-Bus between UI and agent (`Q_one_process` in `desktop-popup-app.md`).
 - **Resident vs on-demand mostly decides itself.** A Siri feel wants the window in ~150 ms; only
   Vala, Go and maybe Python start that fast. Ruby, the JVM and Flutter stay resident, and then the
   hotkey just activates the running instance (GApplication single-instance, or the equivalent).
-- **Markdown parsing is pikuri's and Ruby.** A Ruby UI calls the streaming parser directly. A UI in
-  any other language must not reimplement it (two parsers drift): the daemon sends already-parsed
-  blocks over D-Bus and the UI only draws them.
+- **Markdown parsing is pikuri's and Ruby, and runs in Core.** Core sends already-parsed blocks
+  through Protocol even to the Ruby UI, so a UI in any other language draws the same blocks and
+  never reimplements the parser (two parsers drift).
 
 ## The candidates
 
 ### Tier 1
 
 - **Ruby + GTK4 (the plan).** All apt; the headless loop is proven (`gtk4-dev` skill); shares
-  pikuri's code and can live in the daemon's process. Costs the measured ~1.2 s and ~116 MB, so
+  pikuri's code and lives in the backend's process. Costs the measured ~1.2 s and ~116 MB, so
   it is resident.
 - **Vala + GTK4.** Reads like C# / Java, compiles to C, reference-counted (no tracing GC; break
   cycles with `weak` / `unowned`). `valac` 0.56 is in apt. GTK4, libadwaita and GDBus are
   first-class: a `[DBus (name = …)]` interface yields a typed proxy. Starts about as fast and as
   small as C, so on-demand launch is realistic. Broadway works (it's GTK). Small ecosystem; some
-  errors surface from the generated C. The best non-Ruby pick if the UI ever leaves the daemon.
+  errors surface from the generated C. The best non-Ruby pick if the UI ever leaves the backend's process.
 - **Java / Kotlin on GTK4 via java-gi.** GTK4 through Panama FFM, so JDK 22+ [unverified]; a Maven
   dependency. Broadway and libadwaita for free. JVM on top of GTK: probably 150–200 MB resident,
   a sub-second cold start [estimate, not measured]; resident.
@@ -89,7 +89,7 @@ no D-Bus between UI and agent (`Q_one_process` in `desktop-popup-app.md`).
 
 ## Ranking
 
-1. **Ruby + GTK4**, resident, likely in the daemon's process.
+1. **Ruby + GTK4**, resident, in the backend's process (decided).
 2. **Vala + GTK4** if the UI must leave Ruby (memory, start time, crash isolation), with parsed
    Markdown over D-Bus. Same widgets, same Broadway loop.
 3. **Flutter** if animation polish and its headless tests outweigh the second toolkit.
