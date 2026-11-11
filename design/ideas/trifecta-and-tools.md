@@ -4,7 +4,7 @@ Goal: a personal assistant in the shape of macOS 27's Siri. It **searches the we
 URL**. It holds notes, reminders, calendar, mail, contacts, its own memory, and `web_search`. It
 has no `fetch`, no `web_scrape`, no sub-agents and **no `bash`**. Started in pikuri-tui as
 `pikuri-tui-secretary` (`secretary-shell.md` there, moved here 2026-11-11 and split into this file
-and `popup-ui.md`); the decided bits below were decided there.
+and `desktop-popup-app.md`); the decided bits below were decided there.
 
 ## What Siri on macOS 27 can do
 
