@@ -7,17 +7,21 @@ optimize** — smaller models, routing, and the NPU — once there's a working a
 Background: `local-model/apple-on-device-models.md` (the owner's `siri.txt`, a Claude chat on how
 Siri runs so cheaply on a MacBook Air M2).
 
-## How Siri does it (from that chat, [unverified])
+## How Siri does it (checked 2026-11-11, sources in that file's *Verification*)
 
-- **Three tiers.** Simple requests run on the device; moderate ones on Apple's Private Cloud
-  Compute; the heaviest reportedly on a custom Gemini in Google's cloud. The local CPU stays quiet
-  mostly because the hard work isn't local.
-- **On the device:** AFM 3 Core, ~3B dense, quantized to ~2 bits with quantization-aware training,
-  so under 1 GB of weights; runs on the Neural Engine, not the CPU. AFM 3 Core Advanced (20B sparse,
-  1–4B active) needs an M3 and 12 GB.
-- **Task adapters:** summarization and the like are LoRA adapters (~160 MB) on one shared model.
-- **Comparable open models:** Qwen3-4B, Gemma 3 4B, Llama 3.2 3B for the small tier; gpt-oss-20b
-  (21B total, 3.6B active, ~12–13 GB at 4-bit) and Gemma 3n E4B for the sparse tier.
+- **Tiers.** Two on-device models, then Private Cloud Compute, whose biggest model (AFM 3 Cloud Pro)
+  runs on NVIDIA GPUs in Google Cloud. It is Apple's model refined from Gemini outputs, not Gemini
+  itself; the "1.2T Gemini" is a pre-WWDC Bloomberg report nobody confirmed. The local CPU stays
+  quiet mostly because the hard work isn't local.
+- **On the device:** AFM 3 Core, 3B dense, quantization-aware trained (2025's model was 2 bits per
+  weight; AFM 3's bit-width is undisclosed). AFM 3 Core Advanced is 20B sparse with 1–4B active,
+  experts picked per prompt and loaded from NAND flash; per Macworld it needs an M3 and 12 GB. On an
+  M2, its features (expressive voices, advanced dictation) are missing, not moved to the cloud.
+- **Task adapters:** LoRA adapters of ~160 MB on one shared model, each tied to one model version.
+- **Comparable open models (Nov 2026):** Qwen3.5-4B, Gemma 4 E4B, NVIDIA's Nemotron 3.5 Bolt E4B
+  (a Gemma 4 E4B tuned for device-assistant tool use), Granite 4.2 3B and LFM3-1.7B for the small
+  tier; gpt-oss-20b, Gemma 4 26B-A4B and Qwen3.6-35B-A3B for the sparse tier. The tables are in
+  that file's *Hugging Face, November 2026*.
 
 The lesson for us: Siri's speed is a small model *plus* a datacenter. We promise *Local first*, so
 our cloud tier is opt-in, and the local tier has to carry more than Siri's does.
