@@ -1,0 +1,21 @@
+AllCops:
+  TargetRubyVersion: 3.3
+  # We don't track upstream cops as they land; opting in is a deliberate act.
+  NewCops: disable
+  SuggestExtensions: false
+  # Merge, or this list *replaces* rubocop's own defaults, which include `vendor/**/*`, where
+  # CI's BUNDLE_PATH puts the bundle.
+  inherit_mode:
+    merge:
+      - Exclude
+  Exclude:
+    # A scratchpad deleted at graduation (AGENTS.md).
+    - "design/ideas/**/*"
+
+# Size cops are noise by policy; a class is as long as its job.
+Metrics:
+  Enabled: false
+
+# `class X < Data.define(...)` is how a value object gets a doc header and methods.
+Style/DataInheritance:
+  Enabled: false

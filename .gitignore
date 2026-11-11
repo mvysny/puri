@@ -1,0 +1,7 @@
+/.bundle/
+/vendor/bundle/
+/.claude/settings.local.json
+.playwright-mcp/
+/.yardoc/
+/doc/
+/coverage/

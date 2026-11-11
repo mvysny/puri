@@ -1,0 +1,33 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+ruby '>= 3.3'
+
+# GTK4 and libadwaita are deliberately absent: they come from apt (`ruby-gtk4`, `gir1.2-adw-1`),
+# and `require 'gtk4'` finds apt's copy under `bundle exec` anyway. Listed here, Bundler would
+# compile the whole Ruby-GNOME stack from source (AGENTS.md, Conventions).
+
+# One loader at lib/, eager-loaded at boot: a dependency between our files is a constant name.
+gem 'zeitwerk', '~> 2.8'
+
+# Types are written once, as YARD tags; sord compiles them into the committed sig/puri.rbs, and
+# `rake sig` fails on any tag sord cannot type. redcarpet renders the Markdown .yardopts selects.
+group :development do
+  gem 'rake', '~> 13.4'
+  gem 'redcarpet', '~> 3.6'
+  gem 'rubocop', '~> 1.92', require: false
+  gem 'sord', '~> 7.1', require: false
+  gem 'yard', '~> 0.9.45'
+
+  # rubocop's parser. sord reads every bundled gem's rbi/, and parlour 9.1.2 (the latest, under
+  # sord 7.1) can't parse prism 2's ("node after a sig must be a method definition").
+  gem 'prism', '< 2', require: false
+end
+
+# rspec-core's structure with minitest's asserts; no rspec-expectations, no rspec-mocks.
+group :test do
+  gem 'minitest', '~> 6.0'
+  gem 'rspec-core', '~> 3.13'
+  gem 'simplecov', '~> 0.22', require: false
+end

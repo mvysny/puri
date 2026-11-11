@@ -13,4 +13,18 @@ warm.
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."
 
-**Status:** design only, nothing to run yet; the plan lives in `design/ideas/`.
+**Status:** a skeleton. The window asks a dummy backend, which streams lorem ipsum back; the plan
+lives in `design/ideas/`.
+
+## Install and run
+
+Linux and GNOME only. GTK4 and libadwaita come from apt, never from gems:
+
+```sh
+sudo apt install ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw-1 libgtk-4-bin
+bundle config set --local path vendor/bundle
+bundle install
+exe/puri
+```
+
+`bundle exec rake` runs the specs, rubocop, the type signatures and the doc checks, as CI does.

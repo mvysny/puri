@@ -344,8 +344,10 @@ subscribes to `BackendClient`'s events itself; no controller.
   33 % × 70 %? Also: can an undecorated GTK4 window be resized from its edges on Mutter, or does
   it need GTK's own CSD resize borders?
 - `Q_main_loop_threads`: do pikuri's threads (streaming HTTP to llama-server) keep running while
-  Ruby-GNOME's main loop sits idle waiting for events, or does the GVL starve them? The first thing
-  milestone 1 tests: a dummy Core streaming from a plain Ruby thread is exactly this case.
+  Ruby-GNOME's main loop sits idle waiting for events, or does the GVL starve them? First look
+  (2026-11-11, Broadway): the skeleton's `DummyCore` thread (`sleep` between words) streamed its
+  36 words into the idle window through `GLib::Idle.add` without stalling. Still open for a
+  thread blocked in socket I/O, which is pikuri's case.
 - `Q_dbus_binding`: only once it splits. GDBus via `ruby-gio2`, or `ruby-dbus`? Does Core want
   GLib at all?
 - `Q_history_store`: lift pikuri-web's conversation store and its `Agents::Titler` into pikuri, or
@@ -360,6 +362,5 @@ subscribes to `BackendClient`'s events itself; no controller.
   then a `GLib::MainContext` iteration), the GTK twin of `Tuile::Testing`, with Playwright kept
   for exploratory looks? Specs that take in-process PNGs need a browser attached to Broadway
   (`gtk4-dev` skill).
-- `Q_ci`: does Woodpecker's image get `gtk4-broadwayd` + `ruby-gtk4` from apt the same way?
 - `Q_tui_client`: is a TUI just another client of Protocol (pikuri-tui talking D-Bus)? Not
   planned; noted because Protocol makes it cheap, and it would be a reason to split.

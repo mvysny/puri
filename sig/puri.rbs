@@ -1,0 +1,174 @@
+# A Siri-style desktop assistant on pikuri. Three namespaces share one loader: {Puri::Core}, the
+# backend; {Puri::Protocol}, the messages between the two; {Puri::Desktop}, the GTK4 UI. Only
+# `exe/puri` knows both sides.
+# 
+# Requiring this file sets the loader up but loads nothing, so a process may load Core and
+# Protocol without GTK. Desktop's windows subclass Adw's at load time, so whoever loads Desktop
+# calls {require_gtk} first.
+module Puri
+  LOADER: Zeitwerk::Loader
+
+  # Loads GTK4 and libadwaita. libadwaita has no Ruby package, so it comes through GObject
+  # Introspection, which is not a Zeitwerk-shaped file. Safe to call twice.
+  # 
+  # `require 'gtk4'` runs `gtk_init`, so `GDK_BACKEND` and the display must already be in the
+  # environment.
+  def self.require_gtk: () -> void
+
+  # The backend. It takes {Protocol} commands and emits {Protocol} events on its own threads.
+  # 
+  # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
+  # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
+  module Core
+    # Milestone 1's stand-in for the pikuri-backed Core: "thinks" a while, then streams lorem
+    # ipsum word by word, from a thread of its own as pikuri's agent will.
+    # 
+    #   core = DummyCore.new { |event| client.deliver(event) }   # called on the turn's thread
+    #   core.handle(Protocol::Ask.new(conversation: nil, text: 'hi'))
+    #   # TurnStarted(conversation: "3f2…") at once, then a TextDelta per word, then TurnFinished
+    class DummyCore
+      WORDS: ::Array[String]
+
+      # _@param_ `think` — seconds before the first word
+      # 
+      # _@param_ `pace` — seconds between words
+      def initialize: (?think: Float, ?pace: Float) ?{ (Data event) -> void } -> void
+
+      # _@param_ `command` — a {Protocol} command
+      # 
+      # _@return_ — the turn, already running
+      def handle: (Data command) -> Thread
+
+      # _@param_ `conversation`
+      def stream: (String conversation) -> void
+    end
+  end
+
+  # The GTK4 UI: the widgets and {BackendClient}, nothing else. It holds no state beyond view
+  # state, so it can be rewritten in Vala as its own process if the Ruby binding fails.
+  # 
+  # Desktop never names Pikuri or {Core}; it reaches Core only through {BackendClient} and
+  # {Protocol}. `spec/boundaries_spec.rb` holds it to that.
+  module Desktop
+    # The one window: an entry to ask in and, under it, the reply as it streams in. Milestone 1
+    # grows it into the pill and transcript of `design/ideas/desktop-popup-app.md`.
+    class PopupWindow < Adw::ApplicationWindow
+      # _@param_ `app`
+      # 
+      # _@param_ `client`
+      def initialize: (Adw::Application app, Puri::Desktop::BackendClient client) -> void
+
+      # _@return_ — the reply so far
+      def reply_text: () -> String
+
+      def ask: () -> void
+
+      # _@param_ `event` — a {Protocol} event
+      def show: (Data event) -> void
+
+      # _@return_ — where the user types; Enter asks
+      attr_reader entry: Gtk::Entry
+    end
+
+    # Desktop's one door to Core. Components submit commands through it and subscribe to Core's
+    # events themselves; there is no controller.
+    # 
+    #   client = BackendClient.new { |command| core.handle(command) }
+    #   client.subscribe { |event| show(event) }                   # in a component
+    #   client.submit(Protocol::Ask.new(conversation: nil, text: 'hi'))
+    #   core_listener = ->(event) { client.deliver(event) }        # Core's side, any thread
+    # 
+    # Main-loop-confined, with exceptions.
+    class BackendClient
+      def initialize: () ?{ (Data command) -> void } -> void
+
+      # _@param_ `command` — a {Protocol} command
+      def submit: (Data command) -> void
+
+      def subscribe: () ?{ (Data event) -> void } -> void
+
+      # Hands an event to the subscribers on the GTK main loop; safe from any thread, so Core's
+      # threads call it directly and Core never learns GLib exists.
+      # 
+      # _@param_ `event` — a {Protocol} event
+      def deliver: (Data event) -> void
+    end
+  end
+
+  # The messages between {Core} and {Desktop}: commands Desktop sends, events Core emits. Each is
+  # a `Data` with JSON-able fields only, so this is already the D-Bus API of a later split.
+  # 
+  # Protocol names neither side, nor anything outside the stdlib.
+  module Protocol
+    # Serializes a message, its class name under `type`.
+    # 
+    #   Protocol.encode(TurnFinished.new(conversation: 'c1'))   # => {"conversation":"c1","type":"TurnFinished"}
+    # 
+    # _@param_ `message` — a command or event of this namespace
+    # 
+    # _@return_ — JSON
+    def self.encode: (Data message) -> String
+
+    # The inverse of {encode}.
+    # 
+    # _@param_ `json` — what {encode} produced
+    # 
+    # _@return_ — the message
+    def self.decode: (String json) -> Data
+
+    # Takes a message through JSON and back. The in-process connection does this to every
+    # message, so neither side ever holds a Ruby object of the other's, and swapping it for D-Bus
+    # changes nothing else.
+    # 
+    # _@param_ `message` — a command or event of this namespace
+    # 
+    # _@return_ — an equal copy
+    def self.round_trip: (Data message) -> Data
+
+    # Command: the user asked something.
+    # 
+    # @!attribute [r] conversation
+    #   @return [String, nil] the conversation to continue; nil starts a new one
+    # @!attribute [r] text
+    #   @return [String] what the user typed
+    class Ask
+      # _@return_ — the conversation to continue; nil starts a new one
+      attr_reader conversation: String?
+
+      # _@return_ — what the user typed
+      attr_reader text: String
+    end
+
+    # Event: the next piece of the reply, as the model streams it.
+    # 
+    # @!attribute [r] conversation
+    #   @return [String] the conversation's id
+    # @!attribute [r] text
+    #   @return [String] appended to the reply so far
+    class TextDelta
+      # _@return_ — the conversation's id
+      attr_reader conversation: String
+
+      # _@return_ — appended to the reply so far
+      attr_reader text: String
+    end
+
+    # Event: Core took an {Ask} and is working on the reply.
+    # 
+    # @!attribute [r] conversation
+    #   @return [String] the conversation's id, newly made when the {Ask} carried none
+    class TurnStarted
+      # _@return_ — the conversation's id, newly made when the {Ask} carried none
+      attr_reader conversation: String
+    end
+
+    # Event: the reply is complete.
+    # 
+    # @!attribute [r] conversation
+    #   @return [String] the conversation's id
+    class TurnFinished
+      # _@return_ — the conversation's id
+      attr_reader conversation: String
+    end
+  end
+end

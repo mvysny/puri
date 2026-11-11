@@ -30,6 +30,19 @@ warm.
 
 Every fact lives in exactly one of these; the others link to it.
 
+## Invariants
+
+- **Core and Protocol never name GTK; Desktop never names Pikuri or Core.** Only `exe/puri` knows both sides; `spec/boundaries_spec.rb` checks it.
+- **Every message crosses as JSON** (`Protocol.round_trip`), so splitting into two processes swaps only the connection.
+- **Core's events reach widgets only through `BackendClient#deliver`**, the one hop onto the GTK main loop.
+
+## Module map
+
+- `lib/puri/core/` — `Puri::Core`, the backend: agents, conversations, reminders; never GTK.
+- `lib/puri/protocol/` — `Puri::Protocol`, commands and events as JSON-able `Data`.
+- `lib/puri/desktop/` — `Puri::Desktop`, the GTK4 widgets and `BackendClient`, nothing else.
+- `exe/puri` — the composition root: loads GTK and Adw, wires Core to Desktop.
+
 ## Conventions
 
 - **Linux and GNOME only, Wayland first.** No macOS or Windows code paths; X11 works only where it comes for free.
@@ -39,9 +52,16 @@ Every fact lives in exactly one of these; the others link to it.
 
 ## Commands
 
+- `bundle exec rake` — the gate: specs, rubocop, `sig/puri.rbs` from the YARD tags, the doc tripwires.
+- CI: `.github/workflows/ci.yml` runs the gate in `ubuntu:26.04` on apt's Ruby, then fails on a `sig/` diff.
+- `bundle lock --add-checksums` — after any Gemfile change, or CI's frozen bundle rejects the lockfile.
+- `ADW_DISABLE_PORTAL=1 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 exe/puri` — the app on Broadway; natively just `exe/puri`.
+- GTK specs start their own `gtk4-broadwayd` on `:90`–`:99` unless `GDK_BACKEND` is set.
 - `design/verify_design_tripwires.sh` — the doc-layer tripwire.
 
 ## Skills this project follows
+
+- **Ruby:** YARD tags are the types (sord writes `sig/puri.rbs`, never hand-edited), rspec-core with minitest asserts, no mocks; the `ruby` skill.
 
 - **Component-oriented:** self-sufficient components that reach their data directly, no MVC layers; the `cop` skill has the rules.
 - **GTK4 dev, headless:** run, drive and screenshot the app on Broadway with Playwright; the `gtk4-dev` skill has the loop and the gotchas.

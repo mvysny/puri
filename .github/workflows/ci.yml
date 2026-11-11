@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # apt's Ruby, not ruby/setup-ruby's: apt's ruby-gtk4 is built for apt's Ruby, and the
+    # project uses no other (AGENTS.md, Conventions). Ubuntu 26.04 ships Ruby 3.3.
+    container: ubuntu:26.04
+    env:
+      BUNDLE_PATH: vendor/bundle
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # git before checkout, or checkout falls back to a tarball and `git diff` has no repo.
+      # ruby-dev and build-essential compile the bundle's C extensions (prism, redcarpet, …).
+      # libgtk-4-bin brings gtk4-broadwayd, the display the GTK specs start for themselves.
+      - name: Install the apt stack
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ruby ruby-bundler ruby-dev build-essential \
+            ruby-gtk4 gir1.2-adw-1 libgtk-4-bin \
+            git ca-certificates
+      - uses: actions/checkout@v7
+      # The container runs as root over a checkout the runner's user owns.
+      - name: Let git trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/cache@v6
+        with:
+          path: vendor/bundle
+          key: bundle-ubuntu-26.04-${{ hashFiles('Gemfile.lock') }}
+      - run: bundle install --jobs 4 --retry 3
+      - run: bundle exec rake
+      - name: Fail if sig/ is out of date
+        run: git diff --exit-code sig/
