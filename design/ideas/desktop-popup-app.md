@@ -152,7 +152,8 @@ the type, and the model never has to guess it from text:
    hides, the general Escape rule (*Our shape*, point 1).
 
 Protocol's command is `Answer(confirmation, choice, instructions)`. pikuri has `Approved` and
-`Rejected(reason:)` (pikuri-workspace's `Confirmer`). **Upstream:** a `Redirected(instructions:)`
+`Rejected(reason:)` (pikuri-workspace's `Confirmer`). **Upstream**
+([pikuri#12](https://codeberg.org/mvysny/pikuri/issues/12)): a `Redirected(instructions:)`
 result, `Rejected` without a reason (pikuri-tui's typed "no, because…" becomes `Redirected` too),
 and prompt wording: a `Rejected` is final, a `Redirected` is followed, and another route to a
 declined end is never fine. Whether a confirmer waiting on a click is interruptible by
