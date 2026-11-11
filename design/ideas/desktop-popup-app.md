@@ -153,7 +153,9 @@ the type, and the model never has to guess it from text:
    `Agent::Control::Cancellable::Cancelled` when the cancel arrives, which ends the turn and
    repairs the stranded tool call.
 
-Protocol's command is `Answer(confirmation, choice, message)`. All three results are pikuri's
+Desktop calls `answer(conversation, confirmation, approved)` for the buttons; typed text goes
+through `ask`, which Core takes as the redirect while a confirmation waits, so Desktop never
+decides which it is. All three results are pikuri's
 (pikuri-workspace's `Confirmer`, since
 [pikuri#12](https://codeberg.org/mvysny/pikuri/issues/12), `D_bare_rejected`), and so is the
 prompt wording: a `Rejected` is final, a `Redirected` is followed.
@@ -211,13 +213,17 @@ sides.
 - **GTK and Adw load before the loader.** Desktop classes subclass `Adw::ApplicationWindow` at
   load time, and `module Adw; end` plus `GObjectIntrospection::Loader.load` (`gtk4-dev` skill) is
   not a Zeitwerk-shaped file. So `exe/puri` does both first.
-- **Protocol is the D-Bus API, already.** Commands `Ask(conversation, text)`,
-  `Cancel(conversation)`, `Answer(confirmation, choice, message)`, `ListConversations()`,
-  `LoadConversation(id)`; events `TurnStarted`, `TextDelta`, `ToolLine`, `ConfirmRequested`,
-  `TurnFinished`, `ConversationsChanged` (a new one, a title landed). It is pikuri's event stream, serialized: pikuri-web (Sinatra plus one SSE
-  stream) is the existing proof that a pikuri agent drives a remote UI.
-- **Markdown is parsed in Core** and crosses as blocks; Desktop only draws them. Even the Ruby UI
-  never calls pikuri's parser, so a UI in another language draws the same blocks (`Q_markdown`).
+- **Protocol is the D-Bus API, already** (built 2026-11-11). Method calls, not a command
+  object: Desktop calls `Protocol::Backend`'s `ask`, `cancel`, `answer`, `list_conversations`,
+  `load_conversation`, `delete_conversation`, which map onto D-Bus methods; Core pushes
+  `BlockChanged`, `BlockRemoved`, `ActivityChanged` and `ConversationsChanged`, which map onto
+  signals. The transcript is pikuri-web's: a list of blocks by id, each sent whole on every
+  change, so a stale event is overwritten by the next one and a snapshot from
+  `load_conversation` converges with the events already in flight. A failed turn is an error
+  `Notice` block, not an outcome on a turn event.
+- **Markdown is rendered in Core** (`Core::ReplyRenderer`, kramdown into Pango markup, as
+  pikuri-web's renders into HTML): a reply crosses as `Prose` markup, `Code` and `Table` parts,
+  and Desktop only places them. A UI in another language draws the same parts.
 - **The thread hop is Desktop's.** Core emits events on pikuri's threads; `Desktop::BackendClient`
   subscribes and re-delivers each one on the GTK main loop. Core never learns GLib exists (the
   `cop` skill: dependencies point toward data, never toward UI). Components (`TranscriptView`,
@@ -316,30 +322,29 @@ real (`Q_tui_client`), or when the UI leaves Ruby for Vala (`desktop-popup-app/u
 
 ## Streamed Markdown in GTK
 
-The reply is Markdown, streamed. Options: a `Gtk::TextView` with `TextTag`s, appending as deltas
-arrive (rich and selectable; tables are hard), or a `Gtk::Label` re-set with Pango markup per
-delta (simplest, but re-parses the whole message each time). pikuri-tui has a streaming Markdown
-renderer to ANSI, pikuri-web one to HTML; a Pango target is a third. The parsing half should be
-shared, upstream, and runs in Core: Desktop gets parsed blocks through Protocol (*Process
-architecture*). `Q_markdown`.
+Decided 2026-11-11: Core re-renders the whole reply per delta (kramdown, ~1 ms) into Pango
+markup, a selectable `Gtk::Label` per run of prose, a `Gtk::Grid` per table; a part that keeps
+its kind keeps its widget, so the update is in place. pikuri-tui renders the same Markdown to
+ANSI and pikuri-web to HTML; whether the parsing half moves upstream is open (`Q_markdown`).
 
 **Never load a remote image** the reply names, and treat links with care: both are egress
 (`trifecta-and-tools.md`, *Links in the reply*).
 
 ## Prototype first: milestones
 
-1. **The skeleton with a dummy Core.** The three namespaces, the Zeitwerk loader, Protocol, the
-   JSON round-trip and the boundary checks from the first commit. The popup, the growing window,
-   the progress bar, the history sidebar with fake conversations. The dummy Core "thinks" for one
-   second, then streams lorem ipsum word by word at ~30 words/s. Developed and screenshotted under
-   Broadway (the `gtk4-dev` skill), checked natively on GNOME now and then.
+1. **The UI with a dummy Core** (built 2026-11-11). The popup, the growing window, the progress
+   bar, confirmations, the history sidebar. `Core::DummyCore` behaves like the real one, from
+   in-memory conversations and scripts picked by words in the question (`Core::DummyScript`), and
+   stays as the GTK specs' backend. Developed and screenshotted under Broadway (the `gtk4-dev`
+   skill); a native check on GNOME is still owed: placement, focus-out, resizing.
 2. **The real Core** on pikuri, with the real model and tools. Desktop doesn't change.
 
 Splitting into two processes is not a milestone (*When it splits*).
 
-Components, per the `cop` skill: `Desktop::PopupWindow` (the one window), `PromptEntry`,
-`TranscriptView` (messages, the progress bar, inline confirmations), `HistorySidebar`. Each
-subscribes to `BackendClient`'s events itself; no controller.
+Components, per the `cop` skill: `Desktop::PopupWindow` (the one window), `ConversationView`
+(a `TranscriptView` over a `PromptEntry`), `HistorySidebar`; each subscribes to `BackendClient`'s
+events itself, no controller. Specs drive the widget tree directly against `DummyCore`;
+Playwright stays for looks.
 
 ## Open questions
 
@@ -360,11 +365,7 @@ subscribes to `BackendClient`'s events itself; no controller.
   where a keyboard has one, the one key that already means "assistant"?
 - `Q_placement`: is Mutter's centering good enough, or does the popup need the GNOME Shell
   extension route (which can place windows, but is JavaScript and per-GNOME-version)?
-- `Q_markdown`: TextView with tags, or Label with Pango markup? Where does the shared streaming
-  parser live upstream, and what do the parsed blocks look like as JSON in Protocol?
-- `Q_test_harness`: rspec driving the widget tree directly (`button.clicked`, `entry.text =`,
-  then a `GLib::MainContext` iteration), the GTK twin of `Tuile::Testing`, with Playwright kept
-  for exploratory looks? Specs that take in-process PNGs need a browser attached to Broadway
-  (`gtk4-dev` skill).
+- `Q_markdown`: does the Markdown parsing pikuri-tui, pikuri-web and Core each do move upstream,
+  with a renderer per target?
 - `Q_tui_client`: is a TUI just another client of Protocol (pikuri-tui talking D-Bus)? Not
   planned; noted because Protocol makes it cheap, and it would be a reason to split.

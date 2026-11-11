@@ -33,13 +33,13 @@ Every fact lives in exactly one of these; the others link to it.
 ## Invariants
 
 - **Core and Protocol never name GTK; Desktop never names Pikuri or Core.** Only `exe/puri` knows both sides; `spec/boundaries_spec.rb` checks it.
-- **Every message crosses as JSON** (`Protocol.round_trip`), so splitting into two processes swaps only the connection.
+- **Every argument, result and event crosses as JSON** (`Protocol.round_trip`), so splitting into two processes swaps only the connection.
 - **Core's events reach widgets only through `BackendClient#deliver`**, the one hop onto the GTK main loop.
 
 ## Module map
 
 - `lib/puri/core/` — `Puri::Core`, the backend: agents, conversations, reminders; never GTK.
-- `lib/puri/protocol/` — `Puri::Protocol`, commands and events as JSON-able `Data`.
+- `lib/puri/protocol/` — `Puri::Protocol`: the `Backend` methods Desktop calls, and the JSON-able `Data` they and Core's events carry.
 - `lib/puri/desktop/` — `Puri::Desktop`, the GTK4 widgets and `BackendClient`, nothing else.
 - `exe/puri` — the composition root: loads GTK and Adw, wires Core to Desktop.
 

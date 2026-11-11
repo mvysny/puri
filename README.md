@@ -13,8 +13,9 @@ warm.
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."
 
-**Status:** a skeleton. The window asks a dummy backend, which streams lorem ipsum back; the plan
-lives in `design/ideas/`.
+**Status:** the UI is done, on a dummy backend that answers from canned scripts: `search`,
+`note`, `table`, `long`, `fail`, `mail`, or `calendar` plus `reschedule` in a question walk the
+other paths. The plan lives in `design/ideas/`.
 
 ## Install and run
 

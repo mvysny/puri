@@ -20,27 +20,454 @@ module Puri
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
-    # Milestone 1's stand-in for the pikuri-backed Core: "thinks" a while, then streams lorem
-    # ipsum word by word, from a thread of its own as pikuri's agent will.
+    # Milestone 1's stand-in for the pikuri-backed Core. It answers from {DummyScript} instead of
+    # a model, but otherwise behaves like the real one: conversations kept in memory and titled a
+    # moment after they start, turns on threads of their own, confirmations that wait, Cancel,
+    # and the same events.
     # 
-    #   core = DummyCore.new { |event| client.deliver(event) }   # called on the turn's thread
-    #   core.handle(Protocol::Ask.new(conversation: nil, text: 'hi'))
-    #   # TurnStarted(conversation: "3f2…") at once, then a TextDelta per word, then TurnFinished
+    #   core = DummyCore.new { |event| client.deliver(event) }   # called on any thread
+    #   id = core.ask(nil, 'search for avocado tips')
+    #   core.load_conversation(id).blocks   # => [UserMessage, …] so far
+    # 
+    # `seed: true` starts it with a few earlier conversations, so the history isn't empty.
+    # 
+    # Thread-safe.
     class DummyCore
-      WORDS: ::Array[String]
+      include Puri::Protocol::Backend
 
-      # _@param_ `think` — seconds before the first word
+      # _@param_ `think` — seconds each thinking step takes
       # 
-      # _@param_ `pace` — seconds between words
-      def initialize: (?think: Float, ?pace: Float) ?{ (Data event) -> void } -> void
+      # _@param_ `pace` — seconds between streamed words
+      # 
+      # _@param_ `title_delay` — seconds before a new conversation gets its title
+      # 
+      # _@param_ `seed` — whether to start with earlier conversations
+      def initialize: (
+                        ?think: Float,
+                        ?pace: Float,
+                        ?title_delay: Float,
+                        ?seed: bool
+                      ) ?{ (Data event) -> void } -> void
 
-      # _@param_ `command` — a {Protocol} command
+      # Sends the user's message. With a confirmation pending, the message answers it as a
+      # redirect: the model follows the words and proposes again. With a turn running, it waits
+      # for that turn to end.
       # 
-      # _@return_ — the turn, already running
-      def handle: (Data command) -> Thread
+      # _@param_ `conversation` — the conversation to continue; nil starts a new one
+      # 
+      # _@param_ `text` — what the user typed
+      # 
+      # _@return_ — the conversation's id, new when `conversation` was nil
+      def ask: (String? conversation, String text) -> String
+
+      # Stops the running turn, if any; a pending confirmation ends as `cancelled`.
+      # 
+      # _@param_ `conversation`
+      def cancel: (String conversation) -> void
+
+      # Answers a pending {Confirmation}; one already answered is left alone.
+      # 
+      # _@param_ `conversation`
+      # 
+      # _@param_ `confirmation` — the {Confirmation}'s block id
+      # 
+      # _@param_ `approved` — true for its approve button, false for Cancel
+      def answer: (String conversation, String confirmation, bool approved) -> void
+
+      # _@return_ — newest first
+      def list_conversations: () -> ::Array[Puri::Protocol::ConversationSummary]
 
       # _@param_ `conversation`
-      def stream: (String conversation) -> void
+      def load_conversation: (String conversation) -> Puri::Protocol::Transcript
+
+      # Forgets a conversation, cancelling its turn first.
+      # 
+      # _@param_ `conversation`
+      def delete_conversation: (String conversation) -> void
+
+      # _@param_ `id`
+      def fetch: (String id) -> Puri::Core::DummyConversation
+
+      # _@param_ `text` — the opening question, which the title comes from
+      # 
+      # _@param_ `started_at`
+      def create: (String text, ?started_at: Time) -> Puri::Core::DummyConversation
+
+      def publish: () -> void
+
+      # Earlier conversations, already answered.
+      def seed_history: () -> void
+    end
+
+    # One turn of a {DummyConversation}, on a thread of its own as a pikuri agent's turn is. A
+    # {DummyScript} drives it through the steps a real turn takes, each reported as the events a
+    # real Core would send:
+    # 
+    #   turn.think('Searching the web…')            # ActivityChanged(working), then a pause
+    #   turn.tool('🔍 Searched: "avocado"')         # a ToolLine block
+    #   turn.stream("Keep it **cold**.")            # a Reply re-sent per word, ActivityChanged(streaming)
+    #   turn.confirm('Move “Dentist”…?', 'Update', destructive: true)
+    #   # => :approved, :rejected, or [:redirected, "make it Wednesday"]
+    # 
+    # Every pause and every wait is where {#cancel} lands: the step raises {Cancelled}, and
+    # {#run} ends the turn with a "Cancelled" notice, keeping what had streamed.
+    # 
+    # == Threading
+    # 
+    # {#run} is the turn's thread; {#cancel}, {#answer} and {#redirect} come from any thread
+    # through a queue the steps wait on.
+    class DummyTurn
+      # _@param_ `conversation` — where the blocks go
+      # 
+      # _@param_ `lock` — the conversation's, which also guards the pending confirmation
+      # 
+      # _@param_ `think` — seconds a {#think} step takes
+      # 
+      # _@param_ `pace` — seconds between streamed words
+      def initialize: (
+                        Puri::Core::DummyConversation conversation,
+                        lock: Monitor,
+                        think: Float,
+                        pace: Float
+                      ) -> void
+
+      # Plays the script for `text` to the end, a cancel or a failure, then hands the
+      # conversation back to idle.
+      # 
+      # _@param_ `text` — the user's message
+      def run: (String text) -> void
+
+      def cancel: () -> void
+
+      # _@param_ `confirmation` — block id; one not pending is ignored
+      # 
+      # _@param_ `approved`
+      def answer: (String confirmation, bool approved) -> void
+
+      # _@param_ `text` — typed while a confirmation waits
+      def redirect: (String text) -> void
+
+      # _@return_ — whether a confirmation waits for the user
+      def confirming?: () -> bool
+
+      # _@param_ `status` — the status line under the progress bar
+      # 
+      # _@param_ `seconds`
+      def think: (String status, ?Float seconds) -> void
+
+      # _@param_ `text` — the step, worded
+      # 
+      # _@param_ `error`
+      def tool: (String text, ?error: bool) -> void
+
+      # Streams Markdown into a new {Protocol::Reply}, a word at a time.
+      # 
+      # _@param_ `markdown`
+      def stream: (String markdown) -> void
+
+      # Asks the user and waits for the answer.
+      # 
+      # _@param_ `question`
+      # 
+      # _@param_ `approve_label`
+      # 
+      # _@param_ `destructive`
+      # 
+      # _@return_ — `:approved`, `:rejected` or `[:redirected, text]`
+      def confirm: (String question, String approve_label, destructive: bool) -> (Symbol | [Symbol, String])
+
+      # _@param_ `seconds`
+      def pause: (Float seconds) -> void
+
+      # Gives the pending confirmation its final state, if there is one.
+      # 
+      # _@param_ `state`
+      # 
+      # _@return_ — true
+      def settle: (String state) -> bool
+
+      # Raised inside a step once the turn is cancelled.
+      class Cancelled < StandardError
+      end
+    end
+
+    # What {DummyCore} answers, picked by words in the question, so every path through the UI
+    # can be walked by hand:
+    # 
+    #   (anything else)            thinks, streams a short Markdown answer
+    #   search                     a search step, then an answer with a list
+    #   note                       reads a note, answers with a checklist
+    #   calendar + reschedule      asks to move an event: Update / Cancel / type a correction
+    #   mail                       asks to hand a draft to the mail app (a harmless confirmation)
+    #   table                      an answer with a table and a code block
+    #   long                       a long answer, for scrolling and Escape while it streams
+    #   fail                       streams a little, then the turn fails
+    module DummyScript
+      WEEKDAYS: ::Array[String]
+
+      # _@param_ `turn`
+      # 
+      # _@param_ `text` — the user's message
+      def run: (Puri::Core::DummyTurn turn, String text) -> void
+
+      # _@param_ `turn`
+      # 
+      # _@param_ `text` — the user's message
+      def self.run: (Puri::Core::DummyTurn turn, String text) -> void
+
+      # The title Core gives a conversation from its opening question.
+      # 
+      #   DummyScript.title('how do I keep an avocado from browning?')   # => "How do I keep an avocado"
+      # 
+      # _@param_ `text`
+      def title: (String text) -> String
+
+      # The title Core gives a conversation from its opening question.
+      # 
+      #   DummyScript.title('how do I keep an avocado from browning?')   # => "How do I keep an avocado"
+      # 
+      # _@param_ `text`
+      def self.title: (String text) -> String
+
+      # _@param_ `turn`
+      def plain: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def self.plain: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      # 
+      # _@param_ `text`
+      def search: (Puri::Core::DummyTurn turn, String text) -> void
+
+      # _@param_ `turn`
+      # 
+      # _@param_ `text`
+      def self.search: (Puri::Core::DummyTurn turn, String text) -> void
+
+      # _@param_ `turn`
+      def note: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def self.note: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      # 
+      # _@param_ `day` — when to move the appointment
+      def reschedule: (Puri::Core::DummyTurn turn, String day) -> void
+
+      # _@param_ `turn`
+      # 
+      # _@param_ `day` — when to move the appointment
+      def self.reschedule: (Puri::Core::DummyTurn turn, String day) -> void
+
+      # _@param_ `turn`
+      def mail: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def self.mail: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def table: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def self.table: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def long: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def self.long: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def failure: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `turn`
+      def self.failure: (Puri::Core::DummyTurn turn) -> void
+    end
+
+    # The model's Markdown as {Protocol::Reply} parts: prose as Pango markup, code blocks and
+    # tables as parts of their own. pikuri-web's MarkdownRenderer with Pango for HTML.
+    # 
+    #   ReplyRenderer.render("Keep it **cold**:\n\n- fridge\n- freezer")
+    #   # => [Prose(markup: "Keep it <b>cold</b>:\n\n• fridge\n• freezer")]
+    # 
+    # Streaming re-renders the whole source per delta, so a closing fence or a widening table
+    # reformats what came before. Unfinished Markdown (`**bol`) renders as the literal text.
+    # 
+    # Links are plain text and images only their alt text: a model-chosen URL is egress
+    # (`design/ideas/trifecta-and-tools.md`, *Links in the reply*).
+    module ReplyRenderer
+      OPTIONS: ::Hash[Symbol, Object]
+      SYMBOLS: ::Hash[Symbol, String]
+      QUOTES: ::Hash[Symbol, String]
+      HTML: ::Hash[String, String]
+
+      # _@param_ `markdown`
+      def render: (String markdown) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # _@param_ `markdown`
+      def self.render: (String markdown) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # _@param_ `node` — a block-level element
+      # 
+      # _@param_ `depth` — list nesting
+      # 
+      # _@return_ — Pango markup
+      def block: (Kramdown::Element node, Integer depth) -> String
+
+      # _@param_ `node` — a block-level element
+      # 
+      # _@param_ `depth` — list nesting
+      # 
+      # _@return_ — Pango markup
+      def self.block: (Kramdown::Element node, Integer depth) -> String
+
+      # _@param_ `node` — a `:header`
+      def heading: (Kramdown::Element node) -> String
+
+      # _@param_ `node` — a `:header`
+      def self.heading: (Kramdown::Element node) -> String
+
+      # _@param_ `node` — a `:ul` or `:ol`
+      # 
+      # _@param_ `depth`
+      def list: (Kramdown::Element node, Integer depth) -> String
+
+      # _@param_ `node` — a `:ul` or `:ol`
+      # 
+      # _@param_ `depth`
+      def self.list: (Kramdown::Element node, Integer depth) -> String
+
+      # _@param_ `node` — a `:table`
+      def table: (Kramdown::Element node) -> Puri::Protocol::Table
+
+      # _@param_ `node` — a `:table`
+      def self.table: (Kramdown::Element node) -> Puri::Protocol::Table
+
+      # _@param_ `node`
+      # 
+      # _@return_ — its children as Pango markup
+      def inline: (Kramdown::Element node) -> String
+
+      # _@param_ `node`
+      # 
+      # _@return_ — its children as Pango markup
+      def self.inline: (Kramdown::Element node) -> String
+
+      # _@param_ `node` — a span-level element
+      def span: (Kramdown::Element node) -> String
+
+      # _@param_ `node` — a span-level element
+      def self.span: (Kramdown::Element node) -> String
+
+      # Raw HTML keeps its text; a formatting tag becomes its Pango twin, any other is dropped.
+      # GFM's `~~strike~~` arrives this way too, as a `del` element.
+      # 
+      # _@param_ `node` — an `:html_element`
+      def html: (Kramdown::Element node) -> String
+
+      # Raw HTML keeps its text; a formatting tag becomes its Pango twin, any other is dropped.
+      # GFM's `~~strike~~` arrives this way too, as a `del` element.
+      # 
+      # _@param_ `node` — an `:html_element`
+      def self.html: (Kramdown::Element node) -> String
+
+      # _@param_ `text`
+      # 
+      # _@return_ — safe inside Pango markup
+      def escape: (String text) -> String
+
+      # _@param_ `text`
+      # 
+      # _@return_ — safe inside Pango markup
+      def self.escape: (String text) -> String
+    end
+
+    # One conversation of {DummyCore}: its blocks, its activity and its running {DummyTurn}.
+    # Every change is emitted as the {Protocol} event a real Core would send.
+    # 
+    #   conversation.ask('reschedule my dentist in the calendar')   # starts a turn
+    #   conversation.ask('make it Wednesday')    # a confirmation waits: redirects it
+    #   conversation.cancel
+    # 
+    # A message sent while a turn runs, but asks nothing, waits for that turn to end.
+    # 
+    # Thread-safe: every method runs under the monitor {DummyCore} shares with it.
+    class DummyConversation
+      # _@param_ `id`
+      # 
+      # _@param_ `lock` — {DummyCore}'s
+      # 
+      # _@param_ `emit` — takes a {Protocol} event
+      # 
+      # _@param_ `changed` — called when {#summary} changed
+      # 
+      # _@param_ `think` — see {DummyTurn#initialize}
+      # 
+      # _@param_ `pace` — see {DummyTurn#initialize}
+      # 
+      # _@param_ `started_at`
+      def initialize: (
+                        id: String,
+                        lock: Monitor,
+                        emit: Proc,
+                        changed: Proc,
+                        think: Float,
+                        pace: Float,
+                        ?started_at: Time
+                      ) -> void
+
+      # _@param_ `text`
+      def ask: (String text) -> void
+
+      # Fills in an exchange that happened before Core started, as a saved history would.
+      # 
+      # _@param_ `question`
+      # 
+      # _@param_ `parts` — the answer
+      def restore: (String question, ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)] parts) -> void
+
+      def cancel: () -> void
+
+      # _@param_ `confirmation`
+      # 
+      # _@param_ `approved`
+      def answer: (String confirmation, bool approved) -> void
+
+      # _@param_ `title`
+      def title=: (String title) -> void
+
+      def summary: () -> Puri::Protocol::ConversationSummary
+
+      def transcript: () -> Puri::Protocol::Transcript
+
+      # Appends a block, giving it the next id.
+      # 
+      # _@param_ `block` — its id nil
+      # 
+      # _@return_ — the block as stored, id set
+      def add: (Puri::Protocol::Block block) -> Puri::Protocol::Block
+
+      # Replaces the block with this id, or appends it.
+      # 
+      # _@param_ `block`
+      def put: (Puri::Protocol::Block block) -> Puri::Protocol::Block
+
+      # _@param_ `activity`
+      def activity=: (Puri::Protocol::Activity activity) -> void
+
+      # Called by `turn` on its way out: goes idle, or starts the message that waited.
+      # 
+      # _@param_ `turn`
+      def finish: (Puri::Core::DummyTurn turn) -> void
+
+      # _@param_ `text`
+      def start: (String text) -> void
+
+      attr_reader id: String
+
+      attr_reader started_at: Time
     end
   end
 
@@ -50,45 +477,279 @@ module Puri
   # Desktop never names Pikuri or {Core}; it reaches Core only through {BackendClient} and
   # {Protocol}. `spec/boundaries_spec.rb` holds it to that.
   module Desktop
-    # The one window: an entry to ask in and, under it, the reply as it streams in. Milestone 1
-    # grows it into the pill and transcript of `design/ideas/desktop-popup-app.md`.
+    # Puri's CSS on top of Adwaita's, installed once for the display.
+    module Style
+      CSS: String
+
+      # Safe to call twice.
+      def self.install: () -> void
+    end
+
+    # A {Protocol::Code} part of a reply: monospace on a tinted background, scrolling sideways
+    # rather than wrapping.
+    class CodeBlock < Gtk::ScrolledWindow
+      # _@param_ `part`
+      def initialize: (Puri::Protocol::Code part) -> void
+
+      # _@param_ `part`
+      def part=: (Puri::Protocol::Code part) -> void
+    end
+
+    # A {Protocol::Notice}: Puri's own line, dimmed, or red for a failure.
+    class NoticeRow < Gtk::Label
+      # _@param_ `block`
+      def initialize: (Puri::Protocol::Notice block) -> void
+
+      # _@param_ `block`
+      def block=: (Puri::Protocol::Notice block) -> void
+    end
+
+    # A {Protocol::Reply}: its parts top to bottom. A streamed reply arrives whole again with
+    # every delta; a part that keeps its kind keeps its widget, so the update is in place and a
+    # selection in an earlier part survives.
+    class ReplyView < Gtk::Box
+      WIDGETS: ::Hash[Class, Class]
+
+      # _@param_ `block`
+      def initialize: (Puri::Protocol::Reply block) -> void
+
+      # _@param_ `block`
+      def block=: (Puri::Protocol::Reply block) -> void
+
+      # _@param_ `index`
+      # 
+      # _@param_ `widget`
+      def replace: (Integer index, Gtk::Widget widget) -> void
+    end
+
+    # One {Protocol::ConversationSummary} in the history: the title, when it started, and a `●`
+    # while its turn runs.
+    class HistoryRow < Gtk::ListBoxRow
+      # _@param_ `summary`
+      def initialize: (Puri::Protocol::ConversationSummary summary) -> void
+
+      # _@param_ `query` — lowercase; empty matches everything
+      def matches?: (String query) -> bool
+
+      # _@param_ `time`
+      # 
+      # _@param_ `now`
+      # 
+      # _@return_ — "14:05" today, "Yesterday", "Mon" this week, "Nov 2" this year, else "Nov 2, 2025"
+      def self.timestamp: (Time time, ?Time now) -> String
+
+      attr_accessor summary: Puri::Protocol::ConversationSummary
+    end
+
+    # A {Protocol::Prose} part of a reply: Core's Pango markup in one selectable label.
+    class ProseLabel < Gtk::Label
+      # _@param_ `part`
+      def initialize: (Puri::Protocol::Prose part) -> void
+
+      # _@param_ `part`
+      def part=: (Puri::Protocol::Prose part) -> void
+    end
+
+    # A {Protocol::Table} part of a reply: a grid of selectable cells, the header row bold.
+    class ReplyTable < Gtk::Grid
+      # _@param_ `part`
+      def initialize: (Puri::Protocol::Table part) -> void
+
+      # _@param_ `part`
+      def part=: (Puri::Protocol::Table part) -> void
+
+      # _@param_ `markup`
+      # 
+      # _@param_ `header`
+      def cell: (String markup, header: bool) -> Gtk::Label
+    end
+
+    # The one window. It opens as a pill holding only the entry; the first question expands it
+    # at once to a third of the screen's width and 70 % of its height, the conversation over the
+    # entry; the history button widens it by the sidebar of earlier conversations. Hiding it
+    # always brings back an empty pill next time.
+    # 
+    #   window = PopupWindow.new(app, client)
+    #   window.present
+    # 
+    # Keys: Escape cancels a running turn and hides, except that while a reply streams the first
+    # Escape only stops it; Ctrl+N starts a new conversation, Ctrl+F searches the history, F9
+    # shows or hides it. The header's × hides without cancelling. Losing focus hides only the
+    # empty pill.
     class PopupWindow < Adw::ApplicationWindow
+      WIDTH: Float
+      HEIGHT: Float
+      MIN_WIDTH: Integer
+      SIDEBAR_WIDTH: Integer
+
       # _@param_ `app`
       # 
       # _@param_ `client`
       def initialize: (Adw::Application app, Puri::Desktop::BackendClient client) -> void
 
-      # _@return_ — the reply so far
-      def reply_text: () -> String
+      # _@return_ — false while it is the pill
+      def expanded?: () -> bool
 
-      # Binds Escape to `win.hide`, which hides rather than closes: the app stays resident, and
-      # the next launch presents this window again.
-      def install_hide_on_escape: () -> void
+      def history_visible?: () -> bool
 
-      def ask: () -> void
+      # _@return_ — the header's title
+      def header_title: () -> String
 
-      # _@param_ `event` — a {Protocol} event
-      def show: (Data event) -> void
+      # Shows or hides the history, widening or narrowing the window by it.
+      # 
+      # _@param_ `visible`
+      def history_visible=: (bool visible) -> void
 
-      # _@return_ — where the user types; Enter asks
-      attr_reader entry: Gtk::Entry
+      # Escape: see the class doc.
+      def escape: () -> void
+
+      # Ctrl+N: an empty conversation, in the window as it is.
+      def new_conversation: () -> void
+
+      def layout: () -> Gtk::Widget
+
+      def install_actions: () -> void
+
+      # The empty pill, as every popup starts.
+      def reset: () -> void
+
+      def expand: () -> void
+
+      # _@param_ `id`
+      def asked: (String id) -> void
+
+      # _@param_ `id`
+      def open_conversation: (String id) -> void
+
+      # Ctrl+F: the history, its search focused.
+      def search: () -> void
+
+      # _@param_ `conversations`
+      def show_title: (::Array[Puri::Protocol::ConversationSummary] conversations) -> void
+
+      # Hides the empty pill once it loses focus; a conversation on screen stays.
+      def focus_changed: () -> void
+
+      # Sizes the window for its state, from the size of the screen it is on.
+      def resize: () -> void
+
+      # _@return_ — the screen's width and height, in logical pixels
+      def screen_size: () -> [Integer, Integer]
+
+      attr_reader conversation_view: Puri::Desktop::ConversationView
+
+      attr_reader sidebar: Puri::Desktop::HistorySidebar
     end
 
-    # Desktop's one door to Core. Components submit commands through it and subscribe to Core's
-    # events themselves; there is no controller.
+    # The indeterminate progress bar shown while a turn works, with the latest step under it.
     # 
-    #   client = BackendClient.new { |command| core.handle(command) }
-    #   client.subscribe { |event| show(event) }                   # in a component
-    #   client.submit(Protocol::Ask.new(conversation: nil, text: 'hi'))
-    #   core_listener = ->(event) { client.deliver(event) }        # Core's side, any thread
+    #   row = ProgressRow.new
+    #   row.status = 'Searching the web…'
+    # 
+    # It pulses only while mapped.
+    class ProgressRow < Gtk::Box
+      PULSE: Integer
+
+      def initialize: () -> void
+
+      # _@param_ `text` — the step as Core words it
+      def status=: (String text) -> void
+
+      def status: () -> String
+
+      def start: () -> void
+
+      def stop: () -> void
+    end
+
+    # Where the user types. Enter submits the trimmed text and clears the entry; Enter on an
+    # empty one does nothing, so a stray Enter never answers a confirmation. Up in an empty
+    # entry recalls the last question, shell-style.
+    # 
+    #   entry = PromptEntry.new(recall: -> { transcript.last_question }) { |text| ask(text) }
+    class PromptEntry < Gtk::Entry
+      # _@param_ `recall` — returns the question Up brings back, a String or nil
+      def initialize: (recall: Proc) ?{ (String text) -> void } -> void
+
+      # Puts the last question in an empty entry, the cursor at its end.
+      # 
+      # _@return_ — whether it did, which consumes the Up key
+      def recall_question: () -> bool
+
+      def submit: () -> void
+    end
+
+    # A {Protocol::ToolLine}: one dimmed line, red when the step failed.
+    class ToolLineRow < Gtk::Label
+      # _@param_ `block`
+      def initialize: (Puri::Protocol::ToolLine block) -> void
+
+      # _@param_ `block`
+      def block=: (Puri::Protocol::ToolLine block) -> void
+    end
+
+    # Desktop's one door to Core: the {Protocol::Backend} methods, forwarded, and Core's events,
+    # handed to subscribers on the GTK main loop. Components call it and subscribe to it
+    # themselves; there is no controller.
+    # 
+    #   client = BackendClient.new(core)
+    #   core_listener = ->(event) { client.deliver(event) }       # Core's side, any thread
+    #   client.subscribe { |event| show(event) }                  # in a component
+    #   id = client.ask(nil, 'hi')
+    # 
+    # Every argument, result and event goes through {Protocol.round_trip}, so Desktop never holds
+    # a Ruby object of Core's and a D-Bus connection could take this one's place.
+    # 
+    # == Implementation details
+    # 
+    # No unsubscribe on a widget's `destroy`: GTK also emits it while Ruby's GC finalizes the
+    # widget, and a Ruby handler running inside the GC aborts the process ("object allocation
+    # during garbage collection phase").
     # 
     # Main-loop-confined, with exceptions.
     class BackendClient
-      def initialize: () ?{ (Data command) -> void } -> void
+      include Puri::Protocol::Backend
 
-      # _@param_ `command` — a {Protocol} command
-      def submit: (Data command) -> void
+      # _@param_ `backend` — Core, or anything that answers like it
+      def initialize: (Puri::Protocol::Backend backend) -> void
 
+      # Sends the user's message. With a confirmation pending, the message answers it as a
+      # redirect: the model follows the words and proposes again. With a turn running, it waits
+      # for that turn to end.
+      # 
+      # _@param_ `conversation` — the conversation to continue; nil starts a new one
+      # 
+      # _@param_ `text` — what the user typed
+      # 
+      # _@return_ — the conversation's id, new when `conversation` was nil
+      def ask: (String? conversation, String text) -> String
+
+      # Stops the running turn, if any; a pending confirmation ends as `cancelled`.
+      # 
+      # _@param_ `conversation`
+      def cancel: (String conversation) -> void
+
+      # Answers a pending {Confirmation}; one already answered is left alone.
+      # 
+      # _@param_ `conversation`
+      # 
+      # _@param_ `confirmation` — the {Confirmation}'s block id
+      # 
+      # _@param_ `approved` — true for its approve button, false for Cancel
+      def answer: (String conversation, String confirmation, bool approved) -> void
+
+      # _@return_ — newest first
+      def list_conversations: () -> ::Array[Puri::Protocol::ConversationSummary]
+
+      # _@param_ `conversation`
+      def load_conversation: (String conversation) -> Puri::Protocol::Transcript
+
+      # Forgets a conversation, cancelling its turn first.
+      # 
+      # _@param_ `conversation`
+      def delete_conversation: (String conversation) -> void
+
+      # Subscribes for good: a component's subscription lives as long as the client.
       def subscribe: () ?{ (Data event) -> void } -> void
 
       # Hands an event to the subscribers on the GTK main loop; safe from any thread, so Core's
@@ -96,83 +757,594 @@ module Puri
       # 
       # _@param_ `event` — a {Protocol} event
       def deliver: (Data event) -> void
+
+      # _@param_ `method` — a {Protocol::Backend} method
+      # 
+      # _@param_ `args`
+      # 
+      # _@return_ — its result, round-tripped
+      def call: (Symbol method, *::Array[Object] args) -> Object
+
+      # {#call} for a method that returns nothing: whatever the backend returns stays behind.
+      # 
+      # _@param_ `method` — a {Protocol::Backend} method
+      # 
+      # _@param_ `args`
+      def command: (Symbol method, *::Array[Object] args) -> void
+    end
+
+    # Every earlier conversation, newest first, with a search over the titles. It fills itself
+    # from Core and stays current through {Protocol::ConversationsChanged}.
+    # 
+    #   sidebar = HistorySidebar.new(client)
+    #   sidebar.on_selected { |id| conversation_view.conversation = id }   # clicked, or arrowed to
+    #   sidebar.on_activated { |_| entry.grab_focus }                       # clicked, or Enter
+    #   sidebar.selected = id      # marks the conversation on screen
+    # 
+    # Delete on a selected row asks, then deletes it.
+    class HistorySidebar < Gtk::Box
+      # _@param_ `client`
+      def initialize: (Puri::Desktop::BackendClient client) -> void
+
+      # Fetches the list again.
+      def refresh: () -> void
+
+      # _@param_ `conversations` — newest first
+      def conversations=: (::Array[Puri::Protocol::ConversationSummary] conversations) -> void
+
+      def rows: () -> ::Array[Puri::Desktop::HistoryRow]
+
+      # Marks the conversation on screen, without telling {#on_selected}.
+      # 
+      # _@param_ `id`
+      def selected=: (String? id) -> void
+
+      def on_selected: () ?{ (String id) -> void } -> void
+
+      # A click, or Enter on a row: done browsing. Arrow keys only select.
+      def on_activated: () ?{ (String id) -> void } -> void
+
+      def focus_search: () -> void
+
+      # Asks whether to delete the selected conversation, and does on Delete.
+      # 
+      # _@return_ — whether a row was selected
+      def ask_to_delete: () -> bool
+
+      # _@param_ `id`
+      def select: (String id) -> void
+
+      attr_reader search: Gtk::SearchEntry
+
+      attr_reader list: Gtk::ListBox
+    end
+
+    # One conversation's blocks, top to bottom, and the progress row under them while its turn
+    # works. Pure view: told what to show, it reaches nothing itself.
+    # 
+    #   view = TranscriptView.new { |id, approved| client.answer(conversation, id, approved) }
+    #   view.transcript = client.load_conversation(id)   # or nil to empty it
+    #   view.upsert(event.block)                         # BlockChanged
+    #   view.remove(event.block)                         # BlockRemoved
+    #   view.activity = event.activity                   # ActivityChanged
+    # 
+    # It follows the newest block only while scrolled to the bottom, so scrolling up to re-read
+    # survives a streaming reply.
+    class TranscriptView < Gtk::ScrolledWindow
+      ROWS: ::Hash[Class, Class]
+      STICKY: Integer
+
+      def initialize: () ?{ (String confirmation, bool approved) -> void } -> void
+
+      # _@param_ `transcript`
+      def transcript=: (Puri::Protocol::Transcript? transcript) -> void
+
+      # Replaces the block with the same id, or appends it.
+      # 
+      # _@param_ `block`
+      def upsert: (Puri::Protocol::Block block) -> void
+
+      # _@param_ `id` — a block's id; one never shown is ignored
+      def remove: (String id) -> void
+
+      # _@return_ — the user's latest message here, for Up in the entry
+      def last_question: () -> String?
+
+      # _@param_ `id` — a block's id
+      # 
+      # _@return_ — the row showing it
+      def row: (String id) -> Gtk::Widget?
+
+      # _@return_ — the blocks shown, in order
+      def blocks: () -> ::Array[Puri::Protocol::Block]
+
+      # _@return_ — whether nothing is shown
+      def empty?: () -> bool
+
+      def scroll_to_bottom: () -> void
+
+      # _@param_ `block`
+      def row_class: (Puri::Protocol::Block block) -> Class
+
+      # _@param_ `block`
+      def new_row: (Puri::Protocol::Block block) -> Gtk::Widget
+
+      def follow_the_bottom: () -> void
+
+      attr_accessor activity: Puri::Protocol::Activity
+    end
+
+    # A {Protocol::Confirmation}: the question in a card with Cancel and the approve button
+    # while it is pending, then the outcome in their place.
+    # 
+    #   row = ConfirmationRow.new(block) { |id, approved| client.answer(conversation, id, approved) }
+    # 
+    # The buttons never take focus on their own, so a stray Enter in the entry can't press one.
+    class ConfirmationRow < Gtk::Box
+      OUTCOMES: ::Hash[String, String]
+
+      # _@param_ `block`
+      def initialize: (Puri::Protocol::Confirmation block) ?{ (String confirmation, bool approved) -> void } -> void
+
+      # _@param_ `block`
+      def block=: (Puri::Protocol::Confirmation block) -> void
+
+      # _@param_ `approved`
+      def answer: (bool approved) -> void
+
+      attr_reader approve_button: Gtk::Button
+
+      attr_reader cancel_button: Gtk::Button
+    end
+
+    # A {Protocol::UserMessage}: a grey bubble on the right.
+    class UserMessageRow < Gtk::Box
+      # _@param_ `block`
+      def initialize: (Puri::Protocol::UserMessage block) -> void
+
+      # _@param_ `block`
+      def block=: (Puri::Protocol::UserMessage block) -> void
+    end
+
+    # One conversation, on screen: its transcript over the entry that continues it. It keeps
+    # which conversation it shows and nothing else; the blocks come from Core, and stay current
+    # through Core's events for that conversation.
+    # 
+    #   view = ConversationView.new(client)
+    #   view.on_asked { expand_the_window }
+    #   view.conversation = id     # loads it; nil shows a new, empty one
+    #   view.cancel                # Escape
+    # 
+    # Up in the empty entry recalls this conversation's last question or, in a new one, the last
+    # question asked anywhere.
+    class ConversationView < Gtk::Box
+      # _@param_ `client`
+      def initialize: (Puri::Desktop::BackendClient client) -> void
+
+      # Shows the transcript over the entry, or the entry alone, as the popup's pill.
+      # 
+      # _@param_ `expanded`
+      def expanded=: (bool expanded) -> void
+
+      # _@return_ — what this conversation's turn is doing
+      def activity: () -> Puri::Protocol::Activity
+
+      # Stops this conversation's turn, if one runs.
+      def cancel: () -> void
+
+      def on_asked: () ?{ (String conversation) -> void } -> void
+
+      # _@param_ `text`
+      def ask: (String text) -> void
+
+      def recall: () -> String?
+
+      # _@param_ `event` — a {Protocol} event
+      def show: (Data event) -> void
+
+      # _@return_ — the conversation shown; nil until the first question
+      attr_accessor conversation: String?
+
+      attr_reader entry: Puri::Desktop::PromptEntry
+
+      attr_reader transcript: Puri::Desktop::TranscriptView
     end
   end
 
-  # The messages between {Core} and {Desktop}: commands Desktop sends, events Core emits. Each is
-  # a `Data` with JSON-able fields only, so this is already the D-Bus API of a later split.
+  # What {Core} and {Desktop} say to each other. Desktop calls the methods of {Backend}; Core
+  # pushes events back. Arguments, results and events are `Data` of this namespace, strings,
+  # numbers, booleans, nil and arrays of these, so all of it survives JSON, and a later split into
+  # two processes over D-Bus maps the methods to D-Bus methods and the events to signals.
+  # 
+  #   transcript = client.load_conversation('3f2…')     # => Transcript, its blocks in order
+  #   client.ask('3f2…', 'and bananas?')                # => "3f2…"
+  #   # then, pushed: ActivityChanged(working), BlockChanged(UserMessage), BlockChanged(Reply)…
+  # 
+  # The transcript is pikuri-web's: Core renders, Desktop places. Every block carries an id and
+  # its whole current content; {BlockChanged} upserts it by id, so streaming re-sends the growing
+  # {Reply} and a stale event is overwritten by the next one.
   # 
   # Protocol names neither side, nor anything outside the stdlib.
   module Protocol
-    # Serializes a message, its class name under `type`.
+    # Serializes a value, each `Data` in it as its fields plus its class name under `type`.
     # 
-    #   Protocol.encode(TurnFinished.new(conversation: 'c1'))   # => {"conversation":"c1","type":"TurnFinished"}
+    #   Protocol.encode(BlockRemoved.new(conversation: 'c1', block: 'b2'))
+    #   # => {"conversation":"c1","block":"b2","type":"BlockRemoved"}
     # 
-    # _@param_ `message` — a command or event of this namespace
+    # _@param_ `value` — a `Data` of this namespace, or JSON-able values and arrays of them
     # 
     # _@return_ — JSON
-    def self.encode: (Data message) -> String
+    def self.encode: (Object value) -> String
 
     # The inverse of {encode}.
     # 
     # _@param_ `json` — what {encode} produced
     # 
-    # _@return_ — the message
-    def self.decode: (String json) -> Data
+    # _@return_ — the value
+    def self.decode: (String json) -> Object
 
-    # Takes a message through JSON and back. The in-process connection does this to every
-    # message, so neither side ever holds a Ruby object of the other's, and swapping it for D-Bus
-    # changes nothing else.
+    # Takes a value through JSON and back. {Desktop::BackendClient} does this to every argument,
+    # result and event, so neither side ever holds a Ruby object of the other's, and swapping the
+    # in-process call for D-Bus changes nothing else.
     # 
-    # _@param_ `message` — a command or event of this namespace
+    # _@param_ `value` — see {encode}
     # 
     # _@return_ — an equal copy
-    def self.round_trip: (Data message) -> Data
+    def self.round_trip: (Object value) -> Object
 
-    # Command: the user asked something.
+    # _@param_ `value`
     # 
-    # @!attribute [r] conversation
-    #   @return [String, nil] the conversation to continue; nil starts a new one
-    # @!attribute [r] text
-    #   @return [String] what the user typed
-    class Ask
-      # _@return_ — the conversation to continue; nil starts a new one
-      attr_reader conversation: String?
+    # _@return_ — JSON-able
+    def self.dump: (Object value) -> Object
 
-      # _@return_ — what the user typed
+    # _@param_ `tree` — parsed JSON, keys symbolized
+    def self.load: (Object tree) -> Object
+
+    # _@param_ `tag` — the `type` field
+    # 
+    # _@param_ `tree` — the whole object, for the error
+    def self.message_class: (Object tag, ::Hash[untyped, untyped] tree) -> Class
+
+    # Part of a {Reply}: a fenced code block.
+    # 
+    # @!attribute [r] text
+    #   @return [String] plain text, never markup
+    class Code
+      # _@return_ — plain text, never markup
       attr_reader text: String
     end
 
-    # Event: the next piece of the reply, as the model streams it.
+    # What every transcript block is: {UserMessage}, {Reply}, {ToolLine}, {Confirmation} or
+    # {Notice}. Each has an `id`, unique within its conversation, which {BlockChanged} and
+    # {BlockRemoved} address it by. A type name only, with nothing to share.
+    module Block
+    end
+
+    # Part of a {Reply}: a run of paragraphs, headings and lists, as one piece of Pango markup,
+    # so a selection can span them. Core escaped every character the model wrote.
+    # 
+    # @!attribute [r] markup
+    #   @return [String] Pango markup, `"<b>Fridge</b>: 3–5 days\n\n• cut side down"`
+    class Prose
+      # _@return_ — Pango markup, `"<b>Fridge</b>: 3–5 days\n\n• cut side down"`
+      attr_reader markup: String
+    end
+
+    # Transcript block: the model's answer, rendered by Core into parts Desktop only places.
+    # While it streams, Core re-sends the whole reply with each delta.
+    # 
+    #   Reply.new(id: 'b3', parts: [
+    #     Prose.new(markup: "<b>Avocados</b> keep for…\n\n• in the fridge"),
+    #     Table.new(header: ['Where', 'Days'], rows: [['Fridge', '3–5']]),
+    #   ])
+    # 
+    # @!attribute [r] id
+    #   @return [String] unique within its conversation
+    # @!attribute [r] parts
+    #   @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>] in order
+    class Reply
+      include Puri::Protocol::Block
+
+      # _@return_ — unique within its conversation
+      attr_reader id: String
+
+      # _@return_ — in order
+      attr_reader parts: ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+    end
+
+    # Part of a {Reply}: a table, each cell Pango markup.
+    # 
+    # @!attribute [r] header
+    #   @return [Array<String>] one cell per column
+    # @!attribute [r] rows
+    #   @return [Array<Array<String>>] each as wide as {#header}
+    class Table
+      # _@return_ — one cell per column
+      attr_reader header: ::Array[String]
+
+      # _@return_ — each as wide as {#header}
+      attr_reader rows: ::Array[::Array[String]]
+    end
+
+    # Transcript block: a line from Puri itself, not the model: "Cancelled", or why a turn failed.
+    # 
+    # @!attribute [r] id
+    #   @return [String] unique within its conversation
+    # @!attribute [r] text
+    #   @return [String] plain text, never markup
+    # @!attribute [r] error
+    #   @return [Boolean] true for a failure, false for a plain note
+    class Notice
+      include Puri::Protocol::Block
+
+      # _@return_ — unique within its conversation
+      attr_reader id: String
+
+      # _@return_ — plain text, never markup
+      attr_reader text: String
+
+      # _@return_ — true for a failure, false for a plain note
+      attr_reader error: bool
+    end
+
+    # The methods Desktop calls on Core. A backend includes this module and overrides every
+    # method; the bodies here only raise. Calls come from the GTK main loop and return at once:
+    # a turn runs on Core's own thread and reports through events ({BlockChanged},
+    # {ActivityChanged}, {ConversationsChanged}).
+    # 
+    #   id = backend.ask(nil, 'reschedule my dentist in the calendar')   # a new conversation
+    #   # … BlockChanged(Confirmation(state: 'pending')) arrives …
+    #   backend.answer(id, 'b4', true)            # Update; false is Cancel
+    #   backend.ask(id, 'make it Wednesday')      # typed while it waits: a redirect
+    #   backend.cancel(id)                        # Escape
+    module Backend
+      # Sends the user's message. With a confirmation pending, the message answers it as a
+      # redirect: the model follows the words and proposes again. With a turn running, it waits
+      # for that turn to end.
+      # 
+      # _@param_ `conversation` — the conversation to continue; nil starts a new one
+      # 
+      # _@param_ `text` — what the user typed
+      # 
+      # _@return_ — the conversation's id, new when `conversation` was nil
+      def ask: (String? conversation, String text) -> String
+
+      # Stops the running turn, if any; a pending confirmation ends as `cancelled`.
+      # 
+      # _@param_ `conversation`
+      def cancel: (String conversation) -> void
+
+      # Answers a pending {Confirmation}; one already answered is left alone.
+      # 
+      # _@param_ `conversation`
+      # 
+      # _@param_ `confirmation` — the {Confirmation}'s block id
+      # 
+      # _@param_ `approved` — true for its approve button, false for Cancel
+      def answer: (String conversation, String confirmation, bool approved) -> void
+
+      # _@return_ — newest first
+      def list_conversations: () -> ::Array[Puri::Protocol::ConversationSummary]
+
+      # _@param_ `conversation`
+      def load_conversation: (String conversation) -> Puri::Protocol::Transcript
+
+      # Forgets a conversation, cancelling its turn first.
+      # 
+      # _@param_ `conversation`
+      def delete_conversation: (String conversation) -> void
+    end
+
+    # What a conversation's turn is doing.
+    # 
+    #   Activity.new(state: 'working', status: 'Searching the web…')   # progress bar, status under it
+    #   Activity.new(state: 'streaming', status: '')                   # reply text arriving
+    #   Activity.new(state: 'confirming', status: '')                  # a Confirmation waits
+    #   Activity::IDLE                                                 # no turn
+    # 
+    # @!attribute [r] state
+    #   @return [String] one of {STATES}
+    # @!attribute [r] status
+    #   @return [String] the latest step as Core words it; empty but while `working`
+    class Activity
+      STATES: ::Array[String]
+      IDLE: Activity
+
+      # _@param_ `state` — one of {STATES}
+      # 
+      # _@param_ `status`
+      def initialize: (state: String, ?status: String) -> void
+
+      # _@return_ — whether a turn runs, in whatever state
+      def running?: () -> bool
+
+      # _@return_ — one of {STATES}
+      attr_reader state: String
+
+      # _@return_ — the latest step as Core words it; empty but while `working`
+      attr_reader status: String
+    end
+
+    # Transcript block: one step the agent took, worded by Core, drawn as one dimmed line.
+    # 
+    #   ToolLine.new(id: 'b2', text: '🔍 Searched: "avocado preservation"', error: false)
+    # 
+    # @!attribute [r] id
+    #   @return [String] unique within its conversation
+    # @!attribute [r] text
+    #   @return [String] plain text, never markup
+    # @!attribute [r] error
+    #   @return [Boolean] whether the step failed
+    class ToolLine
+      include Puri::Protocol::Block
+
+      # _@return_ — unique within its conversation
+      attr_reader id: String
+
+      # _@return_ — plain text, never markup
+      attr_reader text: String
+
+      # _@return_ — whether the step failed
+      attr_reader error: bool
+    end
+
+    # A whole conversation as Desktop draws it, what {Backend#load_conversation} returns. Later
+    # changes arrive as {BlockChanged}, {BlockRemoved} and {ActivityChanged}.
     # 
     # @!attribute [r] conversation
-    #   @return [String] the conversation's id
-    # @!attribute [r] text
-    #   @return [String] appended to the reply so far
-    class TextDelta
-      # _@return_ — the conversation's id
+    #   @return [String] its id
+    # @!attribute [r] title
+    #   @return [String]
+    # @!attribute [r] blocks
+    #   @return [Array<Puri::Protocol::Block>] in order
+    # @!attribute [r] activity
+    #   @return [Puri::Protocol::Activity]
+    class Transcript
+      # _@return_ — its id
       attr_reader conversation: String
 
-      # _@return_ — appended to the reply so far
+      attr_reader title: String
+
+      # _@return_ — in order
+      attr_reader blocks: ::Array[Puri::Protocol::Block]
+
+      attr_reader activity: Puri::Protocol::Activity
+    end
+
+    # Transcript block: the agent asks before it acts. While `pending`, Desktop shows Cancel and
+    # the approve button, and answers through {Backend#answer}; typed text answers it too
+    # ({Backend#ask}). Answered, Core re-sends it with its final state.
+    # 
+    #   Confirmation.new(id: 'b4', question: 'Move “Dentist” (Personal) to Thursday 15:00?',
+    #                    approve_label: 'Update', destructive: true, state: 'pending')
+    # 
+    # @!attribute [r] id
+    #   @return [String] unique within its conversation
+    # @!attribute [r] question
+    #   @return [String] plain text naming everything that matters: which calendar, which note
+    # @!attribute [r] approve_label
+    #   @return [String] the approve button's word, "Update", "Open draft"
+    # @!attribute [r] destructive
+    #   @return [Boolean] true paints the approve button red, false blue
+    # @!attribute [r] state
+    #   @return [String] one of {STATES}
+    class Confirmation
+      include Puri::Protocol::Block
+      STATES: ::Array[String]
+
+      def pending?: () -> bool
+
+      # _@return_ — unique within its conversation
+      attr_reader id: String
+
+      # _@return_ — plain text naming everything that matters: which calendar, which note
+      attr_reader question: String
+
+      # _@return_ — the approve button's word, "Update", "Open draft"
+      attr_reader approve_label: String
+
+      # _@return_ — true paints the approve button red, false blue
+      attr_reader destructive: bool
+
+      # _@return_ — one of {STATES}
+      attr_reader state: String
+    end
+
+    # Transcript block: what the user typed.
+    # 
+    # @!attribute [r] id
+    #   @return [String] unique within its conversation
+    # @!attribute [r] text
+    #   @return [String] plain text, never markup
+    class UserMessage
+      include Puri::Protocol::Block
+
+      # _@return_ — unique within its conversation
+      attr_reader id: String
+
+      # _@return_ — plain text, never markup
       attr_reader text: String
     end
 
-    # Event: Core took an {Ask} and is working on the reply.
+    # Event: a transcript block appeared or changed. Desktop replaces the block with this id, or
+    # appends it when it has none.
     # 
     # @!attribute [r] conversation
-    #   @return [String] the conversation's id, newly made when the {Ask} carried none
-    class TurnStarted
-      # _@return_ — the conversation's id, newly made when the {Ask} carried none
+    #   @return [String]
+    # @!attribute [r] block
+    #   @return [Puri::Protocol::Block]
+    class BlockChanged
       attr_reader conversation: String
+
+      attr_reader block: Puri::Protocol::Block
     end
 
-    # Event: the reply is complete.
+    # Event: a transcript block is gone. An id Desktop never drew is not an error.
     # 
     # @!attribute [r] conversation
-    #   @return [String] the conversation's id
-    class TurnFinished
-      # _@return_ — the conversation's id
+    #   @return [String]
+    # @!attribute [r] block
+    #   @return [String] the block's id
+    class BlockRemoved
       attr_reader conversation: String
+
+      # _@return_ — the block's id
+      attr_reader block: String
+    end
+
+    # Event: a conversation's turn started, moved on, or ended.
+    # 
+    # @!attribute [r] conversation
+    #   @return [String]
+    # @!attribute [r] activity
+    #   @return [Puri::Protocol::Activity]
+    class ActivityChanged
+      attr_reader conversation: String
+
+      attr_reader activity: Puri::Protocol::Activity
+    end
+
+    # One row of the history sidebar.
+    # 
+    # @!attribute [r] id
+    #   @return [String]
+    # @!attribute [r] title
+    #   @return [String] "New conversation" until Core names it from the opening question
+    # @!attribute [r] started_at
+    #   @return [String] ISO 8601 with the offset, `2026-11-11T14:05:00+01:00`
+    # @!attribute [r] running
+    #   @return [Boolean] whether a turn runs in it now, the sidebar's `●`
+    # @!attribute [r] last_question
+    #   @return [String, nil] what the user asked last, for Up in an empty entry
+    # @!attribute [r] asked_at
+    #   @return [String, nil] when, ISO 8601 like {#started_at}
+    class ConversationSummary
+      attr_reader id: String
+
+      # _@return_ — "New conversation" until Core names it from the opening question
+      attr_reader title: String
+
+      # _@return_ — ISO 8601 with the offset, `2026-11-11T14:05:00+01:00`
+      attr_reader started_at: String
+
+      # _@return_ — whether a turn runs in it now, the sidebar's `●`
+      attr_reader running: bool
+
+      # _@return_ — what the user asked last, for Up in an empty entry
+      attr_reader last_question: String?
+
+      # _@return_ — when, ISO 8601 like {#started_at}
+      attr_reader asked_at: String?
+    end
+
+    # Event: the history changed: a conversation began, got its title, started or stopped
+    # running, or was deleted. Carries the whole list, as {Backend#list_conversations} returns it.
+    # 
+    # @!attribute [r] conversations
+    #   @return [Array<Puri::Protocol::ConversationSummary>] newest first
+    class ConversationsChanged
+      # _@return_ — newest first
+      attr_reader conversations: ::Array[Puri::Protocol::ConversationSummary]
     end
   end
 end

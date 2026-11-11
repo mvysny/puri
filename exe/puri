@@ -19,8 +19,8 @@ end
 Puri::LOADER.eager_load
 
 client = nil
-core = Puri::Core::DummyCore.new { |event| client.deliver(Puri::Protocol.round_trip(event)) }
-client = Puri::Desktop::BackendClient.new { |command| core.handle(Puri::Protocol.round_trip(command)) }
+core = Puri::Core::DummyCore.new(seed: true) { |event| client.deliver(event) }
+client = Puri::Desktop::BackendClient.new(core)
 
 # Single-instance on the session bus: a second launch only activates this one, which is how the
 # global shortcut brings the window back.

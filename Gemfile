@@ -11,6 +11,11 @@ ruby '>= 3.3'
 # One loader at lib/, eager-loaded at boot: a dependency between our files is a constant name.
 gem 'zeitwerk', '~> 2.8'
 
+# Core renders the model's Markdown into Pango markup, as pikuri-web renders it into HTML; GFM
+# input, since LLMs write backtick fences and pipe tables.
+gem 'kramdown', '~> 2.5'
+gem 'kramdown-parser-gfm', '~> 1.1'
+
 # pikuri on its git master, as pikuri-tui and pikuri-web ride it: Core's confirmations need the
 # unreleased `Confirmer::Redirected` and the textless `Rejected` (pikuri#12). Gemfile.lock pins
 # the commit; `bundle update pikuri-core` moves it. One checkout for both, since every pikuri gem
