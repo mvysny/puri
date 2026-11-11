@@ -22,6 +22,13 @@ RSpec.describe 'Puri::Desktop::PopupWindow' do
     assert_empty commands
   end
 
+  it 'hides on win.hide, the action Escape is bound to' do
+    window.present
+    # GActionGroup's activate_action, which names the action without its `win.` prefix
+    window.activate_action('hide', nil)
+    refute window.visible?
+  end
+
   it "streams its conversation's reply, delivered from another thread" do
     window
     Thread.new do

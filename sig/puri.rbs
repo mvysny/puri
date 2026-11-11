@@ -61,6 +61,10 @@ module Puri
       # _@return_ — the reply so far
       def reply_text: () -> String
 
+      # Binds Escape to `win.hide`, which hides rather than closes: the app stays resident, and
+      # the next launch presents this window again.
+      def install_hide_on_escape: () -> void
+
       def ask: () -> void
 
       # _@param_ `event` — a {Protocol} event

@@ -36,6 +36,7 @@ module Puri
         box.append(scroll)
         self.content = box
 
+        install_hide_on_escape
         client.subscribe { |event| show(event) }
       end
 
@@ -43,6 +44,21 @@ module Puri
       def reply_text = @reply.text
 
       private
+
+      # Binds Escape to `win.hide`, which hides rather than closes: the app stays resident, and
+      # the next launch presents this window again.
+      #
+      # @return [void]
+      def install_hide_on_escape
+        hide = Gio::SimpleAction.new('hide')
+        hide.signal_connect('activate') { self.visible = false }
+        add_action(hide)
+
+        shortcuts = Gtk::ShortcutController.new
+        escape = Gtk::KeyvalTrigger.new(Gdk::Keyval::KEY_Escape, 0)
+        shortcuts.add_shortcut(Gtk::Shortcut.new(escape, Gtk::NamedAction.new('win.hide')))
+        add_controller(shortcuts)
+      end
 
       # @return [void]
       def ask
