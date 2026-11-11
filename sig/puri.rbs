@@ -550,8 +550,15 @@ module Puri
       def part=: (Puri::Protocol::Prose part) -> void
     end
 
-    # A {Protocol::Table} part of a reply: a grid of selectable cells, the header row bold.
-    class ReplyTable < Gtk::Grid
+    # A {Protocol::Table} part of a reply: a grid of selectable cells, the header row bold,
+    # scrolling sideways when it is wider than the reply.
+    # 
+    # == Implementation details
+    # 
+    # Cells never wrap. A wrapping label makes the grid height-for-width, and a streaming table
+    # then gets measured against the height of its previous, shorter self: GTK warns "Trying to
+    # measure GtkGrid for height of 58, but it needs at least 76" on every delta.
+    class ReplyTable < Gtk::ScrolledWindow
       # _@param_ `part`
       def initialize: (Puri::Protocol::Table part) -> void
 
@@ -562,6 +569,9 @@ module Puri
       # 
       # _@param_ `header`
       def cell: (String markup, header: bool) -> Gtk::Label
+
+      # _@return_ — the cells
+      attr_reader grid: Gtk::Grid
     end
 
     # The one window. It opens as a pill holding only the entry; the first question expands it

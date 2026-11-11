@@ -52,7 +52,7 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
     table = view.row('b1').last_child
     assert_kind_of Puri::Desktop::CodeBlock, code
     assert_equal 'x < y', code.child.child.text
-    assert_equal '2', table.get_child_at(1, 1).text
+    assert_equal '2', table.grid.get_child_at(1, 1).text
   end
 
   it 'drops a removed block, and ignores one it never showed' do
