@@ -16,9 +16,18 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 - **Cancel**: the confirmer, parked in `#ask` on the agent's thread, raises
   `Agent::Control::Cancellable::Cancelled` when the cancel arrives, which ends the turn and
   repairs the stranded tool call. The turn then ends in a `Notice` block, as the dummy's does.
-- **Titles**: "New conversation" at once, then renamed from the opening question alone, in
-  parallel with the answer, on a separate small model: pikuri-web's `Agents::Titler`, ported
-  with its prompt (`D_port_pikuri_web`).
+- **Titles**: "New conversation" at once, then renamed from the opening question alone by
+  pikuri-web's `Agents::Titler`, ported with its prompt (`D_port_pikuri_web`), on the main model
+  with its thinking off. One model stays loaded, and thinking off is what makes a title cost ~1 s
+  rather than ~30 s; pikuri-web measured both, and the small instruct models it tried failed the
+  job (wrong language, obeying the opener; its `D_titler_connection`). The titler is a second
+  connection to the same llama-server that differs only in `params` (Ornith 1.5's thinking-off
+  switch). `Titler`'s caps and `</think>` strip stay, because a server can accept that parameter
+  and ignore it. Both connections share the server's one permit (`ServerPermits`), so the title
+  queues instead of racing the answer: on a local box a second stream costs nearly its full share
+  of memory bandwidth (pikuri-web's README, *How many conversations can think at once*). Core
+  starts the titler on the turn's first event, so the answer holds the permit first and the title
+  lands after that request ends.
 - **Persistence** in pikuri-web's format, ported (`D_port_pikuri_web`): a directory per
   conversation under `~/.local/state/puri/conversations/`, pikuri's `history.json` beside
   `meta.json` with `shell: "puri"`.
@@ -30,8 +39,12 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 
 ## Open questions
 
-- `Q_titler`: on one local llama-server, does a parallel titling call slow the answer, or does it
-  need its own slot or model?
+- `Q_titler_cache`: one llama-server slot holds one prefix cache, so the titling request evicts
+  the conversation's prefix, and the first turn's next request prefills the system prompt, tools
+  and history again. pikuri-memory measured the same eviction with mem0's extraction call. Does
+  llama-server's host-memory prompt cache (`--cache-ram`) restore that prefix, or does the titler
+  need a second slot (`--parallel 2` with one permit, which splits `--ctx-size`)? This needs
+  measuring on Ornith 1.5.
 - `Q_reply_parts`: `ReplyStream` converts each finished block once, but Protocol still re-sends
   the whole `Reply` per delta, and Desktop rebuilds it. Should a finished part cross once, so only
   the open tail's parts repeat? It would shrink the JSON per delta and the widgets Desktop
