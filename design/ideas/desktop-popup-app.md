@@ -63,7 +63,9 @@ It is drawn so that splitting it into two processes over D-Bus later is mechanic
 - **The costs, accepted:** a crash in GTK or its bindings takes a running turn and the reminder
   timers down with it; pikuri's threads reach GTK only through the main loop (`GLib::Idle.add`,
   the GTK twin of Tuile's `event_queue.submit`; `Q_main_loop_threads`); restarting to try a UI
-  change also reloads pikuri. Any of these hurting is a reason to split.
+  change also reloads pikuri. Any of these hurting is a reason to split; a binding that
+  segfaults or misbehaves is a reason to rewrite Desktop in Vala
+  (`desktop-popup-app/ui-toolkit.md`, *Ranking*).
 
 ### Three namespaces, one Zeitwerk loader
 
@@ -99,6 +101,22 @@ sides.
   `cop` skill: dependencies point toward data, never toward UI). Components (`TranscriptView`,
   `HistorySidebar`, …) subscribe to the client themselves; no controller.
 
+### Desktop stays lean, so Vala can replace it
+
+Desktop is the part that gets thrown away if the binding fails, so it holds as little as it can:
+
+- **Only widgets and `BackendClient`.** Whatever isn't drawing or input is Core's: ordering and
+  titling conversations, formatting a tool line, deciding what a confirmation asks. Desktop
+  shows what the event says.
+- **No state beyond view state.** Scroll position, which conversation is on screen, whether the
+  sidebar is open. Everything else is asked of Core, so a rewrite has nothing to migrate.
+- **Plain widget subclasses, one class per file,** each of which maps onto one Vala class. No
+  metaprogramming and no Ruby-only tricks in the widget tree.
+- **Protocol stays D-Bus-shaped:** flat commands and events with JSON-able fields, nothing that
+  needs a Ruby object on the other side.
+
+A feature that makes Desktop grow is a sign that its logic belongs in Core.
+
 ### Keeping the split honest
 
 Ruby has no package-private code, and `gtk4` comes from apt, on the default load path whatever a
@@ -122,8 +140,8 @@ at this size.
 ### When it splits
 
 Splitting is optional, not a milestone: when the costs above bite, when a second client becomes
-real (`Q_tui_client`), or when the UI leaves Ruby (`desktop-popup-app/ui-toolkit.md`: Vala the
-runner-up, Flutter the wildcard). The facts for that day:
+real (`Q_tui_client`), or when the UI leaves Ruby for Vala (`desktop-popup-app/ui-toolkit.md`,
+*Ranking*). The facts for that day:
 
 - **A local socket, never a TCP port.** Privacy first means no network listener, not even on
   loopback. So the D-Bus session bus, GNOME's native IPC; a `.service` file could then start

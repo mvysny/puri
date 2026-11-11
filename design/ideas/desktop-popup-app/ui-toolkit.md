@@ -1,7 +1,8 @@
 # Which language and toolkit draws the popup
 
-Brainstormed 2026-11-11. Ruby + GTK4 is the plan and the lean; this file records what else was
-on the table and why, so the question doesn't reopen from scratch.
+Decided 2026-11-11: **Ruby + GTK4 first; Vala + GTK4 if the Ruby binding proves unreliable**
+(*Ranking*). This file records what else was on the table and why, so the question doesn't reopen
+from scratch.
 
 ## The owner's tiers
 
@@ -89,7 +90,24 @@ needs no D-Bus between UI and agent: decided, `desktop-popup-app.md`, *Process a
 
 ## Ranking
 
-1. **Ruby + GTK4**, resident, in the backend's process (decided).
-2. **Vala + GTK4** if the UI must leave Ruby (memory, start time, crash isolation), with parsed
-   Markdown over D-Bus. Same widgets, same Broadway loop.
-3. **Flutter** if animation polish and its headless tests outweigh the second toolkit.
+1. **Ruby + GTK4**, resident, in the backend's process (decided). Its measured costs don't count
+   against it: start time and memory matter only for an on-demand launch, and the process is
+   resident anyway. Every other option adds a second language and IPC from day one to buy back
+   exactly those two.
+2. **Vala + GTK4, the fallback** (decided). Only Desktop is rewritten, as its own process; Core
+   stays Ruby and Protocol goes over D-Bus (`desktop-popup-app.md`, *When it splits*). Same
+   widgets, same Broadway loop, and no binding layer left to go wrong.
+
+**The trigger is the binding, not the numbers.** `ruby-gtk4` is far less used than PyGObject or
+Vala, and a segfault in it takes Core down too: a running turn and the reminder timers. If it
+segfaults or behaves erratically (widgets that leak or lose their Ruby object, signals that
+misfire, a main loop that starves pikuri's threads) and the cause is the binding rather than
+our code, Desktop goes to Vala. Milestone 1 is the first test: `Q_main_loop_threads`, and
+streamed Markdown appended per delta into a `Gtk::TextView`.
+
+Ruled out:
+
+- **Flutter.** A GTK3 shell, a snap, no Broadway and a second toolkit; its strength, animation,
+  is aimed at a window whose resizing Mutter controls anyway.
+- **Python** is the pragmatic alternative to Vala (0.2 s, all apt, the best-trodden binding), but
+  it is tier 2 and still a binding.
