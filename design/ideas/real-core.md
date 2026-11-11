@@ -17,11 +17,11 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
   `Agent::Control::Cancellable::Cancelled` when the cancel arrives, which ends the turn and
   repairs the stranded tool call. The turn then ends in a `Notice` block, as the dummy's does.
 - **Titles**: "New conversation" at once, then renamed from the opening question alone, in
-  parallel with the answer, on a separate small model (pikuri-web's `Agents::Titler`, which
-  belongs upstream with the store, `Q_history_store`).
-- **Persistence** like pikuri-web's: a directory per conversation under
-  `~/.local/state/puri/conversations/`, `history.json` (pikuri's `Agent::History`) and
-  `meta.json`.
+  parallel with the answer, on a separate small model: pikuri-web's `Agents::Titler`, ported
+  with its prompt (`D_port_pikuri_web`).
+- **Persistence** in pikuri-web's format, ported (`D_port_pikuri_web`): a directory per
+  conversation under `~/.local/state/puri/conversations/`, pikuri's `history.json` beside
+  `meta.json` with `shell: "puri"`.
 - **Threads** that keep the UI smooth: the main loop doesn't starve a turn's thread, but Ruby
   work on that thread holds the GVL for up to 100 ms (`R_gvl_main_loop`). So a turn runs at
   `Thread#priority = -3` (a burst stalls the UI by at most ~25 ms), and deltas reach
@@ -30,8 +30,7 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 
 ## Open questions
 
-- `Q_history_store`: lift pikuri-web's conversation store and its `Agents::Titler` into pikuri, or
-  copy its on-disk format? (*Conventions* forbid a code copy.) On one local llama-server, does a
-  parallel titling call slow the answer, or does it need its own slot or model?
+- `Q_titler`: on one local llama-server, does a parallel titling call slow the answer, or does it
+  need its own slot or model?
 - `Q_markdown`: pikuri-tui renders Markdown to ANSI, pikuri-web to HTML, `Core::ReplyRenderer` to
   Pango; does the parsing half move upstream, with a renderer per target?

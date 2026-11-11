@@ -60,6 +60,31 @@ button. The three results and their prompt wording are pikuri's `Confirmer` (pik
 ours. The question names everything that matters, which calendar, which note, because Siri's
 unconfirmed create picked the wrong calendar.
 
+## D_port_pikuri_web — Why copy pikuri-web's conversation store rather than lift it into pikuri?
+
+Puri is pikuri-web ported onto a backend that doesn't care what its frontend is: Core behind
+Protocol could one day grow an HTTP head, and pikuri-web could then retire. So the store moves
+here rather than being shared by two living apps, which is the case *Conventions*' "never a
+copy" guards against. What is copied is the on-disk format, not the code: a directory per
+conversation, pikuri's `history.json` beside our `meta.json` (schema 1: title, timestamps,
+`shell`, the `[model, server]` pair), 0700, temp-file-and-rename, `meta.json` last as the commit
+point. Its `shell` field exists for a second app, so Puri writes `"puri"` into one shared format.
+The Titler comes along, prompt included: naming a conversation is a UI matter, pikuri stays a
+lean agent runtime, and a prompt lives with the code that parses its answer (`D_own_prompts`).
+Whether the HTTP head comes over and pikuri-web retires is left to come up on its own; until
+then Puri is a desktop UI.
+
+## D_own_prompts — Why write our own system prompts rather than use pikuri's as they are?
+
+What an agent needs to be told differs per app and per model (a dense 4B and Ornith 1.5 are
+different beasts), so pikuri's system prompts are examples, and Puri writes its own. The line is
+the code: a prompt whose wording pikuri's code depends on stays pikuri's and is never reworded
+here. That covers a tool's description, the Confirmer's answers, a cancelled call's repair text
+and memory extraction. A model that needs one worded otherwise is a gap to fix upstream. pikuri's
+fragments also carry instructions an agent does worse without, like `agent-loop.txt`'s tool-loop
+hygiene, so our system prompt keeps every fragment our extensions bring. It drops or rewords one
+only for a reason seen on the model in question.
+
 ## D_app_id — Why `io.github.mvysny.Puri` as the app id?
 
 It names the D-Bus service, the desktop entry, the `.service` file and the command the shortcut

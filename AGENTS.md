@@ -17,7 +17,7 @@ warm.
 - **Local first.** The model runs on this machine whenever it can; a hosted provider is an explicit opt-in, and pikuri's *Privacy first* holds at this layer.
 - **Search, never fetch.** The agent talks only to the configured search engines and never opens a URL; every other outbound leg — a mail, an invite — waits on the human.
 - **One window.** The popup, the running conversation and every earlier one live in one app; nothing needs a second app to find an old answer.
-- **A desktop UI and nothing else.** Loop, tools, transport *and prompts* stay pikuri's; a behaviour implemented on both sides drifts.
+- **A desktop UI and nothing else.** Loop, tools, transport, and every prompt their code depends on, stay pikuri's; a behaviour implemented on both sides drifts. The system prompts are ours, mixing our own text with the fragments pikuri's extensions bring (`D_own_prompts`).
 
 ## Design docs
 
@@ -52,7 +52,7 @@ Every fact lives in exactly one of these; the others link to it.
 - **Ruby, GTK4 and libadwaita from distro packages** — apt's `ruby` (pikuri needs ≥ 3.3), `ruby-gtk4`, `gir1.2-adw-1` loaded through GObject Introspection; a gem or binary apt does not ship waits on the owner.
 - **`gtk4` stays out of the Gemfile:** Bundler would compile it from source, while `require 'gtk4'` finds apt's copy under `bundle exec` anyway; the gtk4-dev skill has the details.
 - **Desktop only draws:** ordering, titling, wording a tool line or a confirmation, rendering Markdown are Core's, and Desktop keeps view state only (`D_ruby_gtk4`); a feature that grows Desktop belongs in Core.
-- **A gap is a missing pikuri primitive**, never a workaround here: a tool, a prompt or a listener event goes upstream, and whatever this app shares with pikuri-tui or pikuri-web lives in pikuri, never in a copy.
+- **A gap is a missing pikuri primitive**, never a workaround here: a tool, a prompt or a listener event goes upstream, and whatever this app shares with pikuri-tui or pikuri-web lives in pikuri, never in a copy; pikuri-web's conversation store is ported, not shared (`D_port_pikuri_web`).
 
 ## Commands
 
