@@ -44,6 +44,10 @@ waits on the owner's Mac. Screenshots, linked rather than copied into the repo:
 - **Actions:** creating an event just does it and shows a link to Calendar; a mail opens as a
   draft in Mail for the user to send (MacMost). Changing an event asks first, with two buttons
   in the transcript: grey **Cancel** and red **Update**, white text on both (owner, 2026-11-11).
+  The row isn't modal: **the follow-up entry stays live under it.** Enter on an empty entry does
+  nothing, and Escape closes the popup. Typing a correction ("make it Wednesday") and Enter sends
+  it as a message; Siri proposes again and asks again. Cancel answers "OK. I won't make any
+  changes to your appointment".
   The unconfirmed create went wrong for the owner: asked for the private calendar, Siri used the
   family one.
 
@@ -127,11 +131,20 @@ waits on the owner's Mac. Screenshots, linked rather than copied into the repo:
    for now.
 
 Confirmations (a gated search, a mail hand-off, a note edit, an event) are an inline row in the
-transcript, as in Siri: the question plus two buttons, focused so Enter answers. That's
-pikuri-tui's transcript-confirmer, as widgets. The question names everything that matters
-(which calendar, which note), since that is where Siri's create slipped. A destructive action
-(update, delete) gets Adw's red `destructive-action` button, a harmless one `suggested-action`.
-Enter takes the action; Escape answers Cancel, which then cancels the turn as everywhere else.
+transcript, as in Siri: the question plus two buttons. That's pikuri-tui's
+transcript-confirmer, as widgets. The question names everything that matters (which calendar,
+which note), since that is where Siri's create slipped. A destructive action (update, delete)
+gets Adw's red `destructive-action` button, a harmless one `suggested-action`.
+
+**Keys, as in Siri** (decided 2026-11-11): the follow-up entry keeps focus under the row; the
+buttons are clicked or reached by Tab. **Enter on an empty entry does nothing**, so a stray
+Enter never confirms a red button. **Typed text plus Enter declines with steering:** it answers
+the confirmation as pikuri's `Confirmer::Rejected(reason:)` (pikuri-workspace), the model reads
+"user declined: make it Wednesday" and proposes again. **Escape declines** by cancelling the
+turn, the first-Escape rule; a second Escape hides. Protocol's command is
+`Answer(confirmation, choice, reason)`. pikuri-workspace's prompt snippet says "a decline is
+final… hand back and wait"; does a decline *with* steering let the model re-propose, as Siri's
+does? `Q_decline_steering`.
 
 ## Process architecture: one Ruby process, split as if it were two
 
@@ -186,7 +199,7 @@ sides.
   load time, and `module Adw; end` plus `GObjectIntrospection::Loader.load` (`gtk4-dev` skill) is
   not a Zeitwerk-shaped file. So `exe/puri` does both first.
 - **Protocol is the D-Bus API, already.** Commands `Ask(conversation, text)`,
-  `Cancel(conversation)`, `Answer(confirmation, choice)`, `ListConversations()`,
+  `Cancel(conversation)`, `Answer(confirmation, choice, reason)`, `ListConversations()`,
   `LoadConversation(id)`; events `TurnStarted`, `TextDelta`, `ToolLine`, `ConfirmRequested`,
   `TurnFinished`, `ConversationsChanged` (a new one, a title landed). It is pikuri's event stream, serialized: pikuri-web (Sinatra plus one SSE
   stream) is the existing proof that a pikuri agent drives a remote UI.
@@ -314,6 +327,9 @@ subscribes to `BackendClient`'s events itself; no controller.
 
 ## Open questions
 
+- `Q_decline_steering`: pikuri-workspace's prompt calls a decline final. Should a decline that
+  carries typed steering let the model re-propose and ask again in the same turn, as Siri does?
+  If so, the snippet's wording is an upstream change.
 - `Q_user_resize`: does the next popup remember a size the user dragged, or always open at
   33 % × 70 %? Also: can an undecorated GTK4 window be resized from its edges on Mutter, or does
   it need GTK's own CSD resize borders?
