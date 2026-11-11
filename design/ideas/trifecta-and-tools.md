@@ -31,6 +31,10 @@ redacted before it reaches the model. Spotlighting and redaction are filters, so
 probabilistic; Private Cloud Compute does nothing for injection. Apple's approach is *confirm
 the dangerous action*, not *make the dangerous combination impossible*. We do the second.
 
+**Siri confirms an event update but not a create** (owner, 2026-11-11), and the create it didn't
+confirm went to the wrong place: asked for the private calendar, it used the family one. Our
+calendar create is gated like compose (the table below), and its confirmation names the calendar.
+
 ## One agent in v1, a federation member toward the machine
 
 v1 is **one agent** holding everything in the table below, less capable than Siri to start with.

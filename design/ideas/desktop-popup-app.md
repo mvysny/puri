@@ -5,42 +5,128 @@ Siri gets wrong: its conversation history lives in a second app (the Siri app). 
 window. Started in pikuri-tui as the secretary's "v3" (`secretary-shell.md` there, moved here
 2026-11-11 and split into this file and `trifecta-and-tools.md`).
 
-## What Siri on macOS 27 does (to verify on the owner's Mac)
+## What Siri on macOS 27 does
 
-From secondary sources, [unverified]; the owner has a Mac, so each bullet is a thing to check:
+From reviews and their screenshots (beta-era, September 2026); [unverified] marks what still
+waits on the owner's Mac. Screenshots, linked rather than copied into the repo:
+[Spotlight bar](https://9to5mac.com/wp-content/uploads/sites/6/2026/09/Search-of-Ask-Siri-AI-Beta-macOS-27.jpg),
+[the bar after an answer](https://cdn.macstories.net/images/uploads/2026/09/12/cleanshot-2026-09-12-at-120741-pm2x-1789229297255-ba7389b063.png),
+[Siri app, new conversation](https://9to5mac.com/wp-content/uploads/sites/6/2026/09/Siri-AI-on-macOS-27.jpg),
+[the same, titled](https://9to5mac.com/wp-content/uploads/sites/6/2026/09/Siri-AI-beta-dedicated-Siri-app-macOS-27.jpg),
+[Siri app with a table](https://cdn.macstories.net/images/uploads/2026/09/12/cleanshot-2026-09-12-at-120958-pm2x-1789229423988-612f9fd04b.png),
+[settings](https://cdn.macstories.net/images/uploads/2026/09/08/cleanshot-2026-09-08-at-81559-am2x-1788869773054-52a3f943c7.png).
 
-- **Cmd-Space opens Spotlight's "Search or Ask" bar.** Return sends the query to Siri. The answer
-  opens *in a separate window*, where the conversation continues
-  ([allthings.how](https://allthings.how/siri-ai-in-macos-27-starting-rich-conversations-from-spotlight/),
-  [Apple: Use the Siri app on Mac](https://support.apple.com/guide/mac-help/q7ny3g54v9lk)).
-  The owner remembers the bar itself growing taller. Which is it? See `Q_siri_growth`.
-- **The Siri app has the history**: a sidebar on the left, grid or list view, search, pin, rename,
-  delete; synced via iCloud. System Settings picks whether the app opens on the recent
-  conversation or a new one, and how many preview lines (0–5) a history row shows.
+**The popup.**
+
+- **Cmd-Space opens a pill:** "Search or Ask", a mic on the right, nothing else. **Return guesses**
+  (owner, 2026-11-11): "Safari" lists Safari.app and Settings panes and the bar reads "– Open";
+  only once more words follow ("Safari something else") does it flip to "– Ask Siri".
+- **While it works, the pill shrinks** into an animation with a status word ("Working",
+  "Searching") and nothing else. The typed question disappears (owner, 2026-11-11).
+- **Then it grows into the answer**, a table included, inside the popup. It's now a dark rounded
+  card: `×` top-left, an expand button top-right, the answer, and at the bottom `+` (attach), an
+  "Ask Siri" entry and the mic. So the follow-up entry sits **at the bottom**, under the answer
+  (owner; [MacMost](https://macmost.com/getting-started-with-siri-ai-in-macos-golden-gate.html)).
+  Whether the answer streams in or appears whole is [unverified].
+- **Up in the pill brings back the previous question**, shell-style (owner; the first question or
+  the last follow-up is [unverified]).
+- **After Escape, Cmd-Space brings an empty pill**, not the conversation (owner). The old one is
+  only in the Siri app, whose *Opens To* setting applies to the app, not to the pill.
+- **Escape closes the card; clicking outside doesn't** (owner). The empty pill, before any
+  question, does close on a click outside.
+- **The card can be dragged and resized** (owner). Dragging on the answer selects text instead,
+  so it drags only by its empty margins.
+- **Expand** opens the current conversation in the Siri app, a second window, and closes the
+  popup (owner;
+  [9to5Mac](https://9to5mac.com/2026/09/17/macos-27-golden-gate-siri-ai-top-features-apples-assistant-finally-comes-to-life-video/)).
+  Every popup conversation also lands in the app's history. The owner finds the hand-off weird;
+  it's the split we fix.
+- **Actions:** creating an event just does it and shows a link to Calendar; a mail opens as a
+  draft in Mail for the user to send (MacMost). Changing an event asks first, with two buttons
+  in the transcript: grey **Cancel** and red **Update**, white text on both (owner, 2026-11-11).
+  The unconfirmed create went wrong for the owner: asked for the private calendar, Siri used the
+  family one.
+
+**The Siri app.**
+
+- **Two panes.** Left: the history. Right: the conversation, with a compose button
+  (new conversation) top-left and search top-right; the same `+` / "Ask Siri" / mic row at the bottom.
+- **History as cards** (grid; a list "like Messages" is the alternative, picked behind an Options
+  button). A card: time or date (a pin glyph if pinned), a bold title, then the preview lines,
+  which come from the **latest reply**, not the first. An image from the reply becomes a
+  thumbnail. The selected card has a blue outline. Newest first, pinned on top.
+- **Titles are generated after the fact:** a fresh conversation shows as "New Conversation",
+  later renamed by content ("Avocado Preservation"). When exactly is [unverified].
+- **The transcript:** the user's message is a right-aligned grey bubble; the reply is unbubbled
+  full-width rich text: headings, bullets, bold, tables, inline images with captions. Each
+  paragraph ends in a **source chip** ("sunwarrior.com +2"). Under the last reply: share and `⋯`
+  (copy); MacMost also saw thumbs up/down.
+- **Control-click a card:** Pin, Rename, Delete (confirmed). Command-click to multi-select.
+- **Shortcuts, app only** (owner, 2026-11-11): Cmd-N starts a new conversation, Cmd-F searches,
+  Cmd-Delete or Delete asks to delete the conversation. None of them does anything in the popup.
+- **Settings live in System Settings → Siri → Siri App:** *Opens To* (Recent Conversations / A New
+  Conversation), *Keep Conversations* (Forever / 1 year / 30 days), *Preview* (lines; 0–5 or
+  1–5, sources differ). The app has no settings of its own.
 - **Since 27.2, Siri recalls past conversations** in a new one
-  ([geeky-gadgets](https://www.geeky-gadgets.com/siri-ai-mac-test/)). That's memory across
-  conversations, not just a history list.
+  ([geeky-gadgets](https://www.geeky-gadgets.com/siri-ai-mac-test/)) [unverified]. That's memory
+  across conversations, not just a history list.
 
 ## Our shape
 
 1. **Collapsed:** one rounded, undecorated window holding a single entry ("Ask anything…"), like
-   Spotlight. Escape or focus-out hides it.
-2. **After Return:** the window grows downward. The user's message on top; under it, while the
-   model thinks, an **indeterminate progress bar** (`Gtk::ProgressBar#pulse` from a
-   `GLib::Timeout`, or `Adw::Spinner`); then the reply **streams in** as it arrives. The window
-   grows with the text up to a maximum height, then the transcript scrolls.
-3. **Follow-up:** a new entry appears below the reply (or above it; `Q_followup_position`).
-4. **History:** a button (top-right, or a shortcut) widens the window to the left and reveals a
+   Spotlight. **Escape while a turn runs cancels it** (`Cancel`, which interrupts the agent) and
+   leaves the window open on the partial answer; **any other Escape hides** the window, so
+   Escape twice always hides, even if the cancel hasn't landed (decided 2026-11-11). An
+   unstopped turn then runs on hidden and is still saved, `●` in the history. The `×` button
+   hides without cancelling.
+   Losing focus hides only the empty pill; once a conversation is on screen it doesn't, as in
+   Siri, so a glance at another window never loses a running answer. **Return always asks
+   Puri.** There's no app or
+   settings search and no guessing like Siri's "Open" vs "Ask"; GNOME's Super search does the
+   former (decided 2026-11-11).
+2. **After Return, the window jumps to its full size at once:** about **33 % of the screen
+   width, 70 % of its height**, one resize, no growing with the text (decided 2026-11-11).
+   Growing sentence by sentence looks bad, and Siri's card is tall even for a short answer.
+   The user's message on top; under it, while the model thinks, an **indeterminate progress
+   bar** (`Gtk::ProgressBar#pulse` from a `GLib::Timeout`) with a **status label** under it, the
+   latest step as Core words it ("Searching the web…", from `ToolLine`); Siri does the same with
+   "Working", "Searching". The reply **streams in from the first turn**, so the first words show
+   as soon as they exist. Siri shows a first answer whole and seems to stream follow-ups, too
+   fast to tell. The transcript scrolls. **No animations at first:** the resize is one step;
+   Siri's shrink-and-grow can come later.
+   **Each tool call stays in the transcript as one dimmed line** (`🔍 Searched: "avocado
+   preservation"`, `📝 Read note: Shopping`), where Siri shows nothing (decided 2026-11-11). It
+   shows what left the machine (*Search, never fetch*), and a local model's many slow steps look
+   like progress, not a stall. Core words the line (`ToolLine`); Desktop only draws it. Text the
+   model writes between steps streams into the reply like the rest. If it gets noisy, a finished
+   turn can fold them into a "3 steps" toggle later.
+   *Placement:* if the pill is already 33 % wide, the jump only grows it downward, and Mutter's
+   keep-the-top-left rule leaves it centered horizontally. Whether Mutter keeps a 70 %-tall
+   window on screen when the pill sat at mid-height is `Q_placement`.
+3. **Follow-up:** a new entry appears below the reply.
+   **Up** in an empty entry recalls the last question, as in Siri: this conversation's, or in a
+   fresh pill the last conversation's. It comes from the transcript or from Core, so Desktop
+   keeps no state of its own for it.
+   **Drag and resize** like Siri's card: the empty margins drag the window (`Gtk::WindowHandle`),
+   and text stays selectable. Does the next popup keep the user's size? `Q_user_resize`.
+4. **History, with no expand button and no second app:** where Siri's expand button hands off to
+   another app, a button (top-right, or a shortcut) widens the window to the left and reveals a
    sidebar of earlier conversations, pikuri-web style: newest first, ordered by start time, a
    `●` on one whose turn is still running, click to load it into the right pane. A second click
-   on the button narrows the window back.
-5. **Hidden, not closed.** The process stays alive between popups, so the next one is instant and
-   the conversation is still there. A setting (as on the Mac) picks "reopen on the last
-   conversation" vs "always a new one"; `Q_reopen_policy`.
+   on the button narrows the window back. Siri's app shortcuts work everywhere here, since the
+   popup *is* the app: **Ctrl-N** a new conversation, **Ctrl-F** opens the sidebar on its search,
+   **Delete** on a selected conversation asks to delete it (in an entry, Delete stays a text key).
+5. **Hidden, not closed.** The process stays alive between popups, so the next one is instant.
+   **The popup always reopens as an empty pill**, as Siri's does (decided 2026-11-11); the last
+   conversation is one click away in the history, and Up recalls its last question. No setting
+   for now.
 
-Confirmations (a gated search, a mail hand-off, a note edit) are an inline row in the transcript:
-the question plus two buttons, focused so Enter answers. That's pikuri-tui's
-transcript-confirmer, as widgets.
+Confirmations (a gated search, a mail hand-off, a note edit, an event) are an inline row in the
+transcript, as in Siri: the question plus two buttons, focused so Enter answers. That's
+pikuri-tui's transcript-confirmer, as widgets. The question names everything that matters
+(which calendar, which note), since that is where Siri's create slipped. A destructive action
+(update, delete) gets Adw's red `destructive-action` button, a harmless one `suggested-action`.
+Enter takes the action; Escape answers Cancel, which then cancels the turn as everywhere else.
 
 ## Process architecture: one Ruby process, split as if it were two
 
@@ -191,8 +277,8 @@ real (`Q_tui_client`), or when the UI leaves Ruby for Vala (`desktop-popup-app/u
   window grows down and right. Growing *centered* (Spotlight-like) isn't possible. Growing down
   is what we want anyway. When the history sidebar widens the window, it grows right; the sidebar
   may have to open on the right, or the window re-centers on its own.
-- **Focus-out to hide:** Wayland gives the app `is-active` changes; hiding on loss of focus should
-  work, but a confirmation dialog or the file chooser also steals focus.
+- **Focus-out to hide** is only for the empty pill (*Our shape*): Wayland gives the app
+  `is-active` changes, and the pill has no dialog or file chooser that could take focus away.
 
 ## Streamed Markdown in GTK
 
@@ -223,12 +309,9 @@ subscribes to `BackendClient`'s events itself; no controller.
 
 ## Open questions
 
-- `Q_siri_growth`: on the Mac, does the Spotlight bar grow into the conversation, or does Return
-  open a separate window? Copy what feels right, not necessarily what Apple shipped.
-- `Q_followup_position`: is the follow-up entry under the last reply, or does the bar stay on top
-  and the conversation grow beneath it? Check on the Mac.
-- `Q_reopen_policy`: after the popup is hidden for an hour, does it reopen on the old
-  conversation? Siri makes it a setting; the default matters more than the setting.
+- `Q_user_resize`: does the next popup remember a size the user dragged, or always open at
+  33 % × 70 %? Also: can an undecorated GTK4 window be resized from its edges on Mutter, or does
+  it need GTK's own CSD resize borders?
 - `Q_main_loop_threads`: do pikuri's threads (streaming HTTP to llama-server) keep running while
   Ruby-GNOME's main loop sits idle waiting for events, or does the GVL starve them? The first thing
   milestone 1 tests: a dummy Core streaming from a plain Ruby thread is exactly this case.
