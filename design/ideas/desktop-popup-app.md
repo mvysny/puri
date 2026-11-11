@@ -47,6 +47,11 @@ transcript-confirmer, as widgets.
 Decided 2026-11-11: **one long-running Ruby process** holds both the backend and the GTK4 UI.
 It is drawn so that splitting it into two processes over D-Bus later is mechanical.
 
+Also decided: **the UI is Ruby + GTK4 first, Vala + GTK4 second.** If `ruby-gtk4` segfaults or
+misbehaves and the cause is the binding, not our code, Desktop alone is rewritten in Vala as its
+own process, talking Protocol over D-Bus; Core stays Ruby. The trigger, and why not Python or
+Flutter: `desktop-popup-app/ui-toolkit.md`, *Ranking*.
+
 ### Why one process
 
 - **Something is resident anyway.** One process owns the agents, the saved conversations, the
