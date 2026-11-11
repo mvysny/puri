@@ -61,10 +61,13 @@ Nothing decided. The facts to start from:
 - **Ruby D-Bus without a new dependency:** `ruby-gio2` (already pulled in by `ruby-gtk4`) wraps
   GDBus, which runs on the GLib main loop the GTK side already has. `ruby-dbus` (apt) is the
   pure-Ruby alternative, for a daemon that shouldn't load GLib. `Q_dbus_binding`.
-- **The UI can be any language once the API is D-Bus.** Ruby GTK4 first, because the owner reads
-  Ruby and the stack is all in apt (the `gtk4-dev` skill verified it). Rust's gtk4-rs is the
-  mature native fallback, Go's gotk4 usable, Kotlin/Native's thin. Swapping the UI must not touch
-  the daemon.
+- **The UI can be any language once the API is D-Bus.** Ruby GTK4 first: the owner reads Ruby,
+  the stack is all in apt, and it shares pikuri's code. Vala + GTK4 is the runner-up, Flutter the
+  wildcard; the candidates, the owner's language tiers and measured startup / memory are in
+  `desktop-popup-app/ui-toolkit.md`. Swapping the UI must not touch the daemon.
+- **Or no D-Bus between them at all.** The daemon is resident anyway, so a Ruby UI can live in its
+  process: it then costs only GTK's share of memory, and its ~1.2 s start is paid once at login.
+  The owner counts that as a bonus. `Q_one_process`.
 - **Conversations persist like pikuri-web's**: a directory per conversation under
   `~/.local/state/puri/conversations/` with `history.json` (pikuri's `Agent::History`) and
   `meta.json`. Can pikuri-web's persistence move upstream into pikuri so both use one? `Q_history_store`.
@@ -134,6 +137,12 @@ backend's events itself; no controller.
   and the conversation grow beneath it? Check on the Mac.
 - `Q_reopen_policy`: after the popup is hidden for an hour, does it reopen on the old
   conversation? Siri makes it a setting; the default matters more than the setting.
+- `Q_one_process`: daemon and GTK UI in one Ruby process, or two over D-Bus? One process drops
+  the IPC, the second process and milestone 3's split; the cost is that a GTK crash takes the
+  agent and the reminder timers down with it, the daemon needs a graphical session to start (no
+  D-Bus activation from a `.service` file; autostart instead), and pikuri's threads reach GTK only
+  through the main loop (`GLib::Idle`, the GTK twin of Tuile's `event_queue.submit`). Does a TUI
+  or a second UI still want D-Bus later (`Q_tui_client`)?
 - `Q_dbus_binding`: GDBus via `ruby-gio2`, or `ruby-dbus`? Does the daemon want GLib at all?
 - `Q_history_store`: lift pikuri-web's conversation store into pikuri, or copy its on-disk format?
 - `Q_hotkey`: which default shortcut? Super+Space is taken; Alt+Space opens the window menu.
