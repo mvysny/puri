@@ -33,7 +33,8 @@ Every fact lives in exactly one of these; the others link to it.
 ## Conventions
 
 - **Linux and GNOME only, Wayland first.** No macOS or Windows code paths; X11 works only where it comes for free.
-- **Ruby, GTK4 and libadwaita from distro packages** — `ruby-gtk4`, `gir1.2-adw-1` loaded through GObject Introspection; a gem or binary apt does not ship waits on the owner.
+- **Ruby, GTK4 and libadwaita from distro packages** — apt's `ruby` (pikuri needs ≥ 3.3), `ruby-gtk4`, `gir1.2-adw-1` loaded through GObject Introspection; a gem or binary apt does not ship waits on the owner.
+- **`gtk4` stays out of the Gemfile:** Bundler would compile it from source, while `require 'gtk4'` finds apt's copy under `bundle exec` anyway; the gtk4-dev skill has the details.
 - **A gap is a missing pikuri primitive**, never a workaround here: a tool, a prompt or a listener event goes upstream, and whatever this app shares with pikuri-tui or pikuri-web lives in pikuri, never in a copy.
 
 ## Commands
