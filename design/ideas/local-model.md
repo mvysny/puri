@@ -4,10 +4,10 @@ Goal: answer "which model runs this?" in two steps. **v1: Ornith-1.5**, the mode
 already tuned and measured against, so the first version tests the app, not the model. **v2:
 optimize** — smaller models, routing, and the NPU — once there's a working app to measure.
 
-Background: `local-model/apple-on-device-models.md` (the owner's `siri.txt`, a Claude chat on how
-Siri runs so cheaply on a MacBook Air M2).
+Background: `local-model/apple-on-device-models.md`, which covers how Siri runs so cheaply on a
+MacBook Air M2 and which open models match its tiers.
 
-## How Siri does it (checked 2026-11-11, sources in that file's *Verification*)
+## How Siri does it (checked 2026-11-11, sources at the end of that file)
 
 - **Tiers.** Two on-device models, then Private Cloud Compute, whose biggest model (AFM 3 Cloud Pro)
   runs on NVIDIA GPUs in Google Cloud. It is Apple's model refined from Gemini outputs, not Gemini
@@ -17,7 +17,7 @@ Siri runs so cheaply on a MacBook Air M2).
   weight; AFM 3's bit-width is undisclosed). AFM 3 Core Advanced is 20B sparse with 1–4B active,
   experts picked per prompt and loaded from NAND flash; per Macworld it needs an M3 and 12 GB. On an
   M2, its features (expressive voices, advanced dictation) are missing, not moved to the cloud.
-- **Task adapters:** LoRA adapters of ~160 MB on one shared model, each tied to one model version.
+- **Task adapters:** adapters of ~160 MB on one shared model, each tied to one model version.
 - **Comparable open models (Nov 2026):** Qwen3.5-4B, Gemma 4 E4B, NVIDIA's Nemotron 3.5 Bolt E4B
   (a Gemma 4 E4B tuned for device-assistant tool use), Granite 4.2 3B and LFM3-1.7B for the small
   tier; gpt-oss-20b, Gemma 4 26B-A4B and Qwen3.6-35B-A3B for the sparse tier. The tables are in
@@ -40,7 +40,7 @@ definitions + memory). That last number is what a smaller model will pay for eve
   llama-server's prompt cache reuses their KV, so time-to-first-token is the user's text only.
   Fewer tools (this app has ~15) means a shorter prefix too.
 - **A smaller model for the simple tier.** "Add milk to my shopping list" doesn't need Ornith.
-  Candidates from the chat above; tool-calling reliability is what decides, not MMLU.
+  The candidates are the small tier above; tool-calling reliability is what decides, not MMLU.
 - **Routing, Siri-style:** a small model answers or escalates to the big one (local, or an opt-in
   hosted one). The router itself is a model call, so it has to be cheap and rarely wrong.
   pikuri-shaped question: is escalation a tool, or a transport fallback?
