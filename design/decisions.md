@@ -92,3 +92,13 @@ runs, so it is hard to change once installed. Reverse-DNS on the GitHub repo: Fl
 `io.github.<user>.*`, verified through `mvysny.github.io`, and no longer accepts new
 `com.github.*` ids. Why not Codeberg's `page.codeberg.*`: its Terms of Use §2.7, a July 2026
 member vote, bar mostly-AI-written projects, and it goes down often.
+
+## D_whole_reply — Why does Core re-send the whole `Reply` per delta, rather than only what changed?
+
+Because the bytes are not the cost. A 10 KB reply crosses `Protocol.round_trip` in 0.05 ms,
+0.1% of a core at 15 fps, and Desktop skips a part whose content is unchanged. What costs is
+laying out the prose that changed (`R_label_layout_cost`), and a Protocol that sent finished
+parts once wouldn't shrink it: merged prose made the open part the whole prose run so far. So
+`ReplyStream` keeps the open block apart from the finished prose until the reply ends. Per
+delta, one paragraph is laid out again, and a selection spans the tail once the reply is done.
+

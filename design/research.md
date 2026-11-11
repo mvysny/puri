@@ -120,3 +120,14 @@ from the server's send. `ruby-gtk4` 4.3.4, Ruby 3.3.8, on Broadway.
   milliseconds, or has the bus start it from a `dbus-1/services/<id>.service` file. **[docs]**
 - A Puri started that way from a custom shortcut gets the graphical session's environment, and
   its window comes up with keyboard focus. **[verified 2026-11-11, GNOME on Ubuntu 26.04]**
+
+## R_label_layout_cost — Re-laying out a wrapping `Gtk::Label` per update
+
+A selectable label wrapping Pango markup at `:word_char`, its markup set and its height measured
+at 560 px, 40 times per size, median. On Broadway, GTK 4.22.4, `ruby-gtk4` 4.3.4.
+
+- The cost grows with the whole text, about 4 ms per KB: 2.6 ms at 0.7 KB, 15 ms at 4.2 KB and
+  66 ms at 16.8 KB. **[verified 2026-11-11]**
+- At 15 updates a second, a 4 KB label takes about a quarter of the main loop, and a 17 KB one
+  takes all of it. **[verified 2026-11-11]**
+- The layout is Pango's, so a native GL renderer should pay the same. **[unverified]**

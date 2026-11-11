@@ -290,11 +290,19 @@ module Puri
     # converted once, and only the open tail again per delta.
     # 
     #   stream = ReplyStream.new
-    #   stream.append("Keep it **cold**.\n\nOr fre")   # => [Prose("Keep it <b>cold</b>.\n\nOr fre")]
-    #   stream.append("eze it.\n")                     # => [Prose("Keep it <b>cold</b>.\n\nOr freeze it.")]
-    #   stream.finish                                   # => the same parts, all final
+    #   stream.append("Keep it **cold**.\n\nOr fre")   # => [Prose("Keep it <b>cold</b>."), Prose("Or fre")]
+    #   stream.append("eze it.\n")                     # => [Prose("Keep it <b>cold</b>."), Prose("Or freeze it.")]
+    #   stream.finish                                   # => [Prose("Keep it <b>cold</b>.\n\nOr freeze it.")]
     # 
-    # The parts always equal {ReplyRenderer.render} of the text so far.
+    # {#finish} equals {ReplyRenderer.render} of the whole text; until then, {ReplyRenderer.merge}
+    # of the parts equals it for the text so far.
+    # 
+    # == Implementation details
+    # 
+    # The open tail stays its own part rather than merging into the finished prose before it:
+    # Desktop lays out a changed part whole, at ~4 ms per KB on the main loop, so a merged run
+    # would grow per delta until it stalls the UI (`D_whole_reply`). A selection reaches across the
+    # tail only once the reply is finished.
     class ReplyStream
       include StreamingMarkdownParser::Listener
 

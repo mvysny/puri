@@ -29,19 +29,21 @@ RSpec.describe Puri::Core::ReplyStream do
     assert_equal Puri::Core::ReplyRenderer.render(reply), stream.finish
   end
 
-  it 'matches the whole text so far after every delta' do
+  it 'merges, after every delta, into the whole text so far' do
     stream = described_class.new
     source = +''
     reply.scan(/\s*\S+/).each do |word|
       source << word
-      assert_equal Puri::Core::ReplyRenderer.render(source), stream.append(word), "after #{source.inspect}"
+      assert_equal Puri::Core::ReplyRenderer.render(source), Puri::Core::ReplyRenderer.merge(stream.append(word)),
+                   "after #{source.inspect}"
     end
   end
 
-  it 'reads as its class doc shows' do
+  it 'keeps the open tail apart from the finished prose until the end' do
     stream = described_class.new
-    assert_equal [p::Prose.new(markup: "Keep it <b>cold</b>.\n\nOr fre")], stream.append("Keep it **cold**.\n\nOr fre")
-    assert_equal [p::Prose.new(markup: "Keep it <b>cold</b>.\n\nOr freeze it.")], stream.append("eze it.\n")
+    done = p::Prose.new(markup: 'Keep it <b>cold</b>.')
+    assert_equal [done, p::Prose.new(markup: 'Or fre')], stream.append("Keep it **cold**.\n\nOr fre")
+    assert_equal [done, p::Prose.new(markup: 'Or freeze it.')], stream.append("eze it.\n")
     assert_equal [p::Prose.new(markup: "Keep it <b>cold</b>.\n\nOr freeze it.")], stream.finish
   end
 
