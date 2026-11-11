@@ -11,6 +11,15 @@ ruby '>= 3.3'
 # One loader at lib/, eager-loaded at boot: a dependency between our files is a constant name.
 gem 'zeitwerk', '~> 2.8'
 
+# pikuri on its git master, as pikuri-tui and pikuri-web ride it: Core's confirmations need the
+# unreleased `Confirmer::Redirected` and the textless `Rejected` (pikuri#12). Gemfile.lock pins
+# the commit; `bundle update pikuri-core` moves it. One checkout for both, since every pikuri gem
+# pins `pikuri-core = <exact version>` in lockstep.
+git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
+  gem 'pikuri-core'
+  gem 'pikuri-workspace'
+end
+
 # Types are written once, as YARD tags; sord compiles them into the committed sig/puri.rbs, and
 # `rake sig` fails on any tag sord cannot type. redcarpet renders the Markdown .yardopts selects.
 group :development do

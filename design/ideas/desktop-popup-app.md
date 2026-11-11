@@ -146,18 +146,17 @@ the type, and the model never has to guess it from text:
 2. **Cancel** → `Rejected`, with no reason; the model carries on and stops by itself, saying so
    ("OK, I won't reschedule"), as Siri did. A retry would only ask again: the confirmation is
    the safety, not the stop. A request with two parts can still do the other one.
-3. **Typed text + Enter** → `Redirected(instructions:)`; the model follows them ("make it
+3. **Typed text + Enter** → `Redirected(message:)`; the model follows the words ("make it
    Wednesday") and proposes again, which asks again.
-4. **Escape** → `Cancel(conversation)` (`Agent::Control::Cancellable#cancel!`) and the window
-   hides, the general Escape rule (*Our shape*, point 1).
+4. **Escape** → `Cancel(conversation)` and the window hides, the general Escape rule (*Our
+   shape*, point 1). Core's confirmer, parked in `#ask` on the agent's thread, raises
+   `Agent::Control::Cancellable::Cancelled` when the cancel arrives, which ends the turn and
+   repairs the stranded tool call.
 
-Protocol's command is `Answer(confirmation, choice, instructions)`. pikuri has `Approved` and
-`Rejected(reason:)` (pikuri-workspace's `Confirmer`). **Upstream**
-([pikuri#12](https://codeberg.org/mvysny/pikuri/issues/12)): a `Redirected(instructions:)`
-result, `Rejected` without a reason (pikuri-tui's typed "no, because…" becomes `Redirected` too),
-and prompt wording: a `Rejected` is final, a `Redirected` is followed, and another route to a
-declined end is never fine. Whether a confirmer waiting on a click is interruptible by
-`cancel!` (`pikuri-core/lib/pikuri/tool.rb`, the opt-in for tools that wait) is unchecked.
+Protocol's command is `Answer(confirmation, choice, message)`. All three results are pikuri's
+(pikuri-workspace's `Confirmer`, since
+[pikuri#12](https://codeberg.org/mvysny/pikuri/issues/12), `D_bare_rejected`), and so is the
+prompt wording: a `Rejected` is final, a `Redirected` is followed.
 
 ## Process architecture: one Ruby process, split as if it were two
 
@@ -212,7 +211,7 @@ sides.
   load time, and `module Adw; end` plus `GObjectIntrospection::Loader.load` (`gtk4-dev` skill) is
   not a Zeitwerk-shaped file. So `exe/puri` does both first.
 - **Protocol is the D-Bus API, already.** Commands `Ask(conversation, text)`,
-  `Cancel(conversation)`, `Answer(confirmation, choice, instructions)`, `ListConversations()`,
+  `Cancel(conversation)`, `Answer(confirmation, choice, message)`, `ListConversations()`,
   `LoadConversation(id)`; events `TurnStarted`, `TextDelta`, `ToolLine`, `ConfirmRequested`,
   `TurnFinished`, `ConversationsChanged` (a new one, a title landed). It is pikuri's event stream, serialized: pikuri-web (Sinatra plus one SSE
   stream) is the existing proof that a pikuri agent drives a remote UI.
