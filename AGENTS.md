@@ -43,6 +43,7 @@ Every fact lives in exactly one of these; the others link to it.
 ## Skills this project follows
 
 - **Component-oriented:** self-sufficient components that reach their data directly, no MVC layers; the `cop` skill has the rules.
+- **GTK4 dev, headless:** run, drive and screenshot the app on Broadway with Playwright; the `gtk4-dev` skill has the loop and the gotchas.
 
 ## Maintenance of this file
 

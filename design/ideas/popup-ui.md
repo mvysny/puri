@@ -62,7 +62,7 @@ Nothing decided. The facts to start from:
   GDBus, which runs on the GLib main loop the GTK side already has. `ruby-dbus` (apt) is the
   pure-Ruby alternative, for a daemon that shouldn't load GLib. `Q_dbus_binding`.
 - **The UI can be any language once the API is D-Bus.** Ruby GTK4 first, because the owner reads
-  Ruby and the stack is all in apt (`gtk4-headless-dev-env.md` verified it). Rust's gtk4-rs is the
+  Ruby and the stack is all in apt (the `gtk4-dev` skill verified it). Rust's gtk4-rs is the
   mature native fallback, Go's gotk4 usable, Kotlin/Native's thin. Swapping the UI must not touch
   the daemon.
 - **Conversations persist like pikuri-web's**: a directory per conversation under
@@ -117,7 +117,7 @@ shared, upstream. `Q_markdown`.
 1. **Single Ruby process, dummy backend.** The popup, the growing window, the progress bar, the
    history sidebar with fake conversations. The backend "thinks" for one second, then streams
    lorem ipsum word by word at ~30 words/s. Developed and screenshotted under Broadway
-   (`gtk4-headless-dev-env.md`), checked natively on GNOME now and then.
+   (the `gtk4-dev` skill), checked natively on GNOME now and then.
 2. **The backend behind the D-Bus-shaped interface**, still dummy, still one process: the UI
    talks only through `Ask` / signals, so the split is mechanical.
 3. **The daemon**, a separate Ruby process on pikuri, with the real model and tools.
@@ -141,5 +141,10 @@ backend's events itself; no controller.
   extension route (which can place windows, but is JavaScript and per-GNOME-version)?
 - `Q_markdown`: TextView with tags, or Label with Pango markup? Where does the shared streaming
   parser live upstream?
+- `Q_test_harness`: rspec driving the widget tree directly (`button.clicked`, `entry.text =`,
+  then a `GLib::MainContext` iteration), the GTK twin of `Tuile::Testing`, with Playwright kept
+  for exploratory looks? Specs that take in-process PNGs need a browser attached to Broadway
+  (`gtk4-dev` skill).
+- `Q_ci`: does Woodpecker's image get `gtk4-broadwayd` + `ruby-gtk4` from apt the same way?
 - `Q_tui_client`: once the daemon exists, is a TUI just another client (pikuri-tui talking
   D-Bus)? Not planned; noted because the API makes it cheap.
