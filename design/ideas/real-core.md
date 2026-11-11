@@ -25,10 +25,14 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 - **Threads** that keep the UI smooth: the main loop doesn't starve a turn's thread, but Ruby
   work on that thread holds the GVL for up to 100 ms (`R_gvl_main_loop`). So a turn runs at
   `Thread#priority = -3` (a burst stalls the UI by at most ~25 ms), and deltas reach
-  `ReplyRenderer` coalesced through pikuri's `Listener::RateLimited`, as pikuri-tui does at
+  `ReplyStream` coalesced through pikuri's `Listener::RateLimited`, as pikuri-tui does at
   15 fps, so re-rendering never falls behind the stream.
 
 ## Open questions
 
 - `Q_titler`: on one local llama-server, does a parallel titling call slow the answer, or does it
   need its own slot or model?
+- `Q_reply_parts`: `ReplyStream` converts each finished block once, but Protocol still re-sends
+  the whole `Reply` per delta, and Desktop rebuilds it. Should a finished part cross once, so only
+  the open tail's parts repeat? It would shrink the JSON per delta and the widgets Desktop
+  replaces, at the cost of a Protocol change.

@@ -286,6 +286,37 @@ module Puri
       def self.failure: (Puri::Core::DummyTurn turn) -> void
     end
 
+    # A reply's Markdown as it streams in, as {Protocol::Reply} parts: each finished block is
+    # converted once, and only the open tail again per delta.
+    # 
+    #   stream = ReplyStream.new
+    #   stream.append("Keep it **cold**.\n\nOr fre")   # => [Prose("Keep it <b>cold</b>.\n\nOr fre")]
+    #   stream.append("eze it.\n")                     # => [Prose("Keep it <b>cold</b>.\n\nOr freeze it.")]
+    #   stream.finish                                   # => the same parts, all final
+    # 
+    # The parts always equal {ReplyRenderer.render} of the text so far.
+    class ReplyStream
+      include StreamingMarkdownParser::Listener
+
+      def initialize: () -> void
+
+      # _@param_ `delta`
+      def append: (String delta) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # _@param_ `final` — the reply's final text, nil for the deltas as they came
+      def finish: (?String? final) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      def parts: () -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # _@param_ `root`
+      def on_block: (Kramdown::Element root) -> void
+
+      # _@param_ `root`
+      def on_open: (Kramdown::Element root) -> void
+
+      def on_reset: () -> void
+    end
+
     # The model's Markdown as {Protocol::Reply} parts: prose as Pango markup, code blocks and
     # tables as parts of their own. pikuri-web's MarkdownRenderer with Pango for HTML.
     # Not in pikuri, which stays Markdown-free: kramdown already is the shared parser, and the
@@ -294,8 +325,8 @@ module Puri
     #   ReplyRenderer.render("Keep it **cold**:\n\n- fridge\n- freezer")
     #   # => [Prose(markup: "Keep it <b>cold</b>:\n\n• fridge\n• freezer")]
     # 
-    # Streaming re-renders the whole source per delta, so a closing fence or a widening table
-    # reformats what came before. Unfinished Markdown (`**bol`) renders as the literal text.
+    # A streamed reply goes through {ReplyStream}, which converts each finished block once.
+    # Unfinished Markdown (`**bol`) renders as the literal text.
     # 
     # Links are plain text and images only their alt text: a model-chosen URL is egress
     # (`design/ideas/trifecta-and-tools.md`, *Links in the reply*).
@@ -310,6 +341,28 @@ module Puri
 
       # _@param_ `markdown`
       def self.render: (String markdown) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # A part per top-level block, prose not yet merged.
+      # 
+      # _@param_ `root`
+      def parts: (Kramdown::Element root) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # A part per top-level block, prose not yet merged.
+      # 
+      # _@param_ `root`
+      def self.parts: (Kramdown::Element root) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # _@param_ `parts`
+      # 
+      # _@return_ — with
+      # each run of prose joined into one part, a paragraph apart
+      def merge: (::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)] parts) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
+
+      # _@param_ `parts`
+      # 
+      # _@return_ — with
+      # each run of prose joined into one part, a paragraph apart
+      def self.merge: (::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)] parts) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
 
       # _@param_ `node` — a block-level element
       # 

@@ -49,3 +49,7 @@ once. `AUTOSTART=1` also starts it at login, so even the first press is instant.
 `bundle exec rake uninstall` removes it all and gives Super+Space back to the layout switcher.
 
 `bundle exec rake` runs the specs, rubocop, the type signatures and the doc checks, as CI does.
+
+## License
+
+MIT

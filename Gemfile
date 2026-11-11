@@ -15,6 +15,10 @@ gem 'zeitwerk', '~> 2.8'
 # input, since LLMs write backtick fences and pipe tables.
 gem 'kramdown', '~> 2.5'
 gem 'kramdown-parser-gfm', '~> 1.1'
+# Cuts the streamed Markdown into final kramdown blocks, so a reply converts each block once. On
+# its git master, as pikuri; Gemfile.lock pins the commit, `bundle update streaming-markdown-parser`
+# moves it.
+gem 'streaming-markdown-parser', git: 'https://github.com/mvysny/streaming-markdown-parser.git', branch: 'master'
 
 # pikuri on its git master, as pikuri-tui and pikuri-web ride it: Core's confirmations need the
 # unreleased `Confirmer::Redirected` and the textless `Rejected` (pikuri#12). Gemfile.lock pins

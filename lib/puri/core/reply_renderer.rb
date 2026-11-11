@@ -3,6 +3,7 @@
 require 'cgi'
 require 'kramdown'
 require 'kramdown-parser-gfm'
+require 'streaming_markdown_parser'
 
 module Puri
   module Core
@@ -14,8 +15,8 @@ module Puri
     #   ReplyRenderer.render("Keep it **cold**:\n\n- fridge\n- freezer")
     #   # => [Prose(markup: "Keep it <b>cold</b>:\n\n• fridge\n• freezer")]
     #
-    # Streaming re-renders the whole source per delta, so a closing fence or a widening table
-    # reformats what came before. Unfinished Markdown (`**bol`) renders as the literal text.
+    # A streamed reply goes through {ReplyStream}, which converts each finished block once.
+    # Unfinished Markdown (`**bol`) renders as the literal text.
     #
     # Links are plain text and images only their alt text: a model-chosen URL is egress
     # (`design/ideas/trifecta-and-tools.md`, *Links in the reply*).
@@ -35,29 +36,34 @@ module Puri
       # @param markdown [String]
       # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
       def render(markdown)
-        root = Kramdown::Document.new(markdown.to_s, **OPTIONS).root
-        parts = []
-        prose = []
-        flush = lambda do
-          parts << Protocol::Prose.new(markup: prose.join("\n\n")) unless prose.empty?
-          prose = []
-        end
-        root.children.each do |node|
+        source = StreamingMarkdownParser::Repair.call(markdown.to_s)
+        merge(parts(Kramdown::Document.new(source, **OPTIONS).root))
+      end
+
+      # A part per top-level block, prose not yet merged.
+      #
+      # @param root [Kramdown::Element]
+      # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
+      def parts(root)
+        root.children.filter_map do |node|
           case node.type
-          when :codeblock
-            flush.call
-            parts << Protocol::Code.new(text: node.value.to_s.chomp)
-          when :table
-            flush.call
-            parts << table(node)
+          when :codeblock then Protocol::Code.new(text: node.value.to_s.chomp)
+          when :table then table(node)
           when :blank then nil
           else
             markup = block(node, 0)
-            prose << markup unless markup.empty?
+            Protocol::Prose.new(markup:) unless markup.empty?
           end
         end
-        flush.call
-        parts
+      end
+
+      # @param parts [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
+      # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>] with
+      #   each run of prose joined into one part, a paragraph apart
+      def merge(parts)
+        parts.chunk_while { |a, b| a.is_a?(Protocol::Prose) && b.is_a?(Protocol::Prose) }.map do |run|
+          run.size == 1 ? run.first : Protocol::Prose.new(markup: run.map(&:markup).join("\n\n"))
+        end
       end
 
       # @param node [Kramdown::Element] a block-level element

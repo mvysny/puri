@@ -92,13 +92,14 @@ module Puri
       def stream(markdown)
         reply = @conversation.add(Protocol::Reply.new(id: nil, parts: []))
         @conversation.activity = Protocol::Activity.new(state: 'streaming')
-        source = +''
+        stream = ReplyStream.new
         markdown.scan(/\s*\S+/).each do |word|
           pause(@pace)
-          source << word
-          reply = reply.with(parts: ReplyRenderer.render(source))
+          reply = reply.with(parts: stream.append(word))
           @conversation.put(reply)
         end
+        final = stream.finish
+        @conversation.put(reply.with(parts: final)) unless final == reply.parts
       end
 
       # Asks the user and waits for the answer.
