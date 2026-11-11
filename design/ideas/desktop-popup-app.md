@@ -67,9 +67,10 @@ waits on the owner's Mac. Screenshots, linked rather than copied into the repo:
 - **Settings live in System Settings → Siri → Siri App:** *Opens To* (Recent Conversations / A New
   Conversation), *Keep Conversations* (Forever / 1 year / 30 days), *Preview* (lines; 0–5 or
   1–5, sources differ). The app has no settings of its own.
-- **Since 27.2, Siri recalls past conversations** in a new one
-  ([geeky-gadgets](https://www.geeky-gadgets.com/siri-ai-mac-test/)) [unverified]. That's memory
-  across conversations, not just a history list.
+- **Siri recalls past conversations** in a new one: asked about yesterday's, it summarized them
+  (owner, 2026-11-11; since 27.2 per
+  [geeky-gadgets](https://www.geeky-gadgets.com/siri-ai-mac-test/)). That's memory across
+  conversations, not just a history list; ours is in `trifecta-and-tools.md`, *Memory*.
 
 ## Our shape
 

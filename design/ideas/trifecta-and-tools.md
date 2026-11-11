@@ -175,7 +175,8 @@ Missing upstream: `MachineMemory`'s prompt section is hard-wired to "Notes about
 subject-neutral primitive is needed; and a write path confined to that one file, confirmed with a
 diff (a `remember` tool, or `edit` with a one-file workspace).
 
-Siri 27.2 "recalls past conversations". Our equivalent would be pikuri-rag over the saved
+Siri 27.2 "recalls past conversations": asked about yesterday's conversations, it summarized them
+(owner, 2026-11-11). Our equivalent would be pikuri-rag over the saved
 conversations. That's a private leg fed by untrusted text (earlier conversations quoted mail), the
 same shape as notes. Later.
 
