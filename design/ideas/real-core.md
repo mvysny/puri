@@ -39,12 +39,14 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 
 ## Open questions
 
-- `Q_titler_cache`: one llama-server slot holds one prefix cache, so the titling request evicts
-  the conversation's prefix, and the first turn's next request prefills the system prompt, tools
-  and history again. pikuri-memory measured the same eviction with mem0's extraction call. Does
-  llama-server's host-memory prompt cache (`--cache-ram`) restore that prefix, or does the titler
-  need a second slot (`--parallel 2` with one permit, which splits `--ctx-size`)? This needs
-  measuring on Ornith 1.5.
+- `Q_titler_permit`: measured 2026-11-11 on the owner's router (llama.cpp b10438, Ornith 1.5
+  Q4_K_M, 4 slots sharing one 64k KV pool, a 6.5k-token prefix). The switch is
+  `chat_template_kwargs: {enable_thinking: false}`. A title takes 1.3 s cold and 0.4–0.6 s warm,
+  or 3 s with thinking on. With no slot pinned, as pikuri runs, a title between two turn requests
+  evicts nothing (`cache_n` 6665 either way); prefilling that prefix cold costs 24–26 s. A title
+  racing a 500-token answer slowed it from 24.0 to 22.9 tok/s, about 1 s over 21 s. So racing
+  is cheap, and the title would show during the answer. Is queueing behind the answer still
+  worth it?
 - `Q_reply_parts`: `ReplyStream` converts each finished block once, but Protocol still re-sends
   the whole `Reply` per delta, and Desktop rebuilds it. Should a finished part cross once, so only
   the open tail's parts repeat? It would shrink the JSON per delta and the widgets Desktop
