@@ -22,12 +22,20 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
   rather than ~30 s; pikuri-web measured both, and the small instruct models it tried failed the
   job (wrong language, obeying the opener; its `D_titler_connection`). The titler is a second
   connection to the same llama-server that differs only in `params` (Ornith 1.5's thinking-off
-  switch). `Titler`'s caps and `</think>` strip stay, because a server can accept that parameter
-  and ignore it. Both connections share the server's one permit (`ServerPermits`), so the title
-  queues instead of racing the answer: on a local box a second stream costs nearly its full share
-  of memory bandwidth (pikuri-web's README, *How many conversations can think at once*). Core
-  starts the titler on the turn's first event, so the answer holds the permit first and the title
-  lands after that request ends.
+  switch, `chat_template_kwargs: {enable_thinking: false}`). `Titler`'s caps and `</think>` strip
+  stay, because a server can accept that parameter and ignore it. The titler starts with the turn
+  and runs beside the answer, on a permit `ServerPermits` sizes from the server's own slot count,
+  never forced to 1, so the title shows while the answer streams. Measured 2026-11-11 on the
+  owner's llama-server (b10438, Ornith 1.5 Q4_K_M, 4 slots sharing one 64k KV pool, a
+  6.5k-token prefix):
+  - **Speed.** A title takes 1.3 s cold and 0.4–0.6 s warm, or 3 s with thinking on.
+  - **Racing costs ~1 s.** A title beside a 500-token answer slowed it from 24.0 to 22.9 tok/s,
+    about 1 s over 21 s. pikuri-web's case for one permit is two full replies streaming at once
+    (its README, *How many conversations can think at once*). A ten-token title barely overlaps
+    the answer, and the popup shows one conversation.
+  - **Nothing is evicted.** With no slot pinned, as pikuri runs, a title between two turn
+    requests leaves the prefix cached (`cache_n` 6665 either way); prefilling it cold costs
+    24–26 s. Pinning the turn to a slot while the title floats did lose it: pikuri never pins.
 - **Persistence** in pikuri-web's format, ported (`D_port_pikuri_web`): a directory per
   conversation under `~/.local/state/puri/conversations/`, pikuri's `history.json` beside
   `meta.json` with `shell: "puri"`.
@@ -39,14 +47,6 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 
 ## Open questions
 
-- `Q_titler_permit`: measured 2026-11-11 on the owner's router (llama.cpp b10438, Ornith 1.5
-  Q4_K_M, 4 slots sharing one 64k KV pool, a 6.5k-token prefix). The switch is
-  `chat_template_kwargs: {enable_thinking: false}`. A title takes 1.3 s cold and 0.4–0.6 s warm,
-  or 3 s with thinking on. With no slot pinned, as pikuri runs, a title between two turn requests
-  evicts nothing (`cache_n` 6665 either way); prefilling that prefix cold costs 24–26 s. A title
-  racing a 500-token answer slowed it from 24.0 to 22.9 tok/s, about 1 s over 21 s. So racing
-  is cheap, and the title would show during the answer. Is queueing behind the answer still
-  worth it?
 - `Q_reply_parts`: `ReplyStream` converts each finished block once, but Protocol still re-sends
   the whole `Reply` per delta, and Desktop rebuilds it. Should a finished part cross once, so only
   the open tail's parts repeat? It would shrink the JSON per delta and the widgets Desktop
