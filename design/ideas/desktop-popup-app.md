@@ -80,11 +80,12 @@ waits on the owner's Mac. Screenshots, linked rather than copied into the repo:
 ## Our shape
 
 1. **Collapsed:** one rounded, undecorated window holding a single entry ("Ask anything…"), like
-   Spotlight. **Escape while a turn runs cancels it** (`Cancel`, which interrupts the agent) and
-   leaves the window open on the partial answer; **any other Escape hides** the window, so
-   Escape twice always hides, even if the cancel hasn't landed (decided 2026-11-11). An
-   unstopped turn then runs on hidden and is still saved, `●` in the history. The `×` button
-   hides without cancelling.
+   Spotlight. **Escape hides the window, and cancels a running turn on the way** (`Cancel`,
+   which interrupts the agent): while it thinks, while it waits on a confirmation. **The one
+   exception is reply text streaming:** then the first Escape only cancels and leaves the window
+   open on the partial answer, and a second Escape hides, even if the cancel hasn't landed
+   (decided 2026-11-11). An unstopped turn then runs on hidden and is still saved, `●` in the
+   history. The `×` button hides without cancelling.
    Losing focus hides only the empty pill; once a conversation is on screen it doesn't, as in
    Siri, so a glance at another window never loses a running answer. **Return always asks
    Puri.** There's no app or
@@ -136,15 +137,26 @@ transcript-confirmer, as widgets. The question names everything that matters (wh
 which note), since that is where Siri's create slipped. A destructive action (update, delete)
 gets Adw's red `destructive-action` button, a harmless one `suggested-action`.
 
-**Keys, as in Siri** (decided 2026-11-11): the follow-up entry keeps focus under the row; the
-buttons are clicked or reached by Tab. **Enter on an empty entry does nothing**, so a stray
-Enter never confirms a red button. **Typed text plus Enter declines with steering:** it answers
-the confirmation as pikuri's `Confirmer::Rejected(reason:)` (pikuri-workspace), the model reads
-"user declined: make it Wednesday" and proposes again. **Escape declines** by cancelling the
-turn, the first-Escape rule; a second Escape hides. Protocol's command is
-`Answer(confirmation, choice, reason)`. pikuri-workspace's prompt snippet says "a decline is
-final… hand back and wait"; does a decline *with* steering let the model re-propose, as Siri's
-does? `Q_decline_steering`.
+**Four answers, as in Siri** (decided 2026-11-11). The follow-up entry keeps focus under the row;
+the buttons are clicked or reached by Tab. **Enter on an empty entry does nothing**, so a stray
+Enter never confirms a red button. The answer's *type* carries the meaning, the gesture picks
+the type, and the model never has to guess it from text:
+
+1. **Update** → `Approved`; the model carries on.
+2. **Cancel** → `Rejected`, with no reason; the model carries on and stops by itself, saying so
+   ("OK, I won't reschedule"), as Siri did. A retry would only ask again: the confirmation is
+   the safety, not the stop. A request with two parts can still do the other one.
+3. **Typed text + Enter** → `Redirected(instructions:)`; the model follows them ("make it
+   Wednesday") and proposes again, which asks again.
+4. **Escape** → `Cancel(conversation)` (`Agent::Control::Cancellable#cancel!`) and the window
+   hides, the general Escape rule (*Our shape*, point 1).
+
+Protocol's command is `Answer(confirmation, choice, instructions)`. pikuri has `Approved` and
+`Rejected(reason:)` (pikuri-workspace's `Confirmer`). **Upstream:** a `Redirected(instructions:)`
+result, `Rejected` without a reason (pikuri-tui's typed "no, because…" becomes `Redirected` too),
+and prompt wording: a `Rejected` is final, a `Redirected` is followed, and another route to a
+declined end is never fine. Whether a confirmer waiting on a click is interruptible by
+`cancel!` (`pikuri-core/lib/pikuri/tool.rb`, the opt-in for tools that wait) is unchecked.
 
 ## Process architecture: one Ruby process, split as if it were two
 
@@ -199,7 +211,7 @@ sides.
   load time, and `module Adw; end` plus `GObjectIntrospection::Loader.load` (`gtk4-dev` skill) is
   not a Zeitwerk-shaped file. So `exe/puri` does both first.
 - **Protocol is the D-Bus API, already.** Commands `Ask(conversation, text)`,
-  `Cancel(conversation)`, `Answer(confirmation, choice, reason)`, `ListConversations()`,
+  `Cancel(conversation)`, `Answer(confirmation, choice, instructions)`, `ListConversations()`,
   `LoadConversation(id)`; events `TurnStarted`, `TextDelta`, `ToolLine`, `ConfirmRequested`,
   `TurnFinished`, `ConversationsChanged` (a new one, a title landed). It is pikuri's event stream, serialized: pikuri-web (Sinatra plus one SSE
   stream) is the existing proof that a pikuri agent drives a remote UI.
@@ -327,14 +339,6 @@ subscribes to `BackendClient`'s events itself; no controller.
 
 ## Open questions
 
-- `Q_decline_steering`: pikuri-workspace's prompt calls a decline final. Should a decline that
-  carries typed steering let the model re-propose and ask again in the same turn, as Siri does?
-  Leaning yes, with no new result type: `Rejected(reason:)` is already "steering" by design,
-  and the tool does the same either way (skip the action, report back). Whether "never mind"
-  or "make it Wednesday" was typed is the text's to say, and the model reads it better than a
-  UI could sort it. Upstream change is wording only: a bare decline stays final; one with a
-  reason *is* the guidance, so a new proposal along it is fine, another route to the same
-  declined end still isn't.
 - `Q_user_resize`: does the next popup remember a size the user dragged, or always open at
   33 % × 70 %? Also: can an undecorated GTK4 window be resized from its edges on Mutter, or does
   it need GTK's own CSD resize borders?
