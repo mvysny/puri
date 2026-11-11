@@ -576,16 +576,17 @@ module Puri
 
     # The one window. It opens as a pill holding only the entry; the first question expands it
     # at once to a third of the screen's width and 70 % of its height, the conversation over the
-    # entry; the history button widens it by the sidebar of earlier conversations. Hiding it
-    # always brings back an empty pill next time.
+    # entry; it never grows with the text, which looks restless. The history button widens it by
+    # the sidebar of earlier conversations. Hiding it always brings back an empty pill next time.
     # 
     #   window = PopupWindow.new(app, client)
     #   window.present
     # 
     # Keys: Escape cancels a running turn and hides, except that while a reply streams the first
-    # Escape only stops it; Ctrl+N starts a new conversation, Ctrl+F searches the history, F9
-    # shows or hides it. The header's × hides without cancelling. Losing focus hides only the
-    # empty pill.
+    # Escape only stops it, leaving the partial answer to read; Ctrl+N starts a new conversation,
+    # Ctrl+F searches the history, F9 shows or hides it. The header's × hides without cancelling.
+    # Losing focus hides only the empty pill, so a glance at another window never loses a
+    # running answer.
     class PopupWindow < Adw::ApplicationWindow
       WIDTH: Float
       HEIGHT: Float
@@ -1175,7 +1176,9 @@ module Puri
       attr_reader status: String
     end
 
-    # Transcript block: one step the agent took, worded by Core, drawn as one dimmed line.
+    # Transcript block: one step the agent took, worded by Core, drawn as one dimmed line. It
+    # stays in the transcript to show what left the machine, and so a local model's slow steps
+    # read as progress, not a stall.
     # 
     #   ToolLine.new(id: 'b2', text: '🔍 Searched: "avocado preservation"', error: false)
     # 

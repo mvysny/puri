@@ -9,7 +9,7 @@ press's start than keep a process around all day.
 ## What each choice costs
 
 - **Without autostart:** the first shortcut press of a session waits for the bus to start Puri:
-  ~1.2 s of Ruby, Bundler and GTK today (`desktop-popup-app/ui-toolkit.md`), plus whatever the
+  ~1.2 s of Ruby, Bundler and GTK today (`R_gtk4_binding_cost`), plus whatever the
   real Core will add: pikuri's agent, the notes index (pikuri-rag), a warm local model. Once
   those land, the first press may take many seconds, not one.
 - **With autostart:** ~116 MB (and later the model's memory, if Core keeps it loaded) for the

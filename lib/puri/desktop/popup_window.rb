@@ -4,16 +4,17 @@ module Puri
   module Desktop
     # The one window. It opens as a pill holding only the entry; the first question expands it
     # at once to a third of the screen's width and 70 % of its height, the conversation over the
-    # entry; the history button widens it by the sidebar of earlier conversations. Hiding it
-    # always brings back an empty pill next time.
+    # entry; it never grows with the text, which looks restless. The history button widens it by
+    # the sidebar of earlier conversations. Hiding it always brings back an empty pill next time.
     #
     #   window = PopupWindow.new(app, client)
     #   window.present
     #
     # Keys: Escape cancels a running turn and hides, except that while a reply streams the first
-    # Escape only stops it; Ctrl+N starts a new conversation, Ctrl+F searches the history, F9
-    # shows or hides it. The header's × hides without cancelling. Losing focus hides only the
-    # empty pill.
+    # Escape only stops it, leaving the partial answer to read; Ctrl+N starts a new conversation,
+    # Ctrl+F searches the history, F9 shows or hides it. The header's × hides without cancelling.
+    # Losing focus hides only the empty pill, so a glance at another window never loses a
+    # running answer.
     class PopupWindow < Adw::ApplicationWindow
       # @return [Float] share of the screen's width the window takes, pill or expanded
       WIDTH = 0.33

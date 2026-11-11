@@ -1,0 +1,69 @@
+# Decisions
+
+Why this project is the way it is and not otherwise — FAQ-shaped: each entry is a question and
+its current answer. Rewrite the answer when it changes; delete the entry when nobody asks any
+more. An entry is earned by what it would cost to reverse — half the code base — or by research
+the next person would otherwise redo (cited as its `R_`). Not an entry: windows → panels
+"because that's the trend", this red over that red, `get_foo` over `is_foo?`, the testing library,
+the CI host, a version bump — a comment at the site of the choice, or nothing; nothing about
+`design/` itself. Cite by slug, `D_<slug>`, never by position; `grep '^## D_' design/decisions.md`
+is the index. The first entry is the ruler: every later one trims to its length — which is how
+long this file gets, so keep it short. When you have written an entry, re-read it against the one
+above, open the doc comments it touches and cut what they already say, then cut the fat.
+
+---
+
+## D_one_process — Why one Ruby process holding both Core and the GTK4 UI, rather than a backend daemon and a UI client?
+
+Something is resident anyway: the agents, the saved conversations, the notes index and the
+reminder timers (the model itself runs in llama-server). And no Ruby UI starts fast enough on the
+hotkey — ~1.2 s (`R_gtk4_binding_cost`) — so the UI stays resident too, hidden rather than
+closed, and a second process would save only a hidden window's memory. The costs we carry: a
+crash in GTK or its binding takes a running turn and the reminder timers down with it; pikuri's
+threads reach GTK only through the main loop; trying a UI change restarts pikuri too. So it is
+drawn as two: Core and Desktop share no constants, and every value crosses as JSON, so a split
+over D-Bus swaps only the connection. Splitting is optional, not a milestone: when those costs
+bite, when a second client appears, or when Desktop leaves Ruby (`D_ruby_gtk4`). Why not
+separate gems to hold the line: `gtk4` comes from apt, on the default load path whatever a
+gemspec says, so gems enforce nothing; a grep spec and a GTK-free load spec do. Packwerk would
+do the grep statically, but apt doesn't ship it.
+
+## D_ruby_gtk4 — Why Ruby + GTK4 for the UI, with Vala as the fallback, rather than Python, the JVM or Flutter?
+
+Ruby lives in Core's process and shares pikuri's code (`D_one_process`). Its measured start and
+memory (`R_gtk4_binding_cost`) count only against an on-demand launch, which a resident process
+never does; every other option adds a second language and IPC from day one to buy back exactly
+those two. GTK4 gives any binding the headless Broadway + Playwright loop. Why not Python: the
+leanest binding measured, but a tier-2 language for the owner and still a binding. Why not
+Flutter: a GTK3 shell from a snap, no Broadway, and its strength, animation, aimed at a window
+whose size Mutter controls. Why not Swing or Compose: XWayland, blurry under fractional scaling,
+and tests on Xvfb. The fallback is the binding, not the numbers: `ruby-gtk4` is far less used
+than PyGObject, so if it segfaults or misbehaves (widgets losing their Ruby object, signals
+misfiring, a main loop starving pikuri's threads) and the cause is the binding, Desktop alone is
+rewritten in Vala as its own process, Protocol over D-Bus, Core still Ruby: `valac` is in apt,
+GTK4, libadwaita and GDBus are first-class, it starts like C, and no binding layer is left to go
+wrong. That is why Desktop only draws — widgets and `BackendClient`, view state only, one plain
+widget class per file, Markdown rendered in Core — so a rewrite has nothing to migrate.
+
+## D_confirmation_answers — Why does a confirmation take four answers, told apart by gesture, rather than buttons alone?
+
+The answer's type carries the meaning, the gesture picks the type, and the model never guesses
+it from text. Update is `Approved`. Cancel is `Rejected`, with no reason: the model carries on
+and stops by itself, saying so, as Siri does; a retry would only ask again, since the
+confirmation is the safety, not the stop, and the other half of a two-part request can still
+happen. Typed text and Enter is `Redirected`: the model follows the words and proposes again,
+which asks again, the way Siri's row stays non-modal (`R_siri_popup`). Escape cancels the turn,
+as it does everywhere. Desktop never decides which: the buttons call `answer`, and typed text
+goes through `ask`, which Core takes as the redirect while a confirmation waits. Why Enter on an
+empty entry does nothing and the buttons never take focus: a stray Enter must never press a red
+button. The three results and their prompt wording are pikuri's `Confirmer` (pikuri#12), not
+ours. The question names everything that matters, which calendar, which note, because Siri's
+unconfirmed create picked the wrong calendar.
+
+## D_app_id — Why `io.github.mvysny.Puri` as the app id?
+
+It names the D-Bus service, the desktop entry, the `.service` file and the command the shortcut
+runs, so it is hard to change once installed. Reverse-DNS on the GitHub repo: Flathub accepts
+`io.github.<user>.*`, verified through `mvysny.github.io`, and no longer accepts new
+`com.github.*` ids. Why not Codeberg's `page.codeberg.*`: its Terms of Use §2.7, a July 2026
+member vote, bar mostly-AI-written projects, and it goes down often.
