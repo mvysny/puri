@@ -329,7 +329,12 @@ subscribes to `BackendClient`'s events itself; no controller.
 
 - `Q_decline_steering`: pikuri-workspace's prompt calls a decline final. Should a decline that
   carries typed steering let the model re-propose and ask again in the same turn, as Siri does?
-  If so, the snippet's wording is an upstream change.
+  Leaning yes, with no new result type: `Rejected(reason:)` is already "steering" by design,
+  and the tool does the same either way (skip the action, report back). Whether "never mind"
+  or "make it Wednesday" was typed is the text's to say, and the model reads it better than a
+  UI could sort it. Upstream change is wording only: a bare decline stays final; one with a
+  reason *is* the guidance, so a new proposal along it is fine, another route to the same
+  declined end still isn't.
 - `Q_user_resize`: does the next popup remember a size the user dragged, or always open at
   33 % × 70 %? Also: can an undecorated GTK4 window be resized from its edges on Mutter, or does
   it need GTK's own CSD resize borders?
