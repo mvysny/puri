@@ -92,6 +92,23 @@ libadwaita 1.9.1.
 - Broadway draws without GL; a native GL or Vulkan renderer adds Mesa's memory on top.
   **[unverified]**
 
+## R_gvl_main_loop — Ruby threads beside the GTK main loop
+
+A pikuri `Agent` (ruby_llm over Faraday) streaming on its own thread from a fake llama-server,
+150 tokens at 50/s after a 2 s silent prefill, each delta re-posted with `GLib::Idle.add`; lag
+from the server's send. `ruby-gtk4` 4.3.4, Ruby 3.3.8, on Broadway.
+
+- An idle main loop releases the GVL while it polls (`glib2.so` calls
+  `rb_thread_call_without_gvl`): token to listener p99 1.2 ms, to the `Idle.add` block 1.4 ms,
+  as fast as with no GTK at all. **[verified 2026-11-11]**
+- Another thread's `Idle.add` wakes that poll at once; no polling timeout is needed. Streaming
+  adds no jitter to a 16 ms main-loop timer (p99 1.1 ms). **[verified 2026-11-11]**
+- Ruby work on either side holds the GVL for up to one time slice, 100 ms: a 15 ms callback
+  delays tokens up to 16 ms, and a 300 ms burst on the worker stalls the main loop up to
+  184 ms. **[verified 2026-11-11]**
+- `Thread#priority = -n` cuts that thread's slice to 100 ms >> n: at −3 the same burst stalls
+  the main loop by at most 24 ms (at −2, 46 ms). **[verified 2026-11-11]**
+
 ## R_gnome_activation — Starting and raising an app from a GNOME shortcut
 
 - On Wayland no app can grab a global key; a custom keybinding in GNOME Settings runs a command

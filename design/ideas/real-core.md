@@ -22,14 +22,14 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 - **Persistence** like pikuri-web's: a directory per conversation under
   `~/.local/state/puri/conversations/`, `history.json` (pikuri's `Agent::History`) and
   `meta.json`.
+- **Threads** that keep the UI smooth: the main loop doesn't starve a turn's thread, but Ruby
+  work on that thread holds the GVL for up to 100 ms (`R_gvl_main_loop`). So a turn runs at
+  `Thread#priority = -3` (a burst stalls the UI by at most ~25 ms), and deltas reach
+  `ReplyRenderer` coalesced through pikuri's `Listener::RateLimited`, as pikuri-tui does at
+  15 fps, so re-rendering never falls behind the stream.
 
 ## Open questions
 
-- `Q_main_loop_threads`: do pikuri's threads, blocked in socket I/O streaming from llama-server,
-  keep running while Ruby-GNOME's main loop sits idle, or does the GVL starve them? First look
-  (2026-11-11, Broadway): `DummyCore`'s thread (`sleep` between words) streamed into the idle
-  window through `GLib::Idle.add` without stalling. A starving main loop is a trigger for the
-  Vala fallback (`D_ruby_gtk4`).
 - `Q_history_store`: lift pikuri-web's conversation store and its `Agents::Titler` into pikuri, or
   copy its on-disk format? (*Conventions* forbid a code copy.) On one local llama-server, does a
   parallel titling call slow the answer, or does it need its own slot or model?
