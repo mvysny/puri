@@ -177,10 +177,11 @@ Flutter: `desktop-popup-app/ui-toolkit.md`, *Ranking*.
 - **No UI starts fast enough on the hotkey**, so the UI stays resident too: hidden, not closed.
   Ruby GTK4's ~1.2 s and ~116 MB (`desktop-popup-app/ui-toolkit.md`) are paid once, at login.
   A second process would save only memory while the UI is hidden.
-- **Started by XDG autostart** (`~/.config/autostart/`), not systemd and not D-Bus activation:
-  GTK in the process needs the graphical session. The hotkey runs the app's own binary, and
-  GApplication hands `activate` to the running instance (*The global shortcut*); if none runs,
-  that launch becomes it.
+- **Started by D-Bus activation** (built, `rake install`): the shortcut runs
+  `gapplication launch io.github.mvysny.Puri`, which activates the running instance or has the
+  session bus start one. Autostart at login is opt-in (`AUTOSTART=1`); whether it should be the
+  default is `autostart-at-login.md`. Unverified natively: that a bus-started Puri gets the
+  graphical session's environment (`WAYLAND_DISPLAY`).
 - **The costs, accepted:** a crash in GTK or its bindings takes a running turn and the reminder
   timers down with it; pikuri's threads reach GTK only through the main loop (`GLib::Idle.add`,
   the GTK twin of Tuile's `event_queue.submit`; `Q_main_loop_threads`); restarting to try a UI
@@ -285,15 +286,18 @@ real (`Q_tui_client`), or when the UI leaves Ruby for Vala (`desktop-popup-app/u
   check).
 - **The "ping the running app" script comes free with GApplication.** A `Gtk::Application` is
   single-instance on the session bus: launching the binary a second time only sends `activate` to
-  the running one and exits. So the GNOME shortcut runs the app's own binary (or
-  `gapplication activate <app-id>`), and no extra script is needed. The app id is reverse-DNS,
+  the running one and exits, after ~1.2 s of Ruby and GTK start. The installed shortcut skips that
+  with `gapplication launch`, a few milliseconds, and the bus starts Puri when none runs; so no
+  extra script is needed. Unverified natively: whether a GNOME custom shortcut hands its command
+  an `XDG_ACTIVATION_TOKEN`, without which the re-shown window may not get keyboard focus.
+  The app id is reverse-DNS,
   also names the D-Bus service, and is hard to change once shortcuts and `.service` files carry
   it. Leaning `io.github.mvysny.Puri`, matching the GitHub repo: Flathub accepts `io.github.<user>.*`
   and verifies it through `mvysny.github.io`, and has stopped accepting new `com.github.*` ids.
   (Codeberg, and with it `page.codeberg.*`, is out: its Terms of Use §2.7, a July 2026 member
   vote, bars mostly-AI-written projects, and it goes down often.) `Q_app_id`.
-- **Super+Space is taken** (GNOME: switch input source). Super alone opens the Activities
-  overview. `Q_hotkey`.
+- **The hotkey is Super+Space**, taken from GNOME's layout switcher, which `rake install` moves to
+  Super+Alt+Space (README). `Q_copilot_key`.
 
 ## Wayland will fight the Spotlight look
 
@@ -352,7 +356,8 @@ subscribes to `BackendClient`'s events itself; no controller.
 - `Q_history_store`: lift pikuri-web's conversation store and its `Agents::Titler` into pikuri, or
   copy its on-disk format? (*Conventions* forbid a code copy.) On one local llama-server, does a
   parallel titling call slow the answer, or does it need its own slot or model?
-- `Q_hotkey`: which default shortcut? Super+Space is taken; Alt+Space opens the window menu.
+- `Q_copilot_key`: besides Super+Space (README), also bind the Copilot key (Shift+Super+F23)
+  where a keyboard has one, the one key that already means "assistant"?
 - `Q_placement`: is Mutter's centering good enough, or does the popup need the GNOME Shell
   extension route (which can place windows, but is JavaScript and per-GNOME-version)?
 - `Q_markdown`: TextView with tags, or Label with Pango markup? Where does the shared streaming

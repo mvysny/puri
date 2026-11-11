@@ -56,6 +56,7 @@ Every fact lives in exactly one of these; the others link to it.
 - CI: `.github/workflows/ci.yml` runs the gate in `ubuntu:26.04` on apt's Ruby, then fails on a `sig/` diff.
 - `bundle lock --add-checksums` — after any Gemfile change, or CI's frozen bundle rejects the lockfile.
 - `ADW_DISABLE_PORTAL=1 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 exe/puri` — the app on Broadway; natively just `exe/puri`.
+- `bundle exec rake install` / `uninstall` — the per-user D-Bus activation and the global shortcut (`HOTKEY`, `AUTOSTART=1`; README); `spec/install_spec.rb` runs it against a scratch home.
 - GTK specs start their own `gtk4-broadwayd` on `:90`–`:99` unless `GDK_BACKEND` is set.
 - `design/verify_design_tripwires.sh` — the doc-layer tripwire.
 

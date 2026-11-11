@@ -23,9 +23,16 @@ core = Puri::Core::DummyCore.new { |event| client.deliver(Puri::Protocol.round_t
 client = Puri::Desktop::BackendClient.new { |command| core.handle(Puri::Protocol.round_trip(command)) }
 
 # Single-instance on the session bus: a second launch only activates this one, which is how the
-# global shortcut will bring the window back.
+# global shortcut brings the window back.
 app = Adw::Application.new('io.github.mvysny.Puri', :default_flags)
 app.signal_connect('activate') do |a|
   (a.active_window || Puri::Desktop::PopupWindow.new(a, client)).present
 end
-exit app.run([])
+# Resident: a hidden window, or none yet, never lets the process exit.
+app.signal_connect('startup', &:hold)
+
+# GLib's `--gapplication-service` starts it without a window: the D-Bus activation and autostart
+# files `rake install` writes pass it. Any other argument is dropped, or GApplication would take
+# it for a file to open and never activate.
+argv = ARGV.include?('--gapplication-service') ? ['--gapplication-service'] : []
+exit app.run([$PROGRAM_NAME, *argv])

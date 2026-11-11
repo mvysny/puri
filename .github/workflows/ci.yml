@@ -20,12 +20,16 @@ jobs:
       # git before checkout, or checkout falls back to a tarball and `git diff` has no repo.
       # ruby-dev and build-essential compile the bundle's C extensions (prism, redcarpet, …).
       # libgtk-4-bin brings gtk4-broadwayd, the display the GTK specs start for themselves.
+      # The install spec runs a private session bus, gapplication, gsettings over GNOME's
+      # keybinding schemas, and desktop-file-validate.
       - name: Install the apt stack
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             ruby ruby-bundler ruby-dev build-essential \
             ruby-gtk4 gir1.2-adw-1 libgtk-4-bin \
+            dbus-daemon libglib2.0-bin desktop-file-utils \
+            gsettings-desktop-schemas gnome-settings-daemon-common \
             git ca-certificates
       - uses: actions/checkout@v7
       # The container runs as root over a checkout the runner's user owns.
