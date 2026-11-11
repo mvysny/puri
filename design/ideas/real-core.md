@@ -32,5 +32,3 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 
 - `Q_titler`: on one local llama-server, does a parallel titling call slow the answer, or does it
   need its own slot or model?
-- `Q_markdown`: pikuri-tui renders Markdown to ANSI, pikuri-web to HTML, `Core::ReplyRenderer` to
-  Pango; does the parsing half move upstream, with a renderer per target?

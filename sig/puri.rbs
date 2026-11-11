@@ -288,6 +288,8 @@ module Puri
 
     # The model's Markdown as {Protocol::Reply} parts: prose as Pango markup, code blocks and
     # tables as parts of their own. pikuri-web's MarkdownRenderer with Pango for HTML.
+    # Not in pikuri, which stays Markdown-free: kramdown already is the shared parser, and the
+    # converter is per target.
     # 
     #   ReplyRenderer.render("Keep it **cold**:\n\n- fridge\n- freezer")
     #   # => [Prose(markup: "Keep it <b>cold</b>:\n\n• fridge\n• freezer")]
