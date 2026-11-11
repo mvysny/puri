@@ -55,8 +55,9 @@ waits on the owner's Mac. Screenshots, linked rather than copied into the repo:
   button). A card: time or date (a pin glyph if pinned), a bold title, then the preview lines,
   which come from the **latest reply**, not the first. An image from the reply becomes a
   thumbnail. The selected card has a blue outline. Newest first, pinned on top.
-- **Titles are generated after the fact:** a fresh conversation shows as "New Conversation",
-  later renamed by content ("Avocado Preservation"). When exactly is [unverified].
+- **Titles are generated after the fact:** a second after Return, "New Conversation" appears in
+  the app; about when the answer is ready, it's renamed by content ("Avocado Preservation")
+  (owner, 2026-11-11). Probably from the question alone [unverified].
 - **The transcript:** the user's message is a right-aligned grey bubble; the reply is unbubbled
   full-width rich text: headings, bullets, bold, tables, inline images with captions. Each
   paragraph ends in a **source chip** ("sunwarrior.com +2"). Under the last reply: share and `⋯`
@@ -114,7 +115,10 @@ waits on the owner's Mac. Screenshots, linked rather than copied into the repo:
    another app, a button (top-right, or a shortcut) widens the window to the left and reveals a
    sidebar of earlier conversations, pikuri-web style: newest first, ordered by start time, a
    `●` on one whose turn is still running, click to load it into the right pane. A second click
-   on the button narrows the window back. Siri's app shortcuts work everywhere here, since the
+   on the button narrows the window back. **Titles as in Siri and pikuri-web:** "New
+   conversation" at once, then Core renames it from the opening question alone, in parallel
+   with the answer, on a separate small model (pikuri-web's `Agents::Titler`, which belongs
+   upstream with the store, `Q_history_store`). Siri's app shortcuts work everywhere here, since the
    popup *is* the app: **Ctrl-N** a new conversation, **Ctrl-F** opens the sidebar on its search,
    **Delete** on a selected conversation asks to delete it (in an entry, Delete stays a text key).
 5. **Hidden, not closed.** The process stays alive between popups, so the next one is instant.
@@ -184,7 +188,7 @@ sides.
 - **Protocol is the D-Bus API, already.** Commands `Ask(conversation, text)`,
   `Cancel(conversation)`, `Answer(confirmation, choice)`, `ListConversations()`,
   `LoadConversation(id)`; events `TurnStarted`, `TextDelta`, `ToolLine`, `ConfirmRequested`,
-  `TurnFinished`. It is pikuri's event stream, serialized: pikuri-web (Sinatra plus one SSE
+  `TurnFinished`, `ConversationsChanged` (a new one, a title landed). It is pikuri's event stream, serialized: pikuri-web (Sinatra plus one SSE
   stream) is the existing proof that a pikuri agent drives a remote UI.
 - **Markdown is parsed in Core** and crosses as blocks; Desktop only draws them. Even the Ruby UI
   never calls pikuri's parser, so a UI in another language draws the same blocks (`Q_markdown`).
@@ -318,7 +322,9 @@ subscribes to `BackendClient`'s events itself; no controller.
   milestone 1 tests: a dummy Core streaming from a plain Ruby thread is exactly this case.
 - `Q_dbus_binding`: only once it splits. GDBus via `ruby-gio2`, or `ruby-dbus`? Does Core want
   GLib at all?
-- `Q_history_store`: lift pikuri-web's conversation store into pikuri, or copy its on-disk format?
+- `Q_history_store`: lift pikuri-web's conversation store and its `Agents::Titler` into pikuri, or
+  copy its on-disk format? (*Conventions* forbid a code copy.) On one local llama-server, does a
+  parallel titling call slow the answer, or does it need its own slot or model?
 - `Q_hotkey`: which default shortcut? Super+Space is taken; Alt+Space opens the window menu.
 - `Q_placement`: is Mutter's centering good enough, or does the popup need the GNOME Shell
   extension route (which can place windows, but is JavaScript and per-GNOME-version)?
