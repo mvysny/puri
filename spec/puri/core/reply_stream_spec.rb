@@ -47,6 +47,23 @@ RSpec.describe Puri::Core::ReplyStream do
     assert_equal [p::Prose.new(markup: "Keep it <b>cold</b>.\n\nOr freeze it.")], stream.finish
   end
 
+  it 'resolves a reference link a block from its definition only at the end' do
+    stream = described_class.new
+    parts = nil
+    "See [the docs][1].\n\nMore.\n\n[1]: https://example.com\n".scan(/\s*\S+/).each { parts = stream.append(_1) }
+    assert_equal [p::Prose.new(markup: "See [the docs][1].\n\nMore.")], Puri::Core::ReplyRenderer.merge(parts)
+    assert_equal [p::Prose.new(markup: "See the docs.\n\nMore.")], stream.finish
+  end
+
+  it "lists the footnotes' text only at the end" do
+    stream = described_class.new
+    parts = nil
+    "Ripe[^1].\n\n[^1]: USDA.\n\nMore.\n".scan(/\s*\S+/).each { parts = stream.append(_1) }
+    assert_equal [p::Prose.new(markup: "Ripe<sup>1</sup>.\n\nMore.")], Puri::Core::ReplyRenderer.merge(parts)
+    rule = Puri::Core::ReplyRenderer::RULE
+    assert_equal [p::Prose.new(markup: "Ripe<sup>1</sup>.\n\nMore.\n\n#{rule}\n<sup>1</sup> USDA.")], stream.finish
+  end
+
   it 'takes a different final text over the streamed one' do
     stream = described_class.new
     stream.append("Old.\n\nText.\n")

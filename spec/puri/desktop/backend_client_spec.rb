@@ -8,6 +8,8 @@ RSpec.describe 'Puri::Desktop::BackendClient' do
   let(:core) { Puri::Core::DummyCore.new(think: 0, pace: 0, title_delay: 0) { |event| client.deliver(event) } }
   let(:client) { Puri::Desktop::BackendClient.new(core) }
 
+  after { core.close }
+
   it 'implements every Backend method' do
     p::Backend.instance_methods.each do |name|
       refute_equal p::Backend, Puri::Desktop::BackendClient.instance_method(name).owner, "#{name} is not implemented"

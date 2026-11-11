@@ -28,6 +28,7 @@ module Puri
     #   core = DummyCore.new { |event| client.deliver(event) }   # called on any thread
     #   id = core.ask(nil, 'search for avocado tips')
     #   core.load_conversation(id).blocks   # => [UserMessage, …] so far
+    #   core.close                           # kills the turns and titles still running
     # 
     # `seed: true` starts it with a few earlier conversations, so the history isn't empty.
     # 
@@ -84,6 +85,10 @@ module Puri
       # 
       # _@param_ `conversation`
       def delete_conversation: (String conversation) -> void
+
+      # Kills every thread a turn or a title runs on, and waits until they're gone. A turn killed
+      # may start the message that waited for it, on a new thread: that one goes too.
+      def close: () -> void
 
       # _@param_ `id`
       def fetch: (String id) -> Puri::Core::DummyConversation
@@ -294,8 +299,10 @@ module Puri
     #   stream.append("eze it.\n")                     # => [Prose("Keep it <b>cold</b>."), Prose("Or freeze it.")]
     #   stream.finish                                   # => [Prose("Keep it <b>cold</b>.\n\nOr freeze it.")]
     # 
-    # {#finish} equals {ReplyRenderer.render} of the whole text; until then, {ReplyRenderer.merge}
-    # of the parts equals it for the text so far.
+    # {#finish} is {ReplyRenderer.render} of the whole text; until then, {ReplyRenderer.merge} of
+    # the parts equals it for the text so far, except that a reference link or footnote whose
+    # definition is a block away stays literal (the gem's README, *When is a block finished?*),
+    # and the footnotes' text waits for the end ({ReplyRenderer.footnotes}).
     # 
     # == Implementation details
     # 
@@ -311,6 +318,8 @@ module Puri
       # _@param_ `delta`
       def append: (String delta) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
 
+      # Renders the whole reply once more, as only the whole text resolves every reference.
+      # 
       # _@param_ `final` — the reply's final text, nil for the deltas as they came
       def finish: (?String? final) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
 
@@ -321,8 +330,6 @@ module Puri
 
       # _@param_ `root`
       def on_open: (Kramdown::Element root) -> void
-
-      def on_reset: () -> void
     end
 
     # The model's Markdown as {Protocol::Reply} parts: prose as Pango markup, code blocks and
@@ -338,9 +345,15 @@ module Puri
     # 
     # Links are plain text and images only their alt text: a model-chosen URL is egress
     # (`design/ideas/trifecta-and-tools.md`, *Links in the reply*).
+    # 
+    # A footnote keeps the model's label as its marker, and the notes close the reply:
+    # 
+    #   ReplyRenderer.render("Ripe in days[^1].\n\n[^1]: USDA, 2024.")
+    #   # => [Prose(markup: "Ripe in days<sup>1</sup>.\n\n<span alpha=\"40%">―――</span>\n<sup>1</sup> USDA, 2024.")]
     module ReplyRenderer
       OPTIONS: ::Hash[Symbol, Object]
       SYMBOLS: ::Hash[Symbol, String]
+      RULE: String
       QUOTES: ::Hash[Symbol, String]
       HTML: ::Hash[String, String]
 
@@ -350,14 +363,46 @@ module Puri
       # _@param_ `markdown`
       def self.render: (String markdown) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
 
-      # A part per top-level block, prose not yet merged.
+      # The footnotes' text under a rule, each by its marker, in the order first cited. Not part of
+      # {.parts}: a block alone can't tell which footnotes the whole reply cites.
       # 
       # _@param_ `root`
+      # 
+      # _@return_ — one part, or none for a reply without footnotes
+      def footnotes: (Kramdown::Element root) -> ::Array[Puri::Protocol::Prose]
+
+      # The footnotes' text under a rule, each by its marker, in the order first cited. Not part of
+      # {.parts}: a block alone can't tell which footnotes the whole reply cites.
+      # 
+      # _@param_ `root`
+      # 
+      # _@return_ — one part, or none for a reply without footnotes
+      def self.footnotes: (Kramdown::Element root) -> ::Array[Puri::Protocol::Prose]
+
+      # _@param_ `node`
+      # 
+      # _@return_ — every `:footnote` under `node`, in reading order
+      def cited: (Kramdown::Element node) -> ::Array[Kramdown::Element]
+
+      # _@param_ `node`
+      # 
+      # _@return_ — every `:footnote` under `node`, in reading order
+      def self.cited: (Kramdown::Element node) -> ::Array[Kramdown::Element]
+
+      # _@param_ `node` — a `:footnote`
+      def marker: (Kramdown::Element node) -> String
+
+      # _@param_ `node` — a `:footnote`
+      def self.marker: (Kramdown::Element node) -> String
+
+      # A part per top-level block, prose not yet merged.
+      # 
+      # _@param_ `root` — from {StreamingMarkdownParser}, blank lines dropped
       def parts: (Kramdown::Element root) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
 
       # A part per top-level block, prose not yet merged.
       # 
-      # _@param_ `root`
+      # _@param_ `root` — from {StreamingMarkdownParser}, blank lines dropped
       def self.parts: (Kramdown::Element root) -> ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)]
 
       # _@param_ `parts`
@@ -466,6 +511,8 @@ module Puri
       # 
       # _@param_ `changed` — called when {#summary} changed
       # 
+      # _@param_ `threads` — {DummyCore}'s, which takes each turn's thread
+      # 
       # _@param_ `think` — see {DummyTurn#initialize}
       # 
       # _@param_ `pace` — see {DummyTurn#initialize}
@@ -476,6 +523,7 @@ module Puri
                         lock: Monitor,
                         emit: Proc,
                         changed: Proc,
+                        threads: ThreadGroup,
                         think: Float,
                         pace: Float,
                         ?started_at: Time

@@ -20,13 +20,21 @@ module Puri
     #
     # Links are plain text and images only their alt text: a model-chosen URL is egress
     # (`design/ideas/trifecta-and-tools.md`, *Links in the reply*).
+    #
+    # A footnote keeps the model's label as its marker, and the notes close the reply:
+    #
+    #   ReplyRenderer.render("Ripe in days[^1].\n\n[^1]: USDA, 2024.")
+    #   # => [Prose(markup: "Ripe in days<sup>1</sup>.\n\n<span alpha=\"40%">―――</span>\n<sup>1</sup> USDA, 2024.")]
     module ReplyRenderer
-      # @return [Hash{Symbol => Object}] GFM input; LLM paragraphs reflow, so no hard wraps
-      OPTIONS = { input: 'GFM', hard_wrap: false, smart_quotes: %w[lsquo rsquo ldquo rdquo] }.freeze
+      # @return [Hash{Symbol => Object}] over the gem's GFM and no hard wraps, as LLM paragraphs reflow
+      OPTIONS = { smart_quotes: %w[lsquo rsquo ldquo rdquo] }.freeze
 
       # @return [Hash{Symbol => String}] kramdown's typographic symbols
       SYMBOLS = { hellip: '…', mdash: '—', ndash: '–', laquo: '«', raquo: '»',
                   laquo_space: '« ', raquo_space: ' »' }.freeze
+
+      # @return [String] a horizontal rule, in Pango markup
+      RULE = '<span alpha="40%">―――</span>'
 
       # @return [Hash{Symbol => String}]
       QUOTES = { lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”' }.freeze
@@ -36,20 +44,43 @@ module Puri
       # @param markdown [String]
       # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
       def render(markdown)
-        source = StreamingMarkdownParser::Repair.call(markdown.to_s)
-        merge(parts(Kramdown::Document.new(source, **OPTIONS).root))
+        root = StreamingMarkdownParser.parse(markdown.to_s, **OPTIONS)
+        merge(parts(root) + footnotes(root))
       end
+
+      # The footnotes' text under a rule, each by its marker, in the order first cited. Not part of
+      # {.parts}: a block alone can't tell which footnotes the whole reply cites.
+      #
+      # @param root [Kramdown::Element]
+      # @return [Array<Puri::Protocol::Prose>] one part, or none for a reply without footnotes
+      def footnotes(root)
+        notes = cited(root).uniq { _1.options[:name] }
+        return [] if notes.empty?
+
+        lines = notes.map do |note|
+          text = note.value.children.map { block(_1, 0) }.reject(&:empty?).join("\n")
+          "#{marker(note)} #{text}"
+        end
+        [Protocol::Prose.new(markup: [RULE, *lines].join("\n"))]
+      end
+
+      # @param node [Kramdown::Element]
+      # @return [Array<Kramdown::Element>] every `:footnote` under `node`, in reading order
+      def cited(node) = node.children.flat_map { _1.type == :footnote ? [_1] : cited(_1) }
+
+      # @param node [Kramdown::Element] a `:footnote`
+      # @return [String]
+      def marker(node) = "<sup>#{escape(node.options[:name])}</sup>"
 
       # A part per top-level block, prose not yet merged.
       #
-      # @param root [Kramdown::Element]
+      # @param root [Kramdown::Element] from {StreamingMarkdownParser}, blank lines dropped
       # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
       def parts(root)
         root.children.filter_map do |node|
           case node.type
           when :codeblock then Protocol::Code.new(text: node.value.to_s.chomp)
           when :table then table(node)
-          when :blank then nil
           else
             markup = block(node, 0)
             Protocol::Prose.new(markup:) unless markup.empty?
@@ -77,7 +108,7 @@ module Puri
         when :blockquote
           node.children.map { block(_1, depth) }.reject(&:empty?).map { "<i>▎ #{_1}</i>" }.join("\n")
         when :codeblock then "<tt>#{escape(node.value.to_s.chomp)}</tt>"
-        when :hr then '<span alpha="40%">―――</span>'
+        when :hr then RULE
         when :blank then ''
         when :table then table(node).rows.map { _1.join(' · ') }.join("\n")
         else inline(node)
@@ -132,6 +163,7 @@ module Puri
         when :del then "<s>#{inline(node)}</s>"
         when :br then "\n"
         when :a then inline(node)
+        when :footnote then marker(node)
         when :img then node.attr['alt'].to_s.empty? ? '' : "[#{escape(node.attr['alt'])}]"
         when :smart_quote then QUOTES.fetch(node.value, '"')
         when :typographic_sym then SYMBOLS.fetch(node.value, '')

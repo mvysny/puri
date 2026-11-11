@@ -7,6 +7,8 @@ RSpec.describe 'Puri::Desktop::HistorySidebar' do
   let(:client) { Puri::Desktop::BackendClient.new(core) }
   let(:sidebar) { Puri::Desktop::HistorySidebar.new(client) }
 
+  after { core.close }
+
   it 'lists every conversation, newest first' do
     assert_equal(['When is the dentist', 'What is on my shopping note', 'How do I keep an avocado'],
                  sidebar.rows.map { _1.summary.title })

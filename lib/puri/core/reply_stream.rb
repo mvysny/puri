@@ -12,8 +12,10 @@ module Puri
     #   stream.append("eze it.\n")                     # => [Prose("Keep it <b>cold</b>."), Prose("Or freeze it.")]
     #   stream.finish                                   # => [Prose("Keep it <b>cold</b>.\n\nOr freeze it.")]
     #
-    # {#finish} equals {ReplyRenderer.render} of the whole text; until then, {ReplyRenderer.merge}
-    # of the parts equals it for the text so far.
+    # {#finish} is {ReplyRenderer.render} of the whole text; until then, {ReplyRenderer.merge} of
+    # the parts equals it for the text so far, except that a reference link or footnote whose
+    # definition is a block away stays literal (the gem's README, *When is a block finished?*),
+    # and the footnotes' text waits for the end ({ReplyRenderer.footnotes}).
     #
     # == Implementation details
     #
@@ -26,6 +28,7 @@ module Puri
 
       def initialize
         @parser = StreamingMarkdownParser.new(self, **ReplyRenderer::OPTIONS)
+        @text = +''
         @done = []
         @open = []
       end
@@ -33,15 +36,17 @@ module Puri
       # @param delta [String]
       # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
       def append(delta)
+        @text << delta.to_s
         @parser.append(delta)
         parts
       end
 
+      # Renders the whole reply once more, as only the whole text resolves every reference.
+      #
       # @param final [String, nil] the reply's final text, nil for the deltas as they came
       # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
       def finish(final = nil)
-        @parser.finish(final)
-        ReplyRenderer.merge(@done + @open)
+        ReplyRenderer.render(final || @text)
       end
 
       # @return [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>]
@@ -56,9 +61,6 @@ module Puri
       def on_open(root)
         @open = ReplyRenderer.parts(root)
       end
-
-      # @return [void]
-      def on_reset = @done.clear
     end
   end
 end

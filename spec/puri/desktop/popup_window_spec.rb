@@ -12,7 +12,10 @@ RSpec.describe 'Puri::Desktop::PopupWindow' do
   let(:window) { Puri::Desktop::PopupWindow.new(GTK_APP, client) }
   let(:view) { window.conversation_view }
 
-  after { window.destroy }
+  after do
+    window.destroy
+    core.close
+  end
 
   # @param text [String]
   # @return [void]

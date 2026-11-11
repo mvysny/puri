@@ -42,6 +42,19 @@ RSpec.describe Puri::Core::ReplyRenderer do
     assert_equal 'see docs and [chart]', prose('see [docs](https://evil.example/?d=1) and ![chart](https://evil.example/x.png)')
   end
 
+  it "marks a footnote with the model's label and lists the notes at the end, in citing order" do
+    rule = Puri::Core::ReplyRenderer::RULE
+    assert_equal "Fridges<sup>b</sup> help<sup>a</sup>.\n\nCold<sup>b</sup>.\n\n" \
+                 "#{rule}\n<sup>b</sup> USDA, <i>2024</i>.\n<sup>a</sup> FDA.",
+                 prose("Fridges[^b] help[^a].\n\nCold[^b].\n\n[^a]: FDA.\n[^b]: USDA, _2024_.\n")
+  end
+
+  it 'closes the reply with the notes even after a code block' do
+    parts = described_class.render("See[^1]:\n\n```\nx\n```\n\n[^1]: Here.\n")
+    assert_equal [p::Prose.new(markup: 'See<sup>1</sup>:'), p::Code.new(text: 'x'),
+                  p::Prose.new(markup: "#{Puri::Core::ReplyRenderer::RULE}\n<sup>1</sup> Here.")], parts
+  end
+
   it 'shows unfinished Markdown as it stands, so a stream renders at every word' do
     assert_equal 'half **bol', prose('half **bol')
     assert_empty described_class.render('')

@@ -6,6 +6,11 @@ require_relative 'support/broadway'
 # registered application for windows to belong to. Specs drive the widget tree directly and spin
 # the main loop with {GtkHelpers#wait_until}; no browser is attached, so nothing is painted.
 Broadway.start
+# ruby-gnome 4.3.4 runs a signal handler inside the GC when freeing a widget's wrapper disposes the
+# widget (`row-selected` from a dropped HistorySidebar's ListBox): Ruby aborts with `[BUG] object
+# allocation during garbage collection phase`. Specs drop a window per example; the app never does.
+# https://github.com/ruby-gnome/ruby-gnome/issues/1754
+GC.disable
 Puri.require_gtk
 Puri::LOADER.eager_load
 

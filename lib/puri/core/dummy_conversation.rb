@@ -22,14 +22,16 @@ module Puri
       # @param lock [Monitor] {DummyCore}'s
       # @param emit [Proc] takes a {Protocol} event
       # @param changed [Proc] called when {#summary} changed
+      # @param threads [ThreadGroup] {DummyCore}'s, which takes each turn's thread
       # @param think [Float] see {DummyTurn#initialize}
       # @param pace [Float] see {DummyTurn#initialize}
       # @param started_at [Time]
-      def initialize(id:, lock:, emit:, changed:, think:, pace:, started_at: Time.now)
+      def initialize(id:, lock:, emit:, changed:, threads:, think:, pace:, started_at: Time.now)
         @id = id
         @lock = lock
         @emit = emit
         @changed = changed
+        @threads = threads
         @think = think
         @pace = pace
         @started_at = started_at
@@ -178,7 +180,7 @@ module Puri
         turn = DummyTurn.new(self, lock: @lock, think: @think, pace: @pace)
         @turn = turn
         self.activity = Protocol::Activity.new(state: 'working', status: 'Thinking…')
-        Thread.new { turn.run(text) }
+        @threads.add(Thread.new { turn.run(text) })
       end
     end
   end

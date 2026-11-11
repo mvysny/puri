@@ -12,6 +12,7 @@ module Puri
     #   core = DummyCore.new { |event| client.deliver(event) }   # called on any thread
     #   id = core.ask(nil, 'search for avocado tips')
     #   core.load_conversation(id).blocks   # => [UserMessage, …] so far
+    #   core.close                           # kills the turns and titles still running
     #
     # `seed: true` starts it with a few earlier conversations, so the history isn't empty.
     #
@@ -33,6 +34,7 @@ module Puri
         @title_delay = title_delay
         @lock = Monitor.new
         @conversations = {}
+        @threads = ThreadGroup.new
         # Silent while seeding: whoever listens may not exist before this returns.
         @listener = ->(_) {}
         seed_history if seed
@@ -71,6 +73,16 @@ module Puri
         end
       end
 
+      # Kills every thread a turn or a title runs on, and waits until they're gone. A turn killed
+      # may start the message that waited for it, on a new thread: that one goes too.
+      #
+      # @return [void]
+      def close
+        until (threads = @threads.list).empty?
+          threads.each(&:kill).each(&:join)
+        end
+      end
+
       private
 
       # @param id [String]
@@ -87,14 +99,14 @@ module Puri
         conversation = DummyConversation.new(id: SecureRandom.uuid, lock: @lock, emit: lambda { |event|
           @listener.call(event)
         },
-                                             changed: -> { publish }, think: @think, pace: @pace,
-                                             started_at:)
+                                             changed: -> { publish }, threads: @threads, think: @think,
+                                             pace: @pace, started_at:)
         @conversations[conversation.id] = conversation
         publish
-        Thread.new do
+        @threads.add(Thread.new do
           sleep @title_delay
           @lock.synchronize { conversation.title = DummyScript.title(text) if @conversations.key?(conversation.id) }
-        end
+        end)
         conversation
       end
 

@@ -17,7 +17,7 @@ GIT
 
 GIT
   remote: https://github.com/mvysny/streaming-markdown-parser.git
-  revision: ab75aa6f24e147605d1d83601a0b0bf9ad6560d1
+  revision: ff6b36c21270c741fc6fb88465f18723bfb3bf7d
   branch: master
   specs:
     streaming-markdown-parser (0.1.0)

@@ -6,6 +6,7 @@ RSpec.describe Puri::Core::DummyCore do
   let(:events) { Thread::Queue.new }
   let(:pace) { 0 }
   let(:core) { described_class.new(think: 0, pace:, title_delay: 0) { |event| events << p.round_trip(event) } }
+  after { core.close }
 
   # Waits for Core's threads, the way a UI waits for events.
   #
@@ -151,6 +152,16 @@ RSpec.describe Puri::Core::DummyCore do
     assert_includes notice.text, 'llama-server'
   end
 
+  it 'kills its running turns on close, and the message that waited for one' do
+    core = described_class.new(think: 5, title_delay: 5) { |_| nil }
+    before = Thread.list
+    id = core.ask(nil, 'hi')
+    core.ask(id, 'and then?')
+    refute_empty Thread.list - before
+    core.close
+    assert_empty Thread.list - before
+  end
+
   it 'deletes a conversation' do
     id = core.ask(nil, 'hi')
     finished(id)
@@ -161,7 +172,9 @@ RSpec.describe Puri::Core::DummyCore do
   end
 
   it 'starts with earlier conversations when seeded, newest first' do
-    seeded = described_class.new(seed: true) { |_| nil }.list_conversations
+    core = described_class.new(seed: true) { |_| nil }
+    seeded = core.list_conversations
+    core.close
     assert_equal ['When is the dentist', 'What is on my shopping note', 'How do I keep an avocado'], seeded.map(&:title)
     refute(seeded.any?(&:running))
     assert_equal 'when is the dentist?', seeded.first.last_question
