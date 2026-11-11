@@ -19,7 +19,9 @@ reply is final, and which part is still open.
 ## The gem
 
 Target-agnostic, on kramdown alone: the block cutter and the LLM repairs, nothing that draws.
-Each app keeps its converter (ANSI, HTML, Pango).
+Each app keeps its converter (ANSI, HTML, Pango). A repo of its own, not a gem in pikuri's
+monorepo: pikuri stays free to decide anything about Markdown, even to parse only whole messages,
+without the gem having to follow.
 
 ```ruby
 stream = StreamingMarkdown.new(options: { input: 'GFM', hard_wrap: false })
@@ -34,8 +36,6 @@ and never changes, so only the open part's `BlockChanged` repeats.
 
 ## Open questions
 
-- `Q_gem_home`: its own repo on Codeberg, or a gem in pikuri's monorepo that pikuri-core never
-  depends on?
 - `Q_gem_api`: does it yield kramdown elements (each app converts a tree) or source slices (each
   app parses again)? Elements save a parse, while slices keep the gem's surface tiny.
 - `Q_gem_first`: extract it from pikuri-tui, where it is proven, and let Puri adopt it, or grow
