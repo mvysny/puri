@@ -164,8 +164,8 @@ poison auto-extracted memory, and a file keeps every change visible, confirmed a
 argument holds doubly here, since this app reads mail all day.
 
 But the subject differs: `MACHINE.md` is about the host; this file is about the user (people,
-preferences like "no meetings before 10", routines). So a separate file, named after the app (it
-was `SECRETARY_NOTES.md`; waits on `name.md`). Each federation member keeps its own memory.
+preferences like "no meetings before 10", routines). So a separate file, named after the app (say
+`PURI.md`; it was `SECRETARY_NOTES.md`). Each federation member keeps its own memory.
 
 Missing upstream: `MachineMemory`'s prompt section is hard-wired to "Notes about this machine", so a
 subject-neutral primitive is needed; and a write path confined to that one file, confirmed with a

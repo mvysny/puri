@@ -66,7 +66,7 @@ Nothing decided. The facts to start from:
   mature native fallback, Go's gotk4 usable, Kotlin/Native's thin. Swapping the UI must not touch
   the daemon.
 - **Conversations persist like pikuri-web's**: a directory per conversation under
-  `~/.local/state/<name>/conversations/` with `history.json` (pikuri's `Agent::History`) and
+  `~/.local/state/puri/conversations/` with `history.json` (pikuri's `Agent::History`) and
   `meta.json`. Can pikuri-web's persistence move upstream into pikuri so both use one? `Q_history_store`.
 
 ## The global shortcut
@@ -77,8 +77,12 @@ Nothing decided. The facts to start from:
 - **The "ping the running app" script comes free with GApplication.** A `Gtk::Application` is
   single-instance on the session bus: launching the binary a second time only sends `activate` to
   the running one and exits. So the GNOME shortcut runs the app's own binary (or
-  `gapplication activate <app-id>`), and no extra script is needed. The app id is reverse-DNS
-  and hard to change once shortcuts and `.service` files carry it, so it waits on `name.md`.
+  `gapplication activate <app-id>`), and no extra script is needed. The app id is reverse-DNS,
+  also names the D-Bus service, and is hard to change once shortcuts and `.service` files carry
+  it. Leaning `io.github.mvysny.Puri`, matching the GitHub repo: Flathub accepts `io.github.<user>.*`
+  and verifies it through `mvysny.github.io`, and has stopped accepting new `com.github.*` ids.
+  (Codeberg, and with it `page.codeberg.*`, is out: its Terms of Use §2.7, a July 2026 member
+  vote, bars mostly-AI-written projects, and it goes down often.) `Q_app_id`.
 - **Super+Space is taken** (GNOME: switch input source). Super alone opens the Activities
   overview. `Q_hotkey`.
 

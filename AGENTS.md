@@ -1,4 +1,4 @@
-# pikuri-seci — AGENTS.md
+# Puri — AGENTS.md
 
 ## What this is
 
