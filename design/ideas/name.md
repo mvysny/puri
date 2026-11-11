@@ -17,6 +17,13 @@ and renaming them later strands users' shortcuts and saved conversations.
 
 ## Candidates
 
+- **Puri.** The owner's pick: whimsical, short, needn't mean anything. It's *pikuri* with the
+  middle dropped, so the family shows without a prefix, and it rhymes with Siri and Kuri while
+  leaving the mascot a mascot. "Ask Puri" says cleanly where "ask Kuri" runs /sk/ into /k/.
+  Meanings elsewhere are all harmless: a fried Indian bread, a city in Odisha, "palace" in
+  Indonesian/Balinese, "honour" in Tagalog, "bit" (past tense) in Finnish. No apt package or
+  command of that name here (checked 2026-11-11). Repo `puri`; `pikuri-puri` stutters like
+  `pikuri-kuri`.
 - **Kuri.** The mascot's name, and it rhymes with Siri. "Ask Kuri." Repo `pikuri-kuri` (silly) or
   plain `kuri`; binary `kuri`. Cons: it makes the mascot a product; *kuri* is Japanese for
   chestnut; Kuri was also a 2017 home robot (Mayfield Robotics, discontinued). No apt package or
@@ -30,12 +37,15 @@ and renaming them later strands users' shortcuts and saved conversations.
 - **Talus.** The rockslide pikas live in. Nice-sounding, opaque.
 - **Secretary / Seci.** Keep it. Cons: as above.
 
-Leaning: **Kuri** for the app, in a repo named `kuri` whose README opens "on pikuri" —
-`pikuri-kuri` stutters. See `Q_repo_name`.
+Leaning: **Puri** for the app, in a repo named `puri` whose README opens "on pikuri". See
+`Q_repo_name`.
 
 ## Open questions
 
-- `Q_app_name`: Kuri, Pikuri Desktop, or another?
+- `Q_app_name`: Puri, unless saying it aloud for a week turns up a reason not to.
 - `Q_repo_name`: `pikuri-<name>` for the family, or the bare name?
-- `Q_app_id`: the reverse-DNS GApplication id — a domain the owner controls
-  (`io.github.mvysny.*`? `org.codeberg.mvysny.*`?), which also names the D-Bus service.
+- `Q_app_id`: the reverse-DNS GApplication id, which also names the D-Bus service. Leaning
+  `io.github.mvysny.Puri`, with the repo on GitHub. Codeberg is out: its Terms of Use §2.7 (member
+  vote, July 2026) bars mostly-AI-written projects, and it goes down often. Flathub accepts
+  `io.github.<user>.*` and verifies it through `mvysny.github.io`; it would want
+  `page.codeberg.*` for Codeberg, and has stopped accepting new `com.github.*` ids.
