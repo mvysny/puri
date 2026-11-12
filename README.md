@@ -13,9 +13,10 @@ warm.
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."
 
-**Status:** the UI is done, on a dummy backend that answers from canned scripts: `search`,
-`note`, `table`, `long`, `fail`, `mail`, or `calendar` plus `reschedule` in a question walk the
-other paths. The plan lives in `design/ideas/`.
+**Status:** the UI is done, and the model answers through pikuri, with no tools yet: no search,
+notes or reminders. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
+`search`, `note`, `table`, `long`, `fail`, `mail`, or `calendar` plus `reschedule` in a question
+walk the paths the tools will take. The plan lives in `design/ideas/`.
 
 ## Install and run
 
@@ -29,6 +30,40 @@ exe/puri
 ```
 
 `exe/puri` starts Puri; Escape hides the window, and running `exe/puri` again brings it back.
+
+## Configure the model
+
+Puri has no built-in model: it talks to an OpenAI-compatible server you run, such as
+[llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server`, and reads where it is from
+`~/.config/puri/config.toml`. Without that file Puri won't start, and prints an example to paste
+there:
+
+```toml
+[[server]]
+id  = "local"
+url = "http://localhost:8080"
+# api_key = "…"                  # if the server wants one
+# max_concurrent_requests = 1    # omitted, Puri asks the server how many slots it has
+
+[[llm]]
+name   = "Ornith 1.5"
+server = "local"
+model  = "Ornith-1.5"
+
+[[llm]]
+name   = "Ornith 1.5, no thinking"
+server = "local"
+model  = "Ornith-1.5"
+params = { chat_template_kwargs = { enable_thinking = false } }
+
+[titler]
+llm = "Ornith 1.5, no thinking"
+```
+
+Conversations run on the first `[[llm]]`. `[titler]` names the connection that titles them; the
+same model with its thinking switched off writes a title in about a second rather than thirty.
+`chmod 600` the file if it holds an `api_key`. Conversations are saved under
+`~/.local/state/puri/conversations/`.
 
 To open Puri from a global shortcut, install it for your user:
 

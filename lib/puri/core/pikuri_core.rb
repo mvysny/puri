@@ -30,6 +30,28 @@ module Puri
       # @return [Logger]
       LOGGER = Pikuri.logger_for('PikuriCore')
 
+      # The core `config` describes: conversations on its first `[[llm]]`, titles on its
+      # `[titler]`. Also sets each `[[server]]`'s `max_concurrent_requests` as that server's
+      # `Pikuri::Agent::ServerPermits.limit`, which is process-wide; a server stating none is
+      # left for pikuri to size from its own slot count.
+      #
+      #   core = PikuriCore.from_config(Config.load, store: Store.new(root: Store.default_root)) { |event| … }
+      #
+      # @param config [Puri::Core::Config]
+      # @param store [Puri::Core::Store]
+      # @yieldparam event [Data] see {#initialize}
+      # @yieldreturn [void]
+      # @return [Puri::Core::PikuriCore]
+      def self.from_config(config, store:, &)
+        config.servers.each do |server|
+          permits = server.max_concurrent_requests or next
+          Pikuri::Agent::ServerPermits.limit(server.url, permits)
+          LOGGER.info("#{server.id}: at most #{permits} concurrent request(s) to #{server.url}")
+        end
+        titler = Titler.new(transport: config.titler_llm.transport, params_declared: !config.titler_llm.params.empty?)
+        new(transport: config.primary_llm.transport, titler:, store:, &)
+      end
+
       # @param transport [Pikuri::Agent::ChatTransport] where conversations run
       # @param titler [Puri::Core::Titler] names each new conversation from its first message
       # @param store [Puri::Core::Store] where conversations are saved

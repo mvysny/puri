@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'fileutils'
 require 'open3'
 require 'rbconfig'
 require 'tmpdir'
@@ -26,7 +27,8 @@ RSpec.describe 'rake install' do
   # @return [Hash{String => String, nil}]
   def env(extra = {})
     { 'XDG_DATA_HOME' => "#{@home}/data", 'XDG_CONFIG_HOME' => "#{@home}/config",
-      'GSETTINGS_BACKEND' => 'keyfile', 'HOTKEY' => nil, 'AUTOSTART' => nil }.merge(extra)
+      'XDG_STATE_HOME' => "#{@home}/state", 'GSETTINGS_BACKEND' => 'keyfile', 'HOTKEY' => nil,
+      'AUTOSTART' => nil }.merge(extra)
   end
 
   # @param task [String]
@@ -131,10 +133,13 @@ RSpec.describe 'rake install' do
   end
 
   # The whole path a shortcut takes, on a private session bus that reads the services from the
-  # scratch home: `gapplication launch` with no Puri running makes the bus start one.
+  # scratch home: `gapplication launch` with no Puri running makes the bus start one. It starts the
+  # real backend, so it needs a config; nothing asks, so nothing dials the server.
   it 'lets the session bus start Puri on `gapplication launch`' do
     Broadway.start
     rake!('install', 'HOTKEY' => '')
+    FileUtils.mkdir_p("#{@home}/config/puri")
+    File.write("#{@home}/config/puri/config.toml", Puri::Core::Config::EXAMPLE_CONFIG)
     # The bus hands its own environment to the Puri it starts. Local GIO, or that Puri asks the bus
     # for gvfs, which can't mount here; err: quiets the bus's activation log.
     bus = IO.popen([env('GIO_USE_VFS' => 'local'), 'dbus-daemon', '--session', '--nofork', '--print-address'],

@@ -55,11 +55,11 @@ the tool lines and the first real confirmations. Desktop changes in neither.
 
 ### Phase 1: pikuri, no tools
 
-**Where it stands (2026-11-12):** steps 1–5 and 7–9 are done; 6 waits on pikuri
-(`Q_early_cancel`); **10, the wiring, is next**, then 11. Nothing is wired into `exe/puri`
-yet, which still runs the dummy, `--dummy` or not: the real Core runs only in
-`spec/puri/core/pikuri_core_spec.rb`, or from a scratch script. The owner's llama-server is `192.168.122.1:9081` (Ornith-1.5, in
-`~/.config/pikuri/config.toml`), and it wants the `api_key` on its `[[server]]`.
+**Where it stands (2026-11-12):** steps 1–5 and 7–10 are done; 6 waits on pikuri
+(`Q_early_cancel`); **11, measuring, is next**. `exe/puri` runs `PikuriCore` on Puri's own
+`config.toml`, and the dummy only with `--dummy`. The owner's llama-server is
+`192.168.122.1:9081` (Ornith-1.5, in `~/.config/pikuri/config.toml`, to be copied into
+`~/.config/puri/config.toml`), and it wants the `api_key` on its `[[server]]`.
 
 The classes, as built:
 
@@ -160,12 +160,15 @@ Steps, each one landing green on `bundle exec rake`:
    worded there by the same code as `TurnListener`'s. A reload loses what never became a
    message (notices, a cancelled reply's partial text), as pikuri-web's does. A restored
    conversation isn't retitled, even one still "New conversation".
-10. **Wiring.** `exe/puri` loads the config, builds the `Titler` from `config.titler_llm`
-    (`params_declared: !params.empty?`) and the `Store` on `Store.default_root`, and builds
-    `PikuriCore` unless `--dummy` is given (the flag, `dev/` and the running-instance abort are
-    already in), loading `dev/` only then. It also sets each
-    `[[server]]`'s `max_concurrent_requests` as a `ServerPermits.limit`, as pikuri-web's
-    `bin/pikuri-web-chat` does. The README gains the config file. **`--dummy` fakes pikuri
+10. **Wiring.** Done. `exe/puri` loads the config and builds `PikuriCore.from_config` on a
+    `Store` at `Store.default_root`, unless `--dummy` is given, loading `dev/` only then.
+    `from_config` builds the `Titler` from `config.titler_llm` (`params_declared:
+    !params.empty?`) and sets each `[[server]]`'s `max_concurrent_requests` as a
+    `ServerPermits.limit`, as pikuri-web's `bin/pikuri-web-chat` does. `exe/puri` now
+    registers on the bus before building any backend, so a launch that only raises a running
+    Puri reads no config; `core.close` runs once the app exits. Checked on Broadway: service
+    mode starts with no window, a second launch raises it, a question against a closed port
+    ends in the error notice and is saved. The README gains the config file. **`--dummy` fakes pikuri
     whole:** it loads no config, builds no `Titler`, `Store` or permits, and never reaches a
     model; `Puri::Dummy::Backend` titles from `Script.title` and keeps its conversations in
     memory. So a fresh checkout walks the UI with no `config.toml`, and a dev session never

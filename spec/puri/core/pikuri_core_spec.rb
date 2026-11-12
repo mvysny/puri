@@ -173,6 +173,30 @@ RSpec.describe Puri::Core::PikuriCore do
     end
   end
 
+  describe '.from_config' do
+    c = Puri::Core::Config
+    let(:config) do
+      titles = c::Llm.new(name: 'Titles', server: 'http://127.0.0.1:9', model: 'x', params: { 'a' => 1 })
+      c.new(llms: [c::Llm.new(name: 'Main', server: 'http://127.0.0.1:9', model: 'x'), titles],
+            servers: [c::Server.new(id: 'local', url: 'http://127.0.0.1:9/v1', max_concurrent_requests: 2),
+                      c::Server.new(id: 'cloud', url: 'http://127.0.0.1:19')],
+            titler_llm: titles)
+    end
+    let(:core) { described_class.from_config(config, store:) { |event| events << p.round_trip(event) } }
+
+    after { Pikuri::Agent::ServerPermits.reset! }
+
+    it 'runs conversations on the first [[llm]]' do
+      id = core.ask(nil, 'hi')
+      assert_match %r{\ACan't reach the model at http://127\.0\.0\.1:9/v1: }, finished(id).blocks.last.text
+    end
+
+    it 'limits the servers that state max_concurrent_requests, and only those' do
+      core
+      assert_equal({ 'http://127.0.0.1:9' => 2 }, Pikuri::Agent::ServerPermits.sizes)
+    end
+  end
+
   context 'with a tool that asks before it acts' do
     let(:observations) { [] }
     let(:question) { 'Move “Dentist” (Personal) to Thursday 15:00?' }
