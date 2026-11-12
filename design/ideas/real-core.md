@@ -54,30 +54,34 @@ the tool lines and the first real confirmations. Desktop changes in neither.
 
 ### Phase 1: pikuri, no tools
 
-**Where it stands (2026-11-12):** steps 1–5 and 7 are done; 6 waits on pikuri (`Q_early_cancel`);
-**8, the Titler, is next**, then 9–11. Nothing is wired into `exe/puri` yet, which still runs
-`DummyCore`: the real Core runs only in `spec/puri/core/pikuri_core_spec.rb`, or from a scratch
-script. The owner's llama-server is `192.168.122.1:9081` (Ornith-1.5, in
+**Where it stands (2026-11-12):** steps 1–5 and 7–9 are done; 6 waits on pikuri
+(`Q_early_cancel`); **10, the wiring, is next**, then 11. Nothing is wired into `exe/puri`
+yet, which still runs `DummyCore`: the real Core runs only in
+`spec/puri/core/pikuri_core_spec.rb`, or from a scratch script. The owner's llama-server is `192.168.122.1:9081` (Ornith-1.5, in
 `~/.config/pikuri/config.toml`), and it wants the `api_key` on its `[[server]]`.
 
 The classes, as built:
 
 - `Core::PikuriCore` (`include Protocol::Backend`): the conversations, one `AgentSession` each,
-  the lock, the `ThreadGroup`, `close`. `PikuriCore.new(transport:, tools: ->(confirmer) { […] })`;
-  the titler and the `Store` join its constructor in steps 8 and 9.
+  the lock, the `ThreadGroup`, `close`, and each new conversation's title thread.
+  `PikuriCore.new(transport:, titler:, store:, tools: ->(confirmer) { […] })`. It lists the
+  store's conversations at start, and makes a saved one's `AgentSession` on its first `ask` or
+  `load_conversation`.
 - `Core::Conversation`, shared with `DummyCore` (it was `DummyConversation`): blocks, activity,
   title, the messages waiting for the running turn, the redirect while a confirmation waits.
   What a turn does is its `turns:` strategy; it starts each turn's thread at priority −3.
 - `Core::AgentSession`: a conversation's `turns:` strategy, holding its `Pikuri::Agent` (built
   on the first turn, kept until the conversation is deleted), `Cancellable`, `Confirmer` and
-  tools. Step 9 loads `history.json` into the agent here.
-- `Core::Turn`: one `run_loop` on the turn's thread, ended by a `Notice` on cancel or failure;
-  `answer`, `redirect` and `confirming?` go to the `Confirmer`. Step 9 saves after it.
+  tools, and its directory in the `Store`: it replays a saved one, loads its history into the
+  agent, saves after each turn and on titling, and deletes.
+- `Core::Turn`: one `run_loop` on the turn's thread, ended by a `Notice` on cancel or failure,
+  then its `saved:` hook; `answer`, `redirect` and `confirming?` go to the `Confirmer`.
 - `Core::TurnListener`: pikuri's events into blocks, behind `Listener::RateLimited(fps: 15)`.
-  It shows nothing for `UserTurn`, since `Conversation` shows the message as the turn starts;
-  step 9's replay of a saved conversation must add the `UserMessage` blocks itself.
+  It shows nothing for `UserTurn`, since `Conversation` shows the message as the turn starts.
 - `Core::Confirmer`: pikuri's `Confirmer` in the transcript (step 7).
 - `Core::Config`: Puri's own required `config.toml` (step 2, `D_own_config`).
+- `Core::Titler`: pikuri-web's, ported (step 8).
+- `Core::Store` and `Core::Replay`: the saved conversations, and their blocks rebuilt (step 9).
 
 The specs drive the real pikuri loop on `Pikuri::Testing.fake_transport`. A streaming agent
 takes only the streamed verbs: `llm.stream(…)`, and `llm.stream_tool_call(…)`, added to pikuri
@@ -135,21 +139,29 @@ Steps, each one landing green on `bundle exec rake`:
    checking the `Cancellable` every 0.1 s. `Approved` / `Rejected` / `Redirected(text)`, or it
    raises `Cancellable::Cancelled`; the block is re-sent with its final state either way. No
    tool calls it in phase 1, so its spec drives it through a spec-only tool (`Q_approve_label`).
-8. **The Titler**, next. Ported from pikuri-web's `Agents::Titler` (`lib/pikuri_web/agents/titler.rb`)
-   with its prompt, caps and `</think>` strip: on its own thread when a
-   conversation's first turn starts, on the `[titler]` connection (the example's is the main
-   model with `params = { chat_template_kwargs = { enable_thinking = false } }`), under the
-   `ServerPermits` pikuri sizes from the server's slots. A failure is logged and the title stays
-   "New conversation".
-9. **Persistence.** `Core::Store`, ported: `~/.local/state/puri/conversations/<id>/`, 0700,
-   `history.json` by `History#save`, then `meta.json` (schema 1, `shell: "puri"`) last as the
-   commit point. Saved after every turn, a cancelled or failed one too, and on titling.
-   `meta.json` also carries `last_question` and `asked_at`, which `ConversationSummary` needs and
-   schema 1 allows without a bump, so the history lists without reading a single `history.json`.
-   `load_conversation` of a saved conversation replays it on first use; `delete_conversation`
-   removes its directory. A reload loses what never became a message (notices, a cancelled
-   reply's partial text), as pikuri-web's does.
-10. **Wiring.** `exe/puri` loads the config and builds `PikuriCore`; `--dummy` keeps
+8. **The Titler.** Done. `Core::Titler`, pikuri-web's `Agents::Titler` ported with its prompt,
+   caps, `</think>` strip and reasoning canary, logging through `Pikuri.logger_for('Titler')`.
+   `PikuriCore` starts it on a thread of its own (priority −3, in the core's `ThreadGroup`) as
+   it creates a conversation, so the title races the first answer; a failure is logged and the
+   title stays "New conversation", and a conversation deleted meanwhile isn't renamed.
+9. **Persistence.** Done. `Core::Store`: pikuri-web's on-disk format, its code rewritten around
+   `ConversationSummary`: `$XDG_STATE_HOME/puri/conversations/<id>/` (default
+   `~/.local/state`), 0700, ids minted as pikuri-web's start stamps
+   (`2026-11-12T09-14-03Z-3f9a`), `history.json` by `History#save`, then `meta.json` (schema 1,
+   `shell: "puri"`, the `[model, server]` pair, plus `last_question` and `asked_at`) last as the
+   commit point, and removed first on delete. A `meta.json` that can't be read is skipped with a
+   warning; nothing lists it as unopenable, since `ConversationSummary` has no field for that.
+   `AgentSession` saves after every turn, a cancelled or failed one too, before a waiting
+   message starts, and on titling; its own mutex keeps one conversation's writes apart, and
+   nothing writes after a delete. A save that fails ends in an error `Notice`; a `history.json`
+   that can't be read shows one, and the conversation is never saved over it. `Core::Replay`
+   turns the history back into `UserMessage` and `Reply` blocks; phase 2's tool lines must be
+   worded there by the same code as `TurnListener`'s. A reload loses what never became a
+   message (notices, a cancelled reply's partial text), as pikuri-web's does. A restored
+   conversation isn't retitled, even one still "New conversation".
+10. **Wiring.** `exe/puri` loads the config, builds the `Titler` from `config.titler_llm`
+    (`params_declared: !params.empty?`) and the `Store` on `Store.default_root`, and builds
+    `PikuriCore`; `--dummy` keeps
     `DummyCore` for Broadway demos (the argv filter learns the flag). It also sets each
     `[[server]]`'s `max_concurrent_requests` as a `ServerPermits.limit`, as pikuri-web's
     `bin/pikuri-web-chat` does. The README gains the config file.

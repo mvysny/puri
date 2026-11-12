@@ -2,6 +2,7 @@
 
 require 'pikuri/testing'
 require 'stringio'
+require 'tmpdir'
 
 # The real pikuri loop against a scripted HTTP backend (`Pikuri::Testing`): no server, no mocks.
 RSpec.describe Puri::Core::PikuriCore do
@@ -27,16 +28,29 @@ RSpec.describe Puri::Core::PikuriCore do
   let(:gate) { parking_gate.new }
   let(:script) { ->(llm) { llm.stream('Keep it ', '**cold**', '.') } }
   let(:transport) { Pikuri::Testing.fake_transport(gate:, &script) }
-  let(:core) { described_class.new(transport:) { |event| events << p.round_trip(event) } }
+  let(:title_gate) { Pikuri::Testing::Gate.new }
+  let(:titles) { ['Keeping An Avocado'] }
+  let(:titler) do
+    titled = Pikuri::Testing.fake_transport(gate: title_gate) { |llm| titles.each { llm.reply(_1) } }
+    Puri::Core::Titler.new(transport: titled, params_declared: true)
+  end
+  let(:store) { Puri::Core::Store.new(root: @root) }
+  let(:core) { described_class.new(transport:, titler:, store:) { |event| events << p.round_trip(event) } }
 
   # The context-window probe dials the fake's `.invalid` host and warns that it failed.
   around do |example|
     log = Pikuri.log_io
     Pikuri.log_io = StringIO.new
-    example.run
+    Dir.mktmpdir('puri-conversations') do |root|
+      @root = root
+      example.run
+    ensure
+      gate.release!
+      title_gate.release!
+      core.close
+      @restarted&.close
+    end
   ensure
-    gate.release!
-    core.close
     Pikuri.log_io = log
   end
 
@@ -52,10 +66,11 @@ RSpec.describe Puri::Core::PikuriCore do
   end
 
   # @param id [String]
+  # @param backend [Puri::Core::PikuriCore]
   # @return [Puri::Protocol::Transcript] once the turn is over
-  def finished(id)
-    wait_until('the turn ends') { !core.load_conversation(id).activity.running? }
-    core.load_conversation(id)
+  def finished(id, backend = core)
+    wait_until('the turn ends') { !backend.load_conversation(id).activity.running? }
+    backend.load_conversation(id)
   end
 
   # @return [Array<Data>] every event emitted so far
@@ -73,9 +88,40 @@ RSpec.describe Puri::Core::PikuriCore do
     assert_equal p::UserMessage.new(id: 'b1', text: 'how do I keep an avocado?'), user
     assert_equal ['Keep it <b>cold</b>.'], reply.parts.map(&:markup)
 
-    seen = drain
-    assert_equal %w[working streaming idle], seen.grep(p::ActivityChanged).map { _1.activity.state }.uniq
-    assert_equal 'New conversation', seen.grep(p::ConversationsChanged).last.conversations.first.title
+    assert_equal %w[working streaming idle], drain.grep(p::ActivityChanged).map { _1.activity.state }.uniq
+  end
+
+  # @param id [String]
+  # @return [String]
+  def title(id) = core.list_conversations.find { _1.id == id }.title
+
+  it 'titles a new conversation while its first answer is still coming' do
+    gate.block!
+    id = core.ask(nil, 'how do I keep an avocado?')
+    assert_equal 'New conversation', drain.grep(p::ConversationsChanged).first.conversations.first.title
+    wait_until('the title arrives') { title(id) == 'Keeping An Avocado' }
+    assert_predicate core.load_conversation(id).activity, :running?
+  end
+
+  context 'when the titler fails' do
+    let(:titles) { [] }
+
+    it 'logs it and keeps the name' do
+      id = core.ask(nil, 'how do I keep an avocado?')
+      wait_until('the failure is logged') { Pikuri.log_io.string.include?("can't title conversation #{id}") }
+      assert_equal 'New conversation', title(finished(id).conversation)
+    end
+  end
+
+  it 'drops the title of a conversation deleted meanwhile' do
+    title_gate.block!
+    id = core.ask(nil, 'how do I keep an avocado?')
+    finished(id)
+    core.delete_conversation(id)
+    drain
+    title_gate.release!
+    sleep 0.2
+    assert_empty drain.grep(p::ConversationsChanged)
   end
 
   context 'with two answers scripted' do
@@ -148,7 +194,7 @@ RSpec.describe Puri::Core::PikuriCore do
           }
         )]
       end
-      described_class.new(transport:, tools:) { |event| events << p.round_trip(event) }
+      described_class.new(transport:, titler:, store:, tools:) { |event| events << p.round_trip(event) }
     end
 
     # @param id [String]
@@ -238,5 +284,103 @@ RSpec.describe Puri::Core::PikuriCore do
     core.delete_conversation(id)
     assert_empty core.list_conversations
     assert_raises(ArgumentError) { core.load_conversation(id) }
+  end
+
+  describe 'saving' do
+    # Closes the core, and starts another on the same directory, as Puri starting again would.
+    #
+    # @yieldparam llm [Pikuri::Testing::Script] what the model answers now
+    # @return [Puri::Core::PikuriCore]
+    def restart(&script)
+      core.close
+      @restarted = described_class.new(transport: Pikuri::Testing.fake_transport(&script), titler:,
+                                       store: Puri::Core::Store.new(root: @root)) { |_event| nil }
+    end
+
+    # @param id [String]
+    # @return [String, nil] its title on disk
+    def saved_title(id) = store.list.find { _1.id == id }&.title
+
+    it 'lists a saved conversation after a restart, shows it, and carries on with it' do
+      id = core.ask(nil, 'how do I keep an avocado?')
+      finished(id)
+      wait_until('the title is saved') { saved_title(id) == 'Keeping An Avocado' }
+
+      again = restart { |llm| llm.stream('Still cold.') }
+      summary = again.list_conversations.first
+      assert_equal [id, 'Keeping An Avocado', 'how do I keep an avocado?', false],
+                   [summary.id, summary.title, summary.last_question, summary.running]
+      user, reply = again.load_conversation(id).blocks
+      assert_equal p::UserMessage.new(id: 'b1', text: 'how do I keep an avocado?'), user
+      assert_equal ['Keep it <b>cold</b>.'], reply.parts.map(&:markup)
+
+      again.ask(id, 'and a cut one?')
+      assert_equal [p::UserMessage, p::Reply, p::UserMessage, p::Reply], finished(id, again).blocks.map(&:class)
+      assert_equal %w[user assistant user assistant], store.history(id).messages.map(&:role)
+    end
+
+    it 'saves a cancelled turn too' do
+      gate.block!
+      id = core.ask(nil, "I'm Bob")
+      gate.wait_arrived
+      core.cancel(id)
+      gate.release!
+      finished(id)
+
+      assert_equal [p::UserMessage], restart {}.load_conversation(id).blocks.map(&:class)
+    end
+
+    it 'saves the title whether it comes before the first save or after' do
+      gate.block!
+      early = core.ask(nil, 'how do I keep an avocado?')
+      wait_until('the title arrives') { title(early) == 'Keeping An Avocado' }
+      gate.release!
+      finished(early)
+      assert_equal 'Keeping An Avocado', saved_title(early)
+    end
+
+    context 'when the title comes after the first save' do
+      it 'renames the saved conversation' do
+        title_gate.block!
+        id = core.ask(nil, 'how do I keep an avocado?')
+        finished(id)
+        assert_equal 'New conversation', saved_title(id)
+
+        title_gate.release!
+        wait_until('the title is saved') { saved_title(id) == 'Keeping An Avocado' }
+      end
+    end
+
+    it 'deletes a conversation from disk, and a turn still ending does not write it back' do
+      gate.block!
+      id = core.ask(nil, 'how do I keep an avocado?')
+      gate.wait_arrived
+      core.delete_conversation(id)
+      gate.release!
+      sleep 0.2
+      assert_empty Dir.children(@root)
+    end
+
+    it 'deletes a saved conversation never opened' do
+      id = core.ask(nil, 'how do I keep an avocado?')
+      finished(id)
+      restart {}.delete_conversation(id)
+      assert_empty Dir.children(@root)
+    end
+
+    it 'shows a history it cannot read as an error, and never saves over it' do
+      id = core.ask(nil, 'how do I keep an avocado?')
+      finished(id)
+      history = File.join(@root, id, 'history.json')
+      File.write(history, 'not json')
+
+      again = restart { |llm| llm.stream('Hello.') }
+      notice, = again.load_conversation(id).blocks
+      assert notice.error
+      assert_match(/\ACan't read this conversation: /, notice.text)
+      again.ask(id, 'hello?')
+      assert_equal p::Reply, finished(id, again).blocks.last.class
+      assert_equal 'not json', File.read(history)
+    end
   end
 end

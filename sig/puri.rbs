@@ -24,7 +24,7 @@ module Puri
     # ended by a {Protocol::Notice} when it is cancelled or fails. The agent reports the turn
     # itself, through the {TurnListener} it was built with.
     # 
-    #   turn = Turn.new(conversation, agent:, cancellable:, confirmer:)
+    #   turn = Turn.new(conversation, agent:, cancellable:, confirmer:, saved: -> { session.save(conversation) })
     #   Thread.new { turn.run('how do I keep an avocado?') }
     #   turn.cancel   # from any thread
     # 
@@ -37,11 +37,14 @@ module Puri
       # _@param_ `cancellable` — the agent's
       # 
       # _@param_ `confirmer` — the conversation's
+      # 
+      # _@param_ `saved` — called on the turn's thread once it has ended, however it ended, before the next message can start
       def initialize: (
                         Puri::Core::Conversation conversation,
                         agent: Pikuri::Agent,
                         cancellable: Pikuri::Agent::Control::Cancellable,
-                        confirmer: Puri::Core::Confirmer
+                        confirmer: Puri::Core::Confirmer,
+                        saved: Proc
                       ) -> void
 
       # _@param_ `text` — the user's message
@@ -65,6 +68,132 @@ module Puri
       # 
       # _@return_ — what the user reads
       def failure: (StandardError error) -> String
+    end
+
+    # The saved conversations, in pikuri-web's on-disk format (`D_port_pikuri_web`): one directory
+    # per conversation, pikuri's `history.json` beside our `meta.json`.
+    # 
+    #   store = Store.new(root: Store.default_root)
+    #   id = store.mint                                   # "2026-11-12T09-14-03Z-3f9a"; no directory yet
+    #   store.save(conversation.summary, agent.export_history, model: 'Ornith-1.5', server: 'http://…/v1')
+    #   store.retitle(id, 'Keeping An Avocado')           # meta.json only, once saved
+    #   store.list                                        # => [ConversationSummary], newest first
+    #   agent.load_history!(store.history(id))
+    #   store.delete(id)
+    # 
+    # A directory without `meta.json` isn't listed: `meta.json` is written last, so it's the
+    # commit point, and {#delete} removes it first. One whose `meta.json` is unreadable or of an
+    # unknown schema is left out with a warning, and left alone on disk.
+    # 
+    # Thread-safe for different conversations; one conversation's writes must not overlap, as both
+    # files go through a fixed temp name.
+    # 
+    # == Implementation details
+    # 
+    # `meta.json` is pikuri-web's schema 1, plus `last_question` and `asked_at`, which a reader of
+    # schema 1 ignores; they let {#list} build every {Protocol::ConversationSummary} without
+    # opening a `history.json`. Directories are 0700 from the start: a conversation holds all the
+    # user typed, unencrypted.
+    class Store
+      SCHEMA: Integer
+      META_FILE: String
+      SHELL: String
+      ID_TIME: String
+      ID: Regexp
+      LOGGER: Logger
+
+      # _@param_ `env` — where `XDG_STATE_HOME` comes from
+      # 
+      # _@return_ — `$XDG_STATE_HOME/puri/conversations`, `~/.local/state` by default
+      def self.default_root: (?env: untyped) -> String
+
+      # Creates `root`, 0700, if it isn't there.
+      # 
+      # _@param_ `root` — one subdirectory per conversation
+      def initialize: (root: String) -> void
+
+      # A new conversation's id. It sorts and greps by date; the random suffix keeps two minted in
+      # one second apart.
+      # 
+      # _@param_ `at` — when the conversation starts
+      def mint: (?Time at) -> String
+
+      # _@return_ — every saved conversation, newest
+      # first, none running
+      def list: () -> ::Array[Puri::Protocol::ConversationSummary]
+
+      # _@param_ `id` — a listed conversation's
+      def history: (String id) -> Pikuri::Agent::History
+
+      # Writes the history, then `meta.json`.
+      # 
+      # _@param_ `summary` — the title, timestamps and last question to store
+      # 
+      # _@param_ `history`
+      # 
+      # _@param_ `model` — the model the agent is on
+      # 
+      # _@param_ `server` — its transport's `api_base`
+      def save: (
+                  Puri::Protocol::ConversationSummary summary,
+                  Pikuri::Agent::History history,
+                  model: String,
+                  server: String
+                ) -> void
+
+      # Renames a saved conversation; one not saved yet carries its title in its first {#save}.
+      # 
+      # _@param_ `id`
+      # 
+      # _@param_ `title`
+      def retitle: (String id, String title) -> void
+
+      # Removes a conversation's directory, if it has one.
+      # 
+      # _@param_ `id`
+      def delete: (String id) -> void
+
+      # _@param_ `id`
+      def dir: (String id) -> Pathname
+
+      # _@param_ `dir`
+      # 
+      # _@return_ — nil for anything but a readable, saved
+      # conversation
+      def summary: (Pathname dir) -> Puri::Protocol::ConversationSummary?
+
+      # _@param_ `id`
+      # 
+      # _@param_ `meta`
+      def summary_of: (String id, ::Hash[String, Object]? meta) -> Puri::Protocol::ConversationSummary?
+
+      # _@param_ `path`
+      # 
+      # _@return_ — the envelope; nil when it can't be read or
+      # is of another schema, `:absent` when there is none
+      def read_meta: (Pathname path) -> (::Hash[String, Object] | Symbol)?
+
+      # _@param_ `iso` — ISO 8601, any offset
+      # 
+      # _@return_ — the same instant in UTC, as pikuri-web writes it
+      def utc: (String iso) -> String
+
+      # _@param_ `iso` — ISO 8601, any offset
+      # 
+      # _@return_ — the same instant in local time, as {Protocol::ConversationSummary} carries it
+      def local: (String iso) -> String
+
+      # 0700 by chmod, since `mkdir_p`'s `mode:` goes through the umask.
+      # 
+      # _@param_ `dir`
+      def mkdir_private: (Pathname dir) -> void
+
+      # A sibling temp file and a rename, so a reader never sees half a `meta.json`.
+      # 
+      # _@param_ `path`
+      # 
+      # _@param_ `meta`
+      def atomic_write: (Pathname path, ::Hash[String, Object] meta) -> void
     end
 
     # Puri's `config.toml`: the model connections, and which one writes the titles. Loaded once
@@ -403,6 +532,84 @@ module Puri
       end
     end
 
+    # A saved conversation's blocks, rebuilt from its pikuri history:
+    # 
+    #   Replay.blocks(store.history(id))   # => [UserMessage, Reply, UserMessage, Reply]
+    # 
+    # Each user message becomes a {Protocol::UserMessage} and each assistant message with text a
+    # {Protocol::Reply}, as {TurnListener} renders one when it finishes, so a reloaded reply gets
+    # today's renderer. What never became a message is gone: notices, and the partial reply a
+    # cancel cut off. The blocks' ids are nil, for {Conversation#restore} to assign.
+    module Replay
+      # _@param_ `history`
+      def self.blocks: (Pikuri::Agent::History history) -> ::Array[(Puri::Protocol::UserMessage | Puri::Protocol::Reply)]
+    end
+
+    # Names a conversation from its opening message, on the `[titler]` connection; pikuri-web's
+    # `Agents::Titler`, ported with its prompt (`D_port_pikuri_web`):
+    # 
+    #   titler = Titler.new(transport: config.titler_llm.transport,
+    #                       params_declared: !config.titler_llm.params.empty?)
+    #   titler.title_for('Compare Sinatra and Roda for an SSE-heavy app')
+    #   # => "Sinatra Versus Roda For SSE"
+    # 
+    # `nil` comes back when the model said nothing usable, and the conversation keeps its title.
+    # 
+    # Thread-safe: each {#title_for} builds its own agent, so one Titler serves every
+    # conversation, from any number of threads.
+    # 
+    # == Implementation details
+    # 
+    # A tool-less agent, so the loop cannot iterate, with no listener reaching a transcript, so a
+    # title draws no block. Its request waits on the same `ServerPermits` as the turns', which
+    # pikuri sizes from the server's slot count.
+    class Titler
+      MAX_WORDS: Integer
+      MAX_CHARS: Integer
+      MAX_OPENER_CHARS: Integer
+      SYSTEM_PROMPT: String
+      LOGGER: Logger
+
+      # _@param_ `transport` — the `[titler]` connection, `params` and all
+      # 
+      # _@param_ `params_declared` — whether that `[[llm]]` declared `params`; decides only whether a model that still reasoned is a config bug (warn) or the connection doing what it was told (info)
+      def initialize: (transport: Pikuri::Agent::ChatTransport, params_declared: bool) -> void
+
+      # Titles one conversation from its opening message.
+      # 
+      # _@param_ `opener` — the first user message; only its first {MAX_OPENER_CHARS} are sent
+      # 
+      # _@return_ — one sanitized line of at most {MAX_WORDS} words and {MAX_CHARS}
+      # characters; nil when the model returned nothing usable
+      def title_for: (String opener) -> String?
+
+      # _@param_ `raw` — `Pikuri::Agent#last_assistant_content`
+      def clean: (String? raw) -> String?
+
+      # Says once that this connection's model reasoned, the exact signal that a thinking-off
+      # parameter is not in force. Diagnostic only: a slow title is still a title.
+      # 
+      # _@param_ `tally` — this title's token counts
+      # 
+      # _@param_ `seconds` — wall clock for the whole call
+      def report_reasoning: (Puri::Core::Titler::Tally tally, Float seconds) -> void
+
+      # Counts one title's tokens off the event stream, the only place the reasoning figure is
+      # exposed.
+      class Tally < Pikuri::Agent::Listener::Base
+        def initialize: () -> void
+
+        # _@param_ `event` — a `Pikuri::Agent::Event` variant; only `Tokens` counts
+        def on_event: (Object event) -> void
+
+        # _@return_ — reasoning tokens billed for this title; anything but 0 means it thought
+        attr_reader thinking: Integer
+
+        # _@return_ — completion tokens
+        attr_reader output: Integer
+      end
+    end
+
     # Asks the user in the transcript: a tool's `ask` shows a {Protocol::Confirmation} and waits
     # on the turn's thread until the user answers from the main loop.
     # 
@@ -545,7 +752,9 @@ module Puri
       # _@param_ `text` — the opening question, which the title comes from
       # 
       # _@param_ `started_at`
-      def create: (String text, ?started_at: Time) -> Puri::Core::Conversation
+      # 
+      # _@param_ `asked` — whether `text` was asked already, at `started_at`
+      def create: (String text, ?started_at: Time, ?asked: bool) -> Puri::Core::Conversation
 
       def publish: () -> void
 
@@ -648,20 +857,36 @@ module Puri
     # The backend: each conversation a pikuri agent on the configured model, its turns on threads
     # of their own, everything reported as {Protocol} events.
     # 
-    #   core = PikuriCore.new(transport: config.primary_llm.transport) { |event| client.deliver(event) }
+    #   core = PikuriCore.new(transport: config.primary_llm.transport, titler:, store:) { |event| … }
     #   id = core.ask(nil, 'how do I keep an avocado?')
     #   core.load_conversation(id).blocks   # => [UserMessage, Reply] once it has answered
-    #   core.close                           # stops every turn, closes every agent
+    #   core.list_conversations.first.title  # => "Keeping An Avocado Fresh", once titled
+    #   core.close                           # stops every turn and title, closes every agent
+    # 
+    # Every conversation the {Store} holds is listed from the start, and read in when it's first
+    # loaded or asked in; each is saved after every turn, and deleting one removes it from disk.
+    # A new conversation is "New conversation" until its title arrives, on a thread of its own
+    # that runs beside the first turn; a title that fails is logged, and the name stays.
     # 
     # Thread-safe.
     class PikuriCore
       include Puri::Protocol::Backend
       SYSTEM_PROMPT: String
+      LOGGER: Logger
 
       # _@param_ `transport` — where conversations run
       # 
+      # _@param_ `titler` — names each new conversation from its first message
+      # 
+      # _@param_ `store` — where conversations are saved
+      # 
       # _@param_ `tools` — takes a conversation's {Confirmer}, returns its agent's `Array<Pikuri::Tool>`; called once per conversation
-      def initialize: (transport: Pikuri::Agent::ChatTransport, ?tools: Proc) ?{ (Data event) -> void } -> void
+      def initialize: (
+                        transport: Pikuri::Agent::ChatTransport,
+                        titler: Puri::Core::Titler,
+                        store: Puri::Core::Store,
+                        ?tools: Proc
+                      ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
       # redirect: the model follows the words and proposes again. With a turn running, it waits
@@ -699,13 +924,41 @@ module Puri
       # _@param_ `conversation`
       def delete_conversation: (String conversation) -> void
 
-      # Kills every turn's thread, waits until they're gone, then closes every agent.
+      # Kills every turn's and title's thread, waits until they're gone, then closes every agent.
       def close: () -> void
 
       # _@param_ `id`
+      # 
+      # _@return_ — a saved one maybe not read in yet
+      def find: (String id) -> Puri::Core::Conversation
+
+      # _@param_ `id`
+      # 
+      # _@return_ — read in from the store, if it's a saved one
       def fetch: (String id) -> Puri::Core::Conversation
 
-      def create: () -> Puri::Core::Conversation
+      # _@param_ `text` — the opening message, which the title comes from
+      def create: (String text) -> Puri::Core::Conversation
+
+      # Lists a saved conversation; {#fetch} reads it in.
+      # 
+      # _@param_ `summary`
+      def saved: (Puri::Protocol::ConversationSummary summary) -> void
+
+      # _@param_ `id`
+      # 
+      # _@param_ `state` — {Conversation#initialize}'s `started_at:`, and a saved one's `title:`, `last_question:` and `asked_at:`
+      def add: (id: String, **::Hash[Symbol, Object] state) -> Puri::Core::Conversation
+
+      # _@param_ `id`
+      # 
+      # _@param_ `saved` — whether the store holds it already
+      def session: (String id, saved: bool) -> Puri::Core::AgentSession
+
+      # _@param_ `conversation`
+      # 
+      # _@param_ `text` — its opening message
+      def title: (Puri::Core::Conversation conversation, String text) -> void
 
       def publish: () -> void
     end
@@ -745,6 +998,12 @@ module Puri
       # _@param_ `turns` — takes this conversation, returns a new turn (see the class doc)
       # 
       # _@param_ `started_at`
+      # 
+      # _@param_ `title`
+      # 
+      # _@param_ `last_question`
+      # 
+      # _@param_ `asked_at` — when `last_question` was asked
       def initialize: (
                         id: String,
                         lock: Monitor,
@@ -752,18 +1011,20 @@ module Puri
                         changed: Proc,
                         threads: ThreadGroup,
                         turns: untyped,
-                        ?started_at: Time
+                        ?started_at: Time,
+                        ?title: String,
+                        ?last_question: String?,
+                        ?asked_at: Time?
                       ) -> void
 
       # _@param_ `text`
       def ask: (String text) -> void
 
-      # Fills in an exchange that happened before Core started, as a saved history would.
+      # Fills in blocks from before Core started, giving each the next id; emits nothing, since
+      # whoever shows this conversation loads it after.
       # 
-      # _@param_ `question`
-      # 
-      # _@param_ `parts` — the answer
-      def restore: (String question, ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)] parts) -> void
+      # _@param_ `blocks` — their ids nil
+      def restore: (::Array[Puri::Protocol::Block] blocks) -> void
 
       def cancel: () -> void
 
@@ -944,16 +1205,32 @@ module Puri
     end
 
     # A {PikuriCore} conversation's pikuri agent, kept across its turns so the model sees the
-    # whole conversation. It is the {Conversation}'s `turns` strategy, and builds the agent, its
-    # {Confirmer} and its tools on the first turn:
+    # whole conversation, and the conversation's directory in the {Store}. It is the
+    # {Conversation}'s `turns` strategy, and builds the agent, its {Confirmer} and its tools on
+    # the first turn:
     # 
-    #   session = AgentSession.new(transport:, system_prompt:, lock:, tools: ->(confirmer) { [] })
+    #   session = AgentSession.new(id:, transport:, system_prompt:, lock:, tools: ->(confirmer) { [] },
+    #                              store:, saved: true)
     #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:, turns: session)
-    #   conversation.ask('how do I keep an avocado?')   # session.call(conversation) → a Turn
-    #   session.close                                    # the conversation is gone
+    #   session.restore(conversation)   # a saved one's blocks, once, before anyone reads them
+    #   conversation.ask('how do I keep an avocado?')   # session.call(conversation) → a Turn, saved after
+    #   session.retitle(conversation)   # once the Titler has named it
+    #   session.delete                  # the conversation is gone, from disk too
     # 
-    # Each call comes from its conversation, under the core's lock.
+    # A conversation is saved after every turn, a cancelled or failed one too; a write that fails
+    # ends in an error notice, and the turn's text stays in memory.
+    # 
+    # == Threading
+    # 
+    # {#call} and {#restore} come from the conversation, under the core's lock. {#save} runs on
+    # the turn's thread and {#retitle} on the title's; they and {#delete} take this session's own
+    # lock, so one conversation's writes never overlap, each reads the conversation as it is when
+    # it writes, and nothing is written once it's deleted.
     class AgentSession
+      LOGGER: Logger
+
+      # _@param_ `id` — the conversation's
+      # 
       # _@param_ `transport`
       # 
       # _@param_ `system_prompt`
@@ -961,17 +1238,42 @@ module Puri
       # _@param_ `lock` — the core's
       # 
       # _@param_ `tools` — takes the conversation's {Confirmer}, returns the agent's `Array<Pikuri::Tool>`
+      # 
+      # _@param_ `store`
+      # 
+      # _@param_ `saved` — whether the store holds this conversation already
       def initialize: (
+                        id: String,
                         transport: Pikuri::Agent::ChatTransport,
                         system_prompt: String,
                         lock: Monitor,
-                        tools: Proc
+                        tools: Proc,
+                        store: Puri::Core::Store,
+                        ?saved: bool
                       ) -> void
 
       # _@param_ `conversation`
       # 
       # _@return_ — the next turn, not started
       def call: (Puri::Core::Conversation conversation) -> Puri::Core::Turn
+
+      # Fills a saved conversation's blocks from its history, the first time only; the agent
+      # gets the history on the first turn. A history that can't be read ends in an error notice,
+      # and the conversation is never saved over it.
+      # 
+      # _@param_ `conversation`
+      def restore: (Puri::Core::Conversation conversation) -> void
+
+      # _@param_ `conversation`
+      def save: (Puri::Core::Conversation conversation) -> void
+
+      # Writes the conversation's title, if it has been saved.
+      # 
+      # _@param_ `conversation`
+      def retitle: (Puri::Core::Conversation conversation) -> void
+
+      # Removes the conversation from the store, and closes its agent.
+      def delete: () -> void
 
       def close: () -> void
 

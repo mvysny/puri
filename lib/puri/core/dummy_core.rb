@@ -94,11 +94,13 @@ module Puri
 
       # @param text [String] the opening question, which the title comes from
       # @param started_at [Time]
+      # @param asked [Boolean] whether `text` was asked already, at `started_at`
       # @return [Puri::Core::Conversation]
-      def create(text, started_at: Time.now)
+      def create(text, started_at: Time.now, asked: false)
         conversation = Conversation.new(
           id: SecureRandom.uuid, lock: @lock, emit: ->(event) { @listener.call(event) },
           changed: -> { publish }, threads: @threads, started_at:,
+          last_question: (text if asked), asked_at: (started_at if asked),
           turns: ->(c) { DummyTurn.new(c, lock: @lock, think: @think, pace: @pace) }
         )
         @conversations[conversation.id] = conversation
@@ -127,8 +129,9 @@ module Puri
            'Your **Shopping** note: avocados, limes, coffee beans and AA batteries.'],
           [5400, 'when is the dentist?', 'Tuesday at **10:00**, in your Personal calendar.']
         ].each do |ago, question, answer|
-          conversation = create(question, started_at: Time.now - ago)
-          conversation.restore(question, ReplyRenderer.render(answer))
+          conversation = create(question, started_at: Time.now - ago, asked: true)
+          conversation.restore([Protocol::UserMessage.new(id: nil, text: question),
+                                Protocol::Reply.new(id: nil, parts: ReplyRenderer.render(answer))])
           conversation.title = DummyScript.title(question)
         end
       end

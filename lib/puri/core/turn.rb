@@ -6,7 +6,7 @@ module Puri
     # ended by a {Protocol::Notice} when it is cancelled or fails. The agent reports the turn
     # itself, through the {TurnListener} it was built with.
     #
-    #   turn = Turn.new(conversation, agent:, cancellable:, confirmer:)
+    #   turn = Turn.new(conversation, agent:, cancellable:, confirmer:, saved: -> { session.save(conversation) })
     #   Thread.new { turn.run('how do I keep an avocado?') }
     #   turn.cancel   # from any thread
     #
@@ -16,11 +16,14 @@ module Puri
       # @param agent [Pikuri::Agent] the conversation's, kept across its turns
       # @param cancellable [Pikuri::Agent::Control::Cancellable] the agent's
       # @param confirmer [Puri::Core::Confirmer] the conversation's
-      def initialize(conversation, agent:, cancellable:, confirmer:)
+      # @param saved [Proc] called on the turn's thread once it has ended, however it ended, before
+      #   the next message can start
+      def initialize(conversation, agent:, cancellable:, confirmer:, saved:)
         @conversation = conversation
         @agent = agent
         @cancellable = cancellable
         @confirmer = confirmer
+        @saved = saved
       end
 
       # @param text [String] the user's message
@@ -32,6 +35,7 @@ module Puri
       rescue StandardError => e
         @conversation.add(Protocol::Notice.new(id: nil, text: failure(e), error: true))
       ensure
+        @saved.call
         @conversation.finish(self)
       end
 

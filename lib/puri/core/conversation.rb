@@ -36,7 +36,11 @@ module Puri
       # @param threads [ThreadGroup] the core's, which takes each turn's thread
       # @param turns [#call] takes this conversation, returns a new turn (see the class doc)
       # @param started_at [Time]
-      def initialize(id:, lock:, emit:, changed:, threads:, turns:, started_at: Time.now)
+      # @param title [String]
+      # @param last_question [String, nil]
+      # @param asked_at [Time, nil] when `last_question` was asked
+      def initialize(id:, lock:, emit:, changed:, threads:, turns:, started_at: Time.now,
+                     title: 'New conversation', last_question: nil, asked_at: nil)
         @id = id
         @lock = lock
         @emit = emit
@@ -44,14 +48,14 @@ module Puri
         @threads = threads
         @turns = turns
         @started_at = started_at
-        @title = 'New conversation'
+        @title = title
         @blocks = {}
         @next_block = 0
         @activity = Protocol::Activity::IDLE
         @turn = nil
         @waiting = []
-        @last_question = nil
-        @asked_at = nil
+        @last_question = last_question
+        @asked_at = asked_at
       end
 
       # @return [Time]
@@ -75,17 +79,18 @@ module Puri
         end
       end
 
-      # Fills in an exchange that happened before Core started, as a saved history would.
+      # Fills in blocks from before Core started, giving each the next id; emits nothing, since
+      # whoever shows this conversation loads it after.
       #
-      # @param question [String]
-      # @param parts [Array<Puri::Protocol::Prose, Puri::Protocol::Code, Puri::Protocol::Table>] the answer
+      # @param blocks [Array<Puri::Protocol::Block>] their ids nil
       # @return [void]
-      def restore(question, parts)
+      def restore(blocks)
         @lock.synchronize do
-          add(Protocol::UserMessage.new(id: nil, text: question))
-          add(Protocol::Reply.new(id: nil, parts:))
-          @last_question = question
-          @asked_at = @started_at
+          blocks.each do |block|
+            @next_block += 1
+            block = block.with(id: "b#{@next_block}")
+            @blocks[block.id] = block
+          end
         end
       end
 
