@@ -85,9 +85,10 @@ Steps, each one landing green on `bundle exec rake`:
    `Config::Error`'s text: the path to write, and `EXAMPLE_CONFIG` to paste there (the local
    llama-server, Ornith 1.5, the titler connection with thinking off). It goes to stderr, which
    the journal keeps when the session bus started Puri.
-3. **The connection.** The first `[[llm]]` through `ChatTransport.from_openai_server`,
-   `with_detected_modalities` off the main loop at startup. When the server is down, the turn
-   ends in an error `Notice` naming the URL, and nothing crashes.
+3. **The connection.** `Config::Llm#transport`, through `ChatTransport.from_openai_server`.
+   No `with_detected_modalities`: Puri sends no attachments, so knowing the model's modalities
+   buys nothing for two HTTP requests at startup. When the server is down, the turn ends in an
+   error `Notice` naming the URL, and nothing crashes (step 4).
 4. **A turn, end to end.** `PikuriCore`, `Conversation`, `Turn`, `TurnListener`, and our own
    short system prompt (`D_own_prompts`), on a `streaming: true` agent. The event mapping:
    - `UserTurn` → `UserMessage`;

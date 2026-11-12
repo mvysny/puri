@@ -148,6 +148,15 @@ RSpec.describe Puri::Core::Config do
       assert_predicate config.titler_llm.params, :frozen?
     end
 
+    it 'builds a pikuri transport from a connection, carrying its params' do
+      write(@home, described_class::EXAMPLE_CONFIG)
+      transport = load.titler_llm.transport
+      assert_equal 'http://localhost:8080/v1', transport.api_base
+      assert_equal 'Ornith-1.5', transport.model
+      assert_equal 'not-needed', transport.api_key
+      assert_equal({ chat_template_kwargs: { enable_thinking: false } }, transport.params)
+    end
+
     it 'keeps a [[server]] no [[llm]] names' do
       write(@home, "#{minimal}[[server]]\nid  = \"spare\"\nurl = \"http://spare:8080\"\n")
       assert_equal %w[local spare], load.servers.map(&:id)

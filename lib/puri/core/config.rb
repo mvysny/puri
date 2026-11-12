@@ -115,6 +115,17 @@ module Puri
         def initialize(name:, server:, model:, api_key: nil, context_window: nil, params: {})
           super(name:, server:, model:, api_key:, context_window:, params: params.freeze)
         end
+
+        # The connection an agent rides; `params` go with it, so a connection stays
+        # non-thinking wherever its transport goes.
+        #
+        #   Pikuri::Agent.new(transport: config.primary_llm.transport, system_prompt:)
+        #
+        # @return [Pikuri::Agent::ChatTransport]
+        def transport
+          Pikuri::Agent::ChatTransport.from_openai_server(server:, model:, api_key: api_key || 'not-needed',
+                                                          context_window:, params:)
+        end
       end
 
       # One `[[llm]]` table as the file writes it; {Config.load} resolves it into an {Llm}.

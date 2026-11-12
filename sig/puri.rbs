@@ -234,6 +234,12 @@ module Puri
                           ?params: ::Hash[String, Object]
                         ) -> void
 
+        # The connection an agent rides; `params` go with it, so a connection stays
+        # non-thinking wherever its transport goes.
+        # 
+        #   Pikuri::Agent.new(transport: config.primary_llm.transport, system_prompt:)
+        def transport: () -> Pikuri::Agent::ChatTransport
+
         # _@return_ — unique, e.g. `"Ornith 1.5"`
         attr_reader name: String
 
