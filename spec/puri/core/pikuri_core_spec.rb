@@ -200,7 +200,7 @@ RSpec.describe Puri::Core::PikuriCore do
   context 'with a tool that asks before it acts' do
     let(:observations) { [] }
     let(:question) { 'Move “Dentist” (Personal) to Thursday 15:00?' }
-    let(:script) { ->(llm) { llm.stream_tool_call('move_event', question:).stream('Done.') } }
+    let(:script) { ->(llm) { llm.tool_call('move_event', question:).stream('Done.') } }
     let(:core) do
       tools = lambda do |confirmer|
         [Pikuri::Tool.new(

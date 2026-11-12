@@ -84,9 +84,9 @@ The classes, as built:
 - `Core::Titler`: pikuri-web's, ported (step 8).
 - `Core::Store` and `Core::Replay`: the saved conversations, and their blocks rebuilt (step 9).
 
-The specs drive the real pikuri loop on `Pikuri::Testing.fake_transport`. A streaming agent
-takes only the streamed verbs: `llm.stream(…)`, and `llm.stream_tool_call(…)`, added to pikuri
-for this. A `Gate` subclass in the spec says when a turn has reached the model.
+The specs drive the real pikuri loop on `Pikuri::Testing.fake_transport`, whose every verb
+serves a streaming agent too (pikuri `891139f`); `llm.stream(…)` picks where the text splits.
+A `Gate` subclass in the spec says when a turn has reached the model.
 
 Steps, each one landing green on `bundle exec rake`:
 
@@ -197,8 +197,8 @@ for each open question as it closes. `D_own_config` is written.
 
 ### Phase 2: the first tools
 
-`web_search` and `web_read_cached` (pikuri `a1ca7d1`): each tool's line worded by Core, the
-search engines configured through `Config`'s `[search]` table (*Search, never fetch*), and the
+`web_search` and `web_read_cached`, in their own `pikuri-web` gem since pikuri `bf884ac` (a new
+Gemfile line): each tool's line worded by Core, the search engines configured through `Config`'s `[search]` table (*Search, never fetch*), and the
 system prompt taking the fragments the tools bring. Planned once phase 1 is in.
 
 ## Open questions
