@@ -43,8 +43,8 @@ into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-s
 - **Threads** that keep the UI smooth: the main loop doesn't starve a turn's thread, but Ruby
   work on that thread holds the GVL for up to 100 ms (`R_gvl_main_loop`). So a turn runs at
   `Thread#priority = -3` (a burst stalls the UI by at most ~25 ms), and deltas reach
-  `ReplyStream` coalesced through pikuri's `Listener::RateLimited`, as pikuri-tui does at
-  15 fps, so re-rendering never falls behind the stream.
+  `ReplyStream` coalesced by `TurnListener` itself at 15 fps, so re-rendering never falls
+  behind the stream.
 
 ## The plan
 
@@ -77,7 +77,7 @@ The classes, as built:
   agent, saves after each turn and on titling, and deletes.
 - `Core::Turn`: one `run_loop` on the turn's thread, ended by a `Notice` on cancel or failure,
   then its `saved:` hook; `answer`, `redirect` and `confirming?` go to the `Confirmer`.
-- `Core::TurnListener`: pikuri's events into blocks, behind `Listener::RateLimited(fps: 15)`.
+- `Core::TurnListener`: pikuri's events into blocks, re-rendering a reply at most 15 times a second.
   It shows nothing for `UserTurn`, since `Conversation` shows the message as the turn starts.
 - `Core::Confirmer`: pikuri's `Confirmer` in the transcript (step 7).
 - `Core::Config`: Puri's own required `config.toml` (step 2, `D_own_config`).
@@ -123,9 +123,9 @@ Steps, each one landing green on `bundle exec rake`:
    (`Q_interloper`). A down server ends the turn in "Can't reach the model at <url>: …"
    (`RubyLLM::ConnectionError`, ~1 s after ruby_llm's retries). First live turn on Ornith 1.5:
    first token 18 s after Return, then 15 updates a second.
-5. **Threads.** Done. The turn thread at `priority = -3`; `TurnListener` behind
-   `Listener::RateLimited(fps: 15)`. Lossless flushing stays on: `Assistant` carries the final
-   text, but the last flush is what puts it into `ReplyStream`.
+5. **Threads.** Done. The turn thread at `priority = -3`; `TurnListener` paces its own re-renders
+   at 15 fps, since pikuri drops `Listener::RateLimited`. Deltas still held when `Assistant`
+   comes are dropped, as its final text renders whole; any other event shows them first.
 6. **Cancel.** Half done: `cancel` calls `Cancellable#cancel!`, which ends a streaming reply and
    a parked confirmer; "Cancelling…" and the early-cancel fix wait on pikuri. pikuri checks
    before every streamed chunk, so a streaming answer stops at the next token; a prefill does not

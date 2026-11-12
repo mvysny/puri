@@ -125,7 +125,7 @@ module Puri
       # @return [Pikuri::Agent]
       def build(conversation)
         @confirmer = Confirmer.new(conversation, lock: @lock, cancellable: @cancellable)
-        listener = Pikuri::Agent::Listener::RateLimited.new(TurnListener.new(conversation), fps: 15)
+        listener = TurnListener.new(conversation)
         tools = @tools.call(@confirmer)
         agent = Pikuri::Agent.new(transport: @transport, system_prompt: @system_prompt, cancellable: @cancellable,
                                   streaming: true) do |c|
