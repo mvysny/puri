@@ -117,7 +117,9 @@ module Puri
         end
 
         # The connection an agent rides; `params` go with it, so a connection stays
-        # non-thinking wherever its transport goes.
+        # non-thinking wherever its transport goes. No `with_detected_modalities`: Puri sends no
+        # attachments, so probing the model's modalities would buy two requests at startup for
+        # nothing.
         #
         #   Pikuri::Agent.new(transport: config.primary_llm.transport, system_prompt:)
         #

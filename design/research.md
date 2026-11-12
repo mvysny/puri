@@ -131,3 +131,17 @@ at 560 px, 40 times per size, median. On Broadway, GTK 4.22.4, `ruby-gtk4` 4.3.4
 - At 15 updates a second, a 4 KB label takes about a quarter of the main loop, and a 17 KB one
   takes all of it. **[verified 2026-11-11]**
 - The layout is Pango's, so a native GL renderer should pay the same. **[unverified]**
+
+## R_llama_server_titles — A title request beside a turn on one llama-server
+
+The owner's llama-server b10438, Ornith 1.5 Q4_K_M, 4 slots sharing one 64k KV pool, a turn with
+a 6.5k-token prefix; the title on a second connection with `chat_template_kwargs:
+{enable_thinking: false}`.
+
+- A title takes 1.3 s cold and 0.4–0.6 s warm, or 3 s with thinking on. **[verified 2026-11-11]**
+- A title racing a 500-token answer slowed it from 24.0 to 22.9 tok/s, about 1 s over 21 s.
+  **[verified 2026-11-11]**
+- With no slot pinned, a title between two turn requests leaves the turn's prefix cached
+  (`cache_n` 6665 either way); prefilling it cold takes 24–26 s. **[verified 2026-11-11]**
+- Pinning the turn to a slot while the title floats loses that prefix. **[verified 2026-11-11]**
+- pikuri never pins a slot: it sends no `id_slot`. **[src]**

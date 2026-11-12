@@ -111,3 +111,15 @@ of that: its own `~/.config/puri/config.toml` holds only what Puri reads, and a 
 know is an error. The loader is pikuri-web's, copied (`D_port_pikuri_web`). The file is required
 and nothing has a default, the titler included: a built-in model tag would be a second, invisible
 place a connection comes from, so a missing file fails at once and quotes the example to paste.
+
+## D_titler_model — Why title on the main model with thinking off, beside the answer, rather than on a small model or after it?
+
+One model stays loaded, and the small instruct models pikuri-web tried failed the job: they
+titled in the wrong language, or obeyed the opener instead of naming it. Thinking off makes the
+main model cheap enough (`R_llama_server_titles`), so `[titler]` is a second connection to the
+same server that differs only in `params`. `Titler`'s caps and `</think>` strip stay, since a
+server can accept that parameter and ignore it. It runs beside the first turn so the title shows
+while the answer streams, at a cost of about a second to that answer. Why not one permit, as
+pikuri-web forces: its case is two full replies streaming at once, while a ten-token title
+barely overlaps the answer and the popup shows one conversation; `ServerPermits` sizes from the
+server's slot count. Why no slot is pinned: pinning the turn lost its cached prefix.
