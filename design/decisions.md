@@ -102,3 +102,12 @@ parts once wouldn't shrink it: merged prose made the open part the whole prose r
 `ReplyStream` keeps the open block apart from the finished prose until the reply ends. Per
 delta, one paragraph is laid out again, and a selection spans the tail once the reply is done.
 
+
+## D_own_config — Why Puri's own required `config.toml`, rather than pikuri's shared one?
+
+pikuri-tui and pikuri-web share `~/.config/pikuri/config.toml`, so each must accept every table
+the other writes, and a key one shell adds must never stop the other starting. Puri wants none
+of that: its own `~/.config/puri/config.toml` holds only what Puri reads, and a key it doesn't
+know is an error. The loader is pikuri-web's, copied (`D_port_pikuri_web`). The file is required
+and nothing has a default, the titler included: a built-in model tag would be a second, invisible
+place a connection comes from, so a missing file fails at once and quotes the example to paste.

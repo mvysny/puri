@@ -29,6 +29,14 @@ git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-workspace'
 end
 
+# Core::Config, ported from pikuri-web with its gems: tomlrb parses the TOML (pure Ruby, MIT, no
+# dependencies; toml-rb drags in the unlicensed, abandoned citrus), typemap maps it onto the
+# config's Data classes, checking every value against its YARD type. typemap reads those types
+# from sig/puri.rbs through rbs's parser, which makes rbs a runtime gem (~0.2 s of `require`).
+gem 'rbs', '~> 4.2'
+gem 'tomlrb', '~> 3.0'
+gem 'typemap', '~> 0.1'
+
 # Types are written once, as YARD tags; sord compiles them into the committed sig/puri.rbs, and
 # `rake sig` fails on any tag sord cannot type. redcarpet renders the Markdown .yardopts selects.
 group :development do

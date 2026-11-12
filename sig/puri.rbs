@@ -20,6 +20,336 @@ module Puri
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
+    # Puri's `config.toml`: the model connections, and which one writes the titles. Loaded once
+    # at startup, and required: there is no built-in connection, so a missing or incomplete file
+    # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
+    # 
+    #   config = Config.load
+    #   config.primary_llm   # => Llm(name:, server:, model:, api_key:, context_window:, params:)
+    #   config.titler_llm    # => the [titler] connection, never nil
+    #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
+    # 
+    # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
+    # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
+    # schema holds only what Puri reads and a key it doesn't know is an error. The schema is
+    # pikuri-web's, cut down:
+    # 
+    #   [[server]]                       # one box: its URL and key, stated once
+    #   id      = "local"
+    #   url     = "http://localhost:8080"
+    #   api_key = "…"                    # optional; a local llama-server needs none
+    #   max_concurrent_requests = 1      # optional; omitted, pikuri sizes it from the server's slots
+    # 
+    #   [[llm]]                          # one model on a box; the first is the conversations'
+    #   name           = "Ornith 1.5"
+    #   server         = "local"         # a [[server]] id, never a URL
+    #   model          = "Ornith-1.5"
+    #   context_window = 65536           # optional; omitted, pikuri asks the server
+    #   params         = { … }           # optional; merged into every request, verbatim
+    # 
+    #   [titler]
+    #   llm = "Ornith 1.5, no thinking"  # an [[llm]] name; required
+    # 
+    # `params` is a passthrough, since how to switch thinking off differs per server and per chat
+    # template; only its shape is checked here.
+    # 
+    # == Layers
+    # 
+    # Lowest to highest: each `$XDG_CONFIG_DIRS` entry (default `/etc/xdg`, earlier ranks
+    # higher), then `$XDG_CONFIG_HOME`. Tables merge key by key; arrays (`[[server]]`, `[[llm]]`)
+    # are replaced whole by the nearest file that has them. `server` references resolve after the
+    # merge, so a user file may add an `[[llm]]` on a system file's `[[server]]`.
+    # 
+    # == Implementation details
+    # 
+    # Typemap maps the merged TOML onto {Root} and the classes in it, checking each value against
+    # the type its YARD tag gives, read back from `sig/puri.rbs`: a stale `sig/` means stale
+    # config types, so `rake sig` after changing a tag. {.load} then resolves each {LlmTable}
+    # against its {Server} into an {Llm}.
+    # 
+    # Immutable.
+    class Config
+      EXAMPLE_CONFIG: String
+      FILENAME: String
+      XDG_SUBDIR: String
+      MAPPER: Typemap::Mapper
+
+      # Reads and resolves the layered configuration.
+      # 
+      # _@param_ `env` — where `XDG_CONFIG_HOME` and `XDG_CONFIG_DIRS` come from; specs pass their own
+      def self.load: (?env: untyped) -> Puri::Core::Config
+
+      # _@param_ `llms` — never empty
+      # 
+      # _@param_ `servers` — the `[[server]]` entries `llms` were resolved against
+      # 
+      # _@param_ `titler_llm`
+      def initialize: (llms: ::Array[Puri::Core::Config::Llm], servers: ::Array[Puri::Core::Config::Server], titler_llm: Puri::Core::Config::Llm) -> void
+
+      # _@return_ — where conversations run: the first `[[llm]]`
+      def primary_llm: () -> Puri::Core::Config::Llm
+
+      # _@param_ `env`
+      # 
+      # _@return_ — the files to read, lowest priority first
+      def self.candidate_paths: (untyped env) -> ::Array[String]
+
+      # Warns on stderr, never fails, when a file holding an `api_key` is readable by others.
+      # 
+      # _@param_ `path`
+      # 
+      # _@param_ `parsed` — the file's raw TOML, unchecked
+      def self.warn_loose_perms: (String path, ::Hash[String, Object] parsed) -> void
+
+      # _@param_ `path`
+      def self.parse_file: (String path) -> ::Hash[String, Object]
+
+      # Tables merge key by key; scalars and arrays take the higher layer's value whole.
+      # 
+      # _@param_ `lower`
+      # 
+      # _@param_ `higher`
+      # 
+      # _@return_ — a new Hash
+      def self.deep_merge: (::Hash[String, Object] lower, ::Hash[String, Object] higher) -> ::Hash[String, Object]
+
+      # _@param_ `merged`
+      def self.map: (::Hash[String, Object] merged) -> Puri::Core::Config::Root
+
+      # _@param_ `table`
+      # 
+      # _@param_ `servers` — every `[[server]]`, by id
+      def self.resolve_llm: (Puri::Core::Config::LlmTable table, ::Hash[String, Puri::Core::Config::Server] servers) -> Puri::Core::Config::Llm
+
+      # _@param_ `table`
+      # 
+      # _@param_ `llms`
+      def self.resolve_titler: (Puri::Core::Config::TitlerTable table, ::Array[Puri::Core::Config::Llm] llms) -> Puri::Core::Config::Llm
+
+      # _@param_ `env`
+      # 
+      # _@return_ — where to write the config, and what
+      def self.write_example: (untyped env) -> String
+
+      # _@return_ — every connection, in file order; never empty
+      attr_reader llms: ::Array[Puri::Core::Config::Llm]
+
+      # _@return_ — every `[[server]]`, in file order, those no
+      # `[[llm]]` names included
+      attr_reader servers: ::Array[Puri::Core::Config::Server]
+
+      # _@return_ — the connection `[titler]` names
+      attr_reader titler_llm: Puri::Core::Config::Llm
+
+      # Raised for a missing, unreadable, malformed or incomplete config; the message names the
+      # file or the offending key, and says what to write.
+      class Error < StandardError
+      end
+
+      # One inference server, referenced by {#id} from any number of `[[llm]]` entries.
+      # 
+      # @!attribute [r] id
+      #   @return [String] what an `[[llm]]`'s `server` names; never shown, never stored
+      # @!attribute [r] url
+      #   @return [String] base URL, with or without `/v1`; pikuri strips it either way
+      # @!attribute [r] api_key
+      #   @return [String, nil] the key, stored literally, or nil for a server that needs none.
+      #     In this file rather than an env var, which every subprocess would inherit.
+      # @!attribute [r] max_concurrent_requests
+      #   @return [Integer, nil] a `Pikuri::Agent::ServerPermits` limit, or nil to let pikuri size
+      #     it from the server's own `total_slots`
+      class Server
+        extend Typemap::Constrain
+
+        # _@param_ `id`
+        # 
+        # _@param_ `url`
+        # 
+        # _@param_ `api_key`
+        # 
+        # _@param_ `max_concurrent_requests`
+        def initialize: (
+                          id: String,
+                          url: String,
+                          ?api_key: String?,
+                          ?max_concurrent_requests: Integer?
+                        ) -> void
+
+        # Names the entry in a schema error: `server[1] "local".url: required`.
+        # 
+        # _@param_ `raw` — the entry as written, unchecked
+        # 
+        # _@return_ — its `id`
+        def self.entry_name: (::Hash[String, Object] raw) -> Object
+
+        # _@return_ — what an `[[llm]]`'s `server` names; never shown, never stored
+        attr_reader id: String
+
+        # _@return_ — base URL, with or without `/v1`; pikuri strips it either way
+        attr_reader url: String
+
+        # _@return_ — the key, stored literally, or nil for a server that needs none.
+        # In this file rather than an env var, which every subprocess would inherit.
+        attr_reader api_key: String?
+
+        # _@return_ — a `Pikuri::Agent::ServerPermits` limit, or nil to let pikuri size
+        # it from the server's own `total_slots`
+        attr_reader max_concurrent_requests: Integer?
+      end
+
+      # One model connection, its `[[server]]` resolved into it; its fields are
+      # `Pikuri::Agent::ChatTransport.from_openai_server`'s keywords.
+      # 
+      # @!attribute [r] name
+      #   @return [String] unique, e.g. `"Ornith 1.5"`
+      # @!attribute [r] server
+      #   @return [String] the {Server#url}, never the id the file wrote
+      # @!attribute [r] model
+      #   @return [String] the model id sent to the server
+      # @!attribute [r] api_key
+      #   @return [String, nil] the {Server#api_key}
+      # @!attribute [r] context_window
+      #   @return [Integer, nil] the stated cap, or nil to let pikuri ask the server
+      # @!attribute [r] params
+      #   @return [Hash{String => Object}] merged into every request on this connection, e.g.
+      #     `{"chat_template_kwargs" => {"enable_thinking" => false}}`; frozen, `{}` when omitted
+      class Llm
+        # _@param_ `name`
+        # 
+        # _@param_ `server`
+        # 
+        # _@param_ `model`
+        # 
+        # _@param_ `api_key`
+        # 
+        # _@param_ `context_window`
+        # 
+        # _@param_ `params`
+        def initialize: (
+                          name: String,
+                          server: String,
+                          model: String,
+                          ?api_key: String?,
+                          ?context_window: Integer?,
+                          ?params: ::Hash[String, Object]
+                        ) -> void
+
+        # _@return_ — unique, e.g. `"Ornith 1.5"`
+        attr_reader name: String
+
+        # _@return_ — the {Server#url}, never the id the file wrote
+        attr_reader server: String
+
+        # _@return_ — the model id sent to the server
+        attr_reader model: String
+
+        # _@return_ — the {Server#api_key}
+        attr_reader api_key: String?
+
+        # _@return_ — the stated cap, or nil to let pikuri ask the server
+        attr_reader context_window: Integer?
+
+        # _@return_ — merged into every request on this connection, e.g.
+        # `{"chat_template_kwargs" => {"enable_thinking" => false}}`; frozen, `{}` when omitted
+        attr_reader params: ::Hash[String, Object]
+      end
+
+      # One `[[llm]]` table as the file writes it; {Config.load} resolves it into an {Llm}.
+      # 
+      # @!attribute [r] name
+      #   @return [String] see {Llm#name}
+      # @!attribute [r] server
+      #   @return [String] the {Server#id} it runs on
+      # @!attribute [r] model
+      #   @return [String] see {Llm#model}
+      # @!attribute [r] context_window
+      #   @return [Integer, nil] see {Llm#context_window}
+      # @!attribute [r] params
+      #   @return [Hash{String => Object}] see {Llm#params}; checked to be a table, its contents
+      #     the server's business
+      class LlmTable
+        extend Typemap::Constrain
+
+        # _@param_ `name`
+        # 
+        # _@param_ `server`
+        # 
+        # _@param_ `model`
+        # 
+        # _@param_ `context_window`
+        # 
+        # _@param_ `params`
+        def initialize: (
+                          name: String,
+                          server: String,
+                          model: String,
+                          ?context_window: Integer?,
+                          ?params: ::Hash[String, Object]
+                        ) -> void
+
+        # _@param_ `raw` — see {Server.entry_name}
+        # 
+        # _@return_ — its `name`
+        def self.entry_name: (::Hash[String, Object] raw) -> Object
+
+        # _@return_ — see {Llm#name}
+        attr_reader name: String
+
+        # _@return_ — the {Server#id} it runs on
+        attr_reader server: String
+
+        # _@return_ — see {Llm#model}
+        attr_reader model: String
+
+        # _@return_ — see {Llm#context_window}
+        attr_reader context_window: Integer?
+
+        # _@return_ — see {Llm#params}; checked to be a table, its contents
+        # the server's business
+        attr_reader params: ::Hash[String, Object]
+      end
+
+      # The `[titler]` table.
+      # 
+      # @!attribute [r] llm
+      #   @return [String] the {Llm#name} that writes conversation titles
+      class TitlerTable
+        extend Typemap::Constrain
+
+        # _@return_ — the {Llm#name} that writes conversation titles
+        attr_reader llm: String
+      end
+
+      # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
+      # what is missing, with the example to paste.
+      # 
+      # @!attribute [r] server
+      #   @return [Array<Server>] the `[[server]]` entries, ids unique
+      # @!attribute [r] llm
+      #   @return [Array<LlmTable>] the `[[llm]]` entries, names unique
+      # @!attribute [r] titler
+      #   @return [TitlerTable, nil] the `[titler]` table
+      class Root
+        extend Typemap::Constrain
+
+        # _@param_ `server`
+        # 
+        # _@param_ `llm`
+        # 
+        # _@param_ `titler`
+        def initialize: (?server: ::Array[Server], ?llm: ::Array[LlmTable], ?titler: TitlerTable?) -> void
+
+        # _@return_ — the `[[server]]` entries, ids unique
+        attr_reader server: ::Array[Server]
+
+        # _@return_ — the `[[llm]]` entries, names unique
+        attr_reader llm: ::Array[LlmTable]
+
+        # _@return_ — the `[titler]` table
+        attr_reader titler: TitlerTable?
+      end
+    end
+
     # Milestone 1's stand-in for the pikuri-backed Core. It answers from {DummyScript} instead of
     # a model, but otherwise behaves like the real one: conversations kept in memory and titled a
     # moment after they start, turns on threads of their own, confirmations that wait, Cancel,

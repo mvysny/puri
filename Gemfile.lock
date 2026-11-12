@@ -152,7 +152,9 @@ GEM
       sorbet-runtime
       yard
     timeout (0.6.1)
+    tomlrb (3.0.0)
     tsort (0.2.0)
+    typemap (0.1.0)
     unicode-display_width (3.3.0)
       unicode-emoji (~> 4.3)
     unicode-emoji (4.3.0)
@@ -178,12 +180,15 @@ DEPENDENCIES
   pikuri-workspace!
   prism (< 2)
   rake (~> 13.4)
+  rbs (~> 4.2)
   redcarpet (~> 3.6)
   rspec-core (~> 3.13)
   rubocop (~> 1.92)
   simplecov (~> 0.22)
   sord (~> 7.1)
   streaming-markdown-parser!
+  tomlrb (~> 3.0)
+  typemap (~> 0.1)
   yard (~> 0.9.45)
   zeitwerk (~> 2.8)
 
@@ -250,7 +255,9 @@ CHECKSUMS
   sord (7.1.0) sha256=e02fd59294da520e50cea80a07fb9bc93db709c552d055871379ae8d8e87601f
   streaming-markdown-parser (0.1.0)
   timeout (0.6.1) sha256=78f57368a7e7bbadec56971f78a3f5ecbcfb59b7fcbb0a3ed6ddc08a5094accb
+  tomlrb (3.0.0) sha256=e7122820cbb9b940d1758eecb6d1d4ee97c582efa37f06e0100a97cb17a566f5
   tsort (0.2.0) sha256=9650a793f6859a43b6641671278f79cfead60ac714148aabe4e3f0060480089f
+  typemap (0.1.0) sha256=3a4ce25f6450a283f78a661b8e3c401bc5c8b980a64b832e6fe16f7e61d13231
   unicode-display_width (3.3.0) sha256=4b7aa66a4b11db50f6f7e98411215cd0dd10eaecb665d36eec5bcacb3fa0b613
   unicode-emoji (4.3.0) sha256=11c02fa73290378c066bb0562cd4c87d8e1b706fbbe0059ca12746a4244de8ce
   uri (1.1.2) sha256=89292e98eabbef6248b0a0ed5e7e398e152f83f17560023a6d94a7f492b169fb
