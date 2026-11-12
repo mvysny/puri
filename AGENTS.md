@@ -45,6 +45,7 @@ Every fact lives in exactly one of these; the others link to it.
 - `lib/puri/protocol/` — `Puri::Protocol`: the `Backend` methods Desktop calls, and the JSON-able `Data` they and Core's events carry.
 - `lib/puri/desktop/` — `Puri::Desktop`, the GTK4 widgets and `BackendClient`, nothing else.
 - `exe/puri` — the composition root: loads GTK and Adw, wires Core to Desktop.
+- `dev/` — development only, loaded by `exe/puri --dummy` and the specs, never otherwise: `Puri::Dummy`, the canned backend the GTK specs drive. Code a dev-only mode loads, never loose scripts.
 
 ## Conventions
 
@@ -59,7 +60,7 @@ Every fact lives in exactly one of these; the others link to it.
 - `bundle exec rake` — the gate: specs, rubocop, `sig/puri.rbs` from the YARD tags, the doc tripwires.
 - CI: `.github/workflows/ci.yml` runs the gate in `ubuntu:26.04` on apt's Ruby, then fails on a `sig/` diff.
 - `bundle lock --add-checksums` — after any Gemfile change, or CI's frozen bundle rejects the lockfile.
-- `ADW_DISABLE_PORTAL=1 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 exe/puri` — the app on Broadway; natively just `exe/puri`.
+- `ADW_DISABLE_PORTAL=1 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 dbus-run-session -- exe/puri --dummy` — the app on Broadway, canned answers, on a bus of its own so a resident Puri doesn't take the launch; natively just `exe/puri`.
 - `bundle exec rake install` / `uninstall` — the per-user D-Bus activation and the global shortcut (`HOTKEY`, `AUTOSTART=1`; README); `spec/install_spec.rb` runs it against a scratch home.
 - GTK specs start their own `gtk4-broadwayd` on `:90`–`:99` unless `GDK_BACKEND` is set.
 - `design/verify_design_tripwires.sh` — the doc-layer tripwire.

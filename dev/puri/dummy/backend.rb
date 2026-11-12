@@ -3,13 +3,13 @@
 require 'monitor'
 
 module Puri
-  module Core
-    # Milestone 1's stand-in for the pikuri-backed Core. It answers from {DummyScript} instead of
-    # a model, but otherwise behaves like the real one: conversations kept in memory and titled a
-    # moment after they start, turns on threads of their own, confirmations that wait, Cancel,
-    # and the same events.
+  module Dummy
+    # A canned backend, for the GTK specs and for walking the UI with no model (`exe/puri --dummy`).
+    # It answers from {Script} instead of a model, but otherwise behaves like
+    # `Puri::Core::PikuriCore`: conversations kept in memory and titled a moment after they start,
+    # turns on threads of their own, confirmations that wait, Cancel, and the same events.
     #
-    #   core = DummyCore.new { |event| client.deliver(event) }   # called on any thread
+    #   core = Backend.new { |event| client.deliver(event) }   # called on any thread
     #   id = core.ask(nil, 'search for avocado tips')
     #   core.load_conversation(id).blocks   # => [UserMessage, …] so far
     #   core.close                           # kills the turns and titles still running
@@ -17,7 +17,7 @@ module Puri
     # `seed: true` starts it with a few earlier conversations, so the history isn't empty.
     #
     # Thread-safe.
-    class DummyCore
+    class Backend
       include Protocol::Backend
 
       # @param think [Float] seconds each thinking step takes
@@ -27,7 +27,7 @@ module Puri
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
       def initialize(think: 1.0, pace: 1.0 / 30, title_delay: 1.0, seed: false, &listener)
-        raise ArgumentError, 'DummyCore needs a listener block' unless listener
+        raise ArgumentError, 'the dummy Backend needs a listener block' unless listener
 
         @think = think
         @pace = pace
@@ -97,17 +97,17 @@ module Puri
       # @param asked [Boolean] whether `text` was asked already, at `started_at`
       # @return [Puri::Core::Conversation]
       def create(text, started_at: Time.now, asked: false)
-        conversation = Conversation.new(
+        conversation = Core::Conversation.new(
           id: SecureRandom.uuid, lock: @lock, emit: ->(event) { @listener.call(event) },
           changed: -> { publish }, threads: @threads, started_at:,
           last_question: (text if asked), asked_at: (started_at if asked),
-          turns: ->(c) { DummyTurn.new(c, lock: @lock, think: @think, pace: @pace) }
+          turns: ->(c) { Turn.new(c, lock: @lock, think: @think, pace: @pace) }
         )
         @conversations[conversation.id] = conversation
         publish
         @threads.add(Thread.new do
           sleep @title_delay
-          @lock.synchronize { conversation.title = DummyScript.title(text) if @conversations.key?(conversation.id) }
+          @lock.synchronize { conversation.title = Script.title(text) if @conversations.key?(conversation.id) }
         end)
         conversation
       end
@@ -131,8 +131,8 @@ module Puri
         ].each do |ago, question, answer|
           conversation = create(question, started_at: Time.now - ago, asked: true)
           conversation.restore([Protocol::UserMessage.new(id: nil, text: question),
-                                Protocol::Reply.new(id: nil, parts: ReplyRenderer.render(answer))])
-          conversation.title = DummyScript.title(question)
+                                Protocol::Reply.new(id: nil, parts: Core::ReplyRenderer.render(answer))])
+          conversation.title = Script.title(question)
         end
       end
     end

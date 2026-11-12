@@ -11,7 +11,8 @@ RSpec.describe 'namespace boundaries' do
   forbidden = {
     'lib/puri/core' => gui,
     'lib/puri/protocol' => Regexp.union(gui, /Pikuri|Puri::Core|\bCore::/),
-    'lib/puri/desktop' => /Pikuri|Puri::Core|\bCore::/
+    'lib/puri/desktop' => /Pikuri|Puri::Core|\bCore::/,
+    'dev/puri/dummy' => gui
   }
 
   forbidden.each do |dir, pattern|
@@ -30,17 +31,18 @@ RSpec.describe 'namespace boundaries' do
 
   # What grep can't see: a gem that drags GTK in. A fresh process, since this one may have
   # loaded GTK for the Desktop specs.
-  it 'loads Core and Protocol without GTK' do
+  it 'loads Core, Protocol and the dummy without GTK' do
     script = <<~RUBY
       require 'puri'
+      require 'puri/dummy'
       Puri::LOADER.eager_load_namespace(Puri::Core)
       Puri::LOADER.eager_load_namespace(Puri::Protocol)
       abort 'GTK got loaded' if defined?(::Gtk) || defined?(::GLib)
-      print Puri::Core::DummyCore.name
+      print Puri::Core::PikuriCore.name, ' ', Puri::Dummy::Backend.name
     RUBY
-    lib = File.expand_path('../lib', __dir__)
-    out, err, status = Open3.capture3(RbConfig.ruby, '-I', lib, '-e', script)
+    out, err, status = Open3.capture3(RbConfig.ruby, '-I', File.expand_path('../lib', __dir__),
+                                      '-I', File.expand_path('../dev', __dir__), '-e', script)
     assert status.success?, err
-    assert_equal 'Puri::Core::DummyCore', out
+    assert_equal 'Puri::Core::PikuriCore Puri::Dummy::Backend', out
   end
 end

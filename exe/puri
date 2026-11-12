@@ -18,12 +18,15 @@ rescue LoadError
 end
 Puri::LOADER.eager_load
 
-client = nil
-core = Puri::Core::DummyCore.new(seed: true) { |event| client.deliver(event) }
-client = Puri::Desktop::BackendClient.new(core)
+# `--dummy` runs the canned backend from dev/, for walking the UI with no model. Until the real
+# Core is wired (the real-core idea's step 10), every run does.
+dummy = ARGV.include?('--dummy')
+$LOAD_PATH.unshift File.expand_path('../dev', __dir__)
+require 'puri/dummy'
 
 # Single-instance on the session bus: a second launch only activates this one, which is how the
 # global shortcut brings the window back.
+client = nil
 app = Adw::Application.new('io.github.mvysny.Puri', :default_flags)
 app.signal_connect('activate') do |a|
   (a.active_window || Puri::Desktop::PopupWindow.new(a, client)).present
@@ -31,8 +34,18 @@ end
 # Resident: a hidden window, or none yet, never lets the process exit.
 app.signal_connect('startup', &:hold)
 
+# A running Puri can't switch backends, and would just raise its own window. Registering emits
+# `startup`, hence after the handlers.
+if dummy && app.register(nil) && app.remote?
+  abort "puri: Puri is already running, and --dummy can't switch its backend. Quit it first, or " \
+        'give this one a session bus of its own: dbus-run-session -- exe/puri --dummy'
+end
+
+core = Puri::Dummy::Backend.new(seed: true) { |event| client.deliver(event) }
+client = Puri::Desktop::BackendClient.new(core)
+
 # GLib's `--gapplication-service` starts it without a window: the D-Bus activation and autostart
-# files `rake install` writes pass it. Any other argument is dropped, or GApplication would take
-# it for a file to open and never activate.
+# files `rake install` writes pass it. Any other argument is dropped (`--dummy` was read above),
+# or GApplication would take it for a file to open and never activate.
 argv = ARGV.include?('--gapplication-service') ? ['--gapplication-service'] : []
 exit app.run([$PROGRAM_NAME, *argv])

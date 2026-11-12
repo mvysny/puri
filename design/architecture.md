@@ -44,7 +44,7 @@ over it, research or doc-comment content has crept in.
 
 - `spec/boundaries_spec.rb` greps each namespace for names across its line (under Zeitwerk every dependency is a constant name), and loads Core and Protocol in a fresh process with no GTK in sight.
 - `spec/puri/loader_spec.rb` eager-loads everything: Zeitwerk's own check that file names match constants.
-- `DummyCore` stays after the real Core lands, as the backend the GTK specs drive the widget tree against.
+- `Puri::Dummy::Backend` (`dev/`) stays after the real Core lands, as the backend the GTK specs drive the widget tree against and `exe/puri --dummy` runs.
 
 ## Where to start reading
 

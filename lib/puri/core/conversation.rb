@@ -6,10 +6,9 @@ module Puri
   module Core
     # One conversation: its blocks, its activity, its title and its running turn. Every change
     # is emitted as a {Protocol} event. What a turn *does* is the `turns` strategy's, so
-    # {PikuriCore} and {DummyCore} share everything else:
+    # {PikuriCore} and the dummy backend in `dev/` share everything else:
     #
-    #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:,
-    #                                   turns: ->(c) { DummyTurn.new(c, lock:, think: 1, pace: 0.03) })
+    #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:, turns: agent_session)
     #   conversation.ask('reschedule my dentist in the calendar')   # starts a turn
     #   conversation.ask('make it Wednesday')    # a confirmation waits: redirects it
     #   conversation.cancel

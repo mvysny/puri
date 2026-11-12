@@ -5,7 +5,7 @@ require 'gtk_helper'
 RSpec.describe 'Puri::Desktop::BackendClient' do
   p = Puri::Protocol
 
-  let(:core) { Puri::Core::DummyCore.new(think: 0, pace: 0, title_delay: 0) { |event| client.deliver(event) } }
+  let(:core) { Puri::Dummy::Backend.new(think: 0, pace: 0, title_delay: 0) { |event| client.deliver(event) } }
   let(:client) { Puri::Desktop::BackendClient.new(core) }
 
   after { core.close }

@@ -7,7 +7,7 @@ RSpec.describe 'Puri::Desktop::PopupWindow' do
   p = Puri::Protocol
 
   let(:pace) { 0 }
-  let(:core) { Puri::Core::DummyCore.new(think: 0, pace:, title_delay: 0) { |event| client.deliver(event) } }
+  let(:core) { Puri::Dummy::Backend.new(think: 0, pace:, title_delay: 0) { |event| client.deliver(event) } }
   let(:client) { Puri::Desktop::BackendClient.new(core) }
   let(:window) { Puri::Desktop::PopupWindow.new(GTK_APP, client) }
   let(:view) { window.conversation_view }

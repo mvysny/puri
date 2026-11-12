@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Puri::Core::DummyCore do
+RSpec.describe Puri::Dummy::Backend do
   p = Puri::Protocol
 
   let(:events) { Thread::Queue.new }

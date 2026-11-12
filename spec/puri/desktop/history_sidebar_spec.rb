@@ -3,7 +3,7 @@
 require 'gtk_helper'
 
 RSpec.describe 'Puri::Desktop::HistorySidebar' do
-  let(:core) { Puri::Core::DummyCore.new(seed: true, title_delay: 0) { |event| client.deliver(event) } }
+  let(:core) { Puri::Dummy::Backend.new(seed: true, title_delay: 0) { |event| client.deliver(event) } }
   let(:client) { Puri::Desktop::BackendClient.new(core) }
   let(:sidebar) { Puri::Desktop::HistorySidebar.new(client) }
 

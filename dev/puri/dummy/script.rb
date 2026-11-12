@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Puri
-  module Core
-    # What {DummyCore} answers, picked by words in the question, so every path through the UI
+  module Dummy
+    # What {Backend} answers, picked by words in the question, so every path through the UI
     # can be walked by hand:
     #
     #   (anything else)            thinks, streams a short Markdown answer
@@ -13,13 +13,13 @@ module Puri
     #   table                      an answer with a table and a code block
     #   long                       a long answer, for scrolling and Escape while it streams
     #   fail                       streams a little, then the turn fails
-    module DummyScript
+    module Script
       # @return [Array<String>]
       WEEKDAYS = %w[Monday Tuesday Wednesday Thursday Friday Saturday Sunday].freeze
 
       module_function
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @param text [String] the user's message
       # @return [void]
       def run(turn, text)
@@ -37,7 +37,7 @@ module Puri
 
       # The title Core gives a conversation from its opening question.
       #
-      #   DummyScript.title('how do I keep an avocado from browning?')   # => "How do I keep an avocado"
+      #   Script.title('how do I keep an avocado from browning?')   # => "How do I keep an avocado"
       #
       # @param text [String]
       # @return [String]
@@ -48,7 +48,7 @@ module Puri
         words.join(' ').sub(/\A\p{Ll}/, &:upcase)
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @return [void]
       def plain(turn)
         turn.think('Thinking…')
@@ -61,7 +61,7 @@ module Puri
         MD
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @param text [String]
       # @return [void]
       def search(turn, text)
@@ -84,7 +84,7 @@ module Puri
         MD
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @return [void]
       def note(turn)
         turn.think('Reading your notes…')
@@ -101,7 +101,7 @@ module Puri
         MD
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @param day [String] when to move the appointment
       # @return [void]
       def reschedule(turn, day)
@@ -124,7 +124,7 @@ module Puri
         end
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @return [void]
       def mail(turn)
         turn.think('Writing the draft…')
@@ -145,7 +145,7 @@ module Puri
         end
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @return [void]
       def table(turn)
         turn.think('Thinking…')
@@ -168,7 +168,7 @@ module Puri
         MD
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @return [void]
       def long(turn)
         turn.think('Thinking…')
@@ -180,7 +180,7 @@ module Puri
         turn.stream(paragraphs.join("\n\n"))
       end
 
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Puri::Dummy::Turn]
       # @return [void]
       # @raise [RuntimeError] always, halfway
       def failure(turn)

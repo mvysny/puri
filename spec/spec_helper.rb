@@ -7,8 +7,9 @@ SimpleCov.start do
   add_filter '/spec/'
 end
 
-$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__), File.expand_path('../dev', __dir__)
 require 'puri'
+require 'puri/dummy'
 
 # GTK stays unloaded here: Core and Protocol specs run without it, and a spec that needs it
 # requires gtk_helper.

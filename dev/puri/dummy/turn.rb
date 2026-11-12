@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module Puri
-  module Core
-    # One turn of a {DummyCore} {Conversation}, on a thread of its own as a pikuri agent's turn is. A
-    # {DummyScript} drives it through the steps a real turn takes, each reported as the events a
+  module Dummy
+    # One turn of a {Backend} conversation, on a thread of its own as a pikuri agent's turn is. A
+    # {Script} drives it through the steps a real turn takes, each reported as the events a
     # real Core would send:
     #
     #   turn.think('Searching the web…')            # ActivityChanged(working), then a pause
@@ -19,7 +19,7 @@ module Puri
     #
     # {#run} is the turn's thread; {#cancel}, {#answer} and {#redirect} come from any thread
     # through a queue the steps wait on.
-    class DummyTurn
+    class Turn
       # Raised inside a step once the turn is cancelled.
       class Cancelled < StandardError; end
 
@@ -42,7 +42,7 @@ module Puri
       # @param text [String] the user's message
       # @return [void]
       def run(text)
-        DummyScript.run(self, text)
+        Script.run(self, text)
       rescue Cancelled
         settle('cancelled')
         @conversation.add(Protocol::Notice.new(id: nil, text: 'Cancelled', error: false))
@@ -92,7 +92,7 @@ module Puri
       def stream(markdown)
         reply = @conversation.add(Protocol::Reply.new(id: nil, parts: []))
         @conversation.activity = Protocol::Activity.new(state: 'streaming')
-        stream = ReplyStream.new
+        stream = Core::ReplyStream.new
         markdown.scan(/\s*\S+/).each do |word|
           pause(@pace)
           reply = reply.with(parts: stream.append(word))

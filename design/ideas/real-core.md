@@ -3,7 +3,8 @@
 Milestone 2 of the popup (milestone 1, the whole UI on `Core::DummyCore`, is built and graduated
 into `design/architecture.md`). A `Core` on pikuri, with the real model (llama-server,
 `local-model.md`) and tools (`trifecta-and-tools.md`), emitting the same Protocol events as
-`DummyCore`. Desktop doesn't change; `DummyCore` stays as the GTK specs' backend.
+`DummyCore`. Desktop doesn't change; the dummy stays as the GTK specs' backend, now
+`Puri::Dummy::Backend` in `dev/`.
 
 ## What Core has to do that the dummy fakes
 
@@ -56,7 +57,7 @@ the tool lines and the first real confirmations. Desktop changes in neither.
 
 **Where it stands (2026-11-12):** steps 1–5 and 7–9 are done; 6 waits on pikuri
 (`Q_early_cancel`); **10, the wiring, is next**, then 11. Nothing is wired into `exe/puri`
-yet, which still runs `DummyCore`: the real Core runs only in
+yet, which still runs the dummy, `--dummy` or not: the real Core runs only in
 `spec/puri/core/pikuri_core_spec.rb`, or from a scratch script. The owner's llama-server is `192.168.122.1:9081` (Ornith-1.5, in
 `~/.config/pikuri/config.toml`), and it wants the `api_key` on its `[[server]]`.
 
@@ -67,7 +68,7 @@ The classes, as built:
   `PikuriCore.new(transport:, titler:, store:, tools: ->(confirmer) { […] })`. It lists the
   store's conversations at start, and makes a saved one's `AgentSession` on its first `ask` or
   `load_conversation`.
-- `Core::Conversation`, shared with `DummyCore` (it was `DummyConversation`): blocks, activity,
+- `Core::Conversation`, shared with the dummy backend: blocks, activity,
   title, the messages waiting for the running turn, the redirect while a confirmation waits.
   What a turn does is its `turns:` strategy; it starts each turn's thread at priority −3.
 - `Core::AgentSession`: a conversation's `turns:` strategy, holding its `Pikuri::Agent` (built
@@ -161,8 +162,8 @@ Steps, each one landing green on `bundle exec rake`:
    conversation isn't retitled, even one still "New conversation".
 10. **Wiring.** `exe/puri` loads the config, builds the `Titler` from `config.titler_llm`
     (`params_declared: !params.empty?`) and the `Store` on `Store.default_root`, and builds
-    `PikuriCore`; `--dummy` keeps
-    `DummyCore` for Broadway demos (the argv filter learns the flag). It also sets each
+    `PikuriCore` unless `--dummy` is given (the flag, `dev/` and the running-instance abort are
+    already in), loading `dev/` only then. It also sets each
     `[[server]]`'s `max_concurrent_requests` as a `ServerPermits.limit`, as pikuri-web's
     `bin/pikuri-web-chat` does. The README gains the config file.
 11. **Measure on the owner's machine** and write it up as an `R_` entry: time to first token from
@@ -175,7 +176,7 @@ Steps, each one landing green on `bundle exec rake`:
 mocks), its `Gate` holding a turn open to test cancel, a redirect and a message that waits;
 `Store` and the replay on a scratch directory; the Titler on a fake transport; `Config` on
 scratch XDG directories passed through its `env:`. One spec against a live llama-server, through
-the owner's own config, skipped unless `PURI_LIVE=1`. The GTK specs stay on `DummyCore`.
+the owner's own config, skipped unless `PURI_LIVE=1`. The GTK specs stay on the dummy.
 
 **Docs**: `architecture.md` loses "the dummy Core emits the same as the real one will" and gains
 the agent per conversation, the shared `Conversation`, the store and the config; a `D_` entry
