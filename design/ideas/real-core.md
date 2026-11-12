@@ -54,26 +54,41 @@ the tool lines and the first real confirmations. Desktop changes in neither.
 
 ### Phase 1: pikuri, no tools
 
-The classes mirror `DummyCore`'s, since its shape already carries the Backend contract:
+**Where it stands (2026-11-12):** steps 1–5 and 7 are done; 6 waits on pikuri (`Q_early_cancel`);
+**8, the Titler, is next**, then 9–11. Nothing is wired into `exe/puri` yet, which still runs
+`DummyCore`: the real Core runs only in `spec/puri/core/pikuri_core_spec.rb`, or from a scratch
+script. The owner's llama-server is `192.168.122.1:9081` (Ornith-1.5, in
+`~/.config/pikuri/config.toml`), and it wants the `api_key` on its `[[server]]`.
 
-- `Core::PikuriCore` (`include Protocol::Backend`): the conversations, the lock, the
-  `ThreadGroup`, the listener, `close`. Built in `exe/puri` with a transport and a `Store`.
-- `Core::Conversation`: one conversation's blocks, activity, waiting messages and title, and its
-  `Pikuri::Agent`, built on the first `ask` (from `history.json` through `load_history!` when the
-  conversation was saved) and kept until deleted. One `Cancellable` and one `Confirmer` per
-  agent.
-- `Core::Turn`: one `run_loop` on its own thread, ended by a `Notice` on cancel or failure, then
-  a save, then the next waiting message or idle.
-- `Core::TurnListener`: pikuri's events into blocks, the one place block kinds are decided. A
-  saved conversation is replayed through it too (pikuri-web's `HistoryReplay`, ported), so
-  history renders exactly as a live turn does.
+The classes, as built:
+
+- `Core::PikuriCore` (`include Protocol::Backend`): the conversations, one `AgentSession` each,
+  the lock, the `ThreadGroup`, `close`. `PikuriCore.new(transport:, tools: ->(confirmer) { […] })`;
+  the titler and the `Store` join its constructor in steps 8 and 9.
+- `Core::Conversation`, shared with `DummyCore` (it was `DummyConversation`): blocks, activity,
+  title, the messages waiting for the running turn, the redirect while a confirmation waits.
+  What a turn does is its `turns:` strategy; it starts each turn's thread at priority −3.
+- `Core::AgentSession`: a conversation's `turns:` strategy, holding its `Pikuri::Agent` (built
+  on the first turn, kept until the conversation is deleted), `Cancellable`, `Confirmer` and
+  tools. Step 9 loads `history.json` into the agent here.
+- `Core::Turn`: one `run_loop` on the turn's thread, ended by a `Notice` on cancel or failure;
+  `answer`, `redirect` and `confirming?` go to the `Confirmer`. Step 9 saves after it.
+- `Core::TurnListener`: pikuri's events into blocks, behind `Listener::RateLimited(fps: 15)`.
+  It shows nothing for `UserTurn`, since `Conversation` shows the message as the turn starts;
+  step 9's replay of a saved conversation must add the `UserMessage` blocks itself.
+- `Core::Confirmer`: pikuri's `Confirmer` in the transcript (step 7).
+- `Core::Config`: Puri's own required `config.toml` (step 2, `D_own_config`).
+
+The specs drive the real pikuri loop on `Pikuri::Testing.fake_transport`. A streaming agent
+takes only the streamed verbs: `llm.stream(…)`, and `llm.stream_tool_call(…)`, added to pikuri
+for this. A `Gate` subclass in the spec says when a turn has reached the model.
 
 Steps, each one landing green on `bundle exec rake`:
 
-1. **Bump pikuri.** `Gemfile.lock` pins `9b982d6`; master is 19 commits ahead, phase 2's tools
-   among them. `bundle update pikuri-core`, then `bundle lock --add-checksums`.
-2. **The config.** pikuri-web's `Config` ported as `Core::Config`, onto Puri's own file:
-   `$XDG_CONFIG_HOME/puri/config.toml`, under `/etc/xdg/puri/` layered beneath it the same way,
+1. **Bump pikuri.** Done; now at `c7b972c`.
+2. **The config.** Done, but `exe/puri` doesn't load it until step 10. pikuri-web's `Config`
+   ported as `Core::Config`, onto Puri's own file: `$XDG_CONFIG_HOME/puri/config.toml`, under
+   `/etc/xdg/puri/` layered beneath it the same way,
    and never pikuri's `~/.config/pikuri/config.toml`, which pikuri-tui and pikuri-web share.
    It comes with its gems, `tomlrb` and `typemap` (plus `rbs`, which `typemap` reads the types
    from at runtime: sord's `sig/puri.rbs`). Since no other shell writes this file, the schema
@@ -85,45 +100,43 @@ Steps, each one landing green on `bundle exec rake`:
    `Config::Error`'s text: the path to write, and `EXAMPLE_CONFIG` to paste there (the local
    llama-server, Ornith 1.5, the titler connection with thinking off). It goes to stderr, which
    the journal keeps when the session bus started Puri.
-3. **The connection.** `Config::Llm#transport`, through `ChatTransport.from_openai_server`.
+3. **The connection.** Done. `Config::Llm#transport`, through `ChatTransport.from_openai_server`.
    No `with_detected_modalities`: Puri sends no attachments, so knowing the model's modalities
    buys nothing for two HTTP requests at startup. When the server is down, the turn ends in an
    error `Notice` naming the URL, and nothing crashes (step 4).
-4. **A turn, end to end.** `PikuriCore`, `Conversation`, `Turn`, `TurnListener`, and our own
-   short system prompt (`D_own_prompts`), on a `streaming: true` agent. The event mapping:
-   - `UserTurn` → `UserMessage`;
+4. **A turn, end to end.** Done. `PikuriCore`, `Conversation`, `Turn`, `TurnListener`, and our
+   own short system prompt (`prompts/puri.txt` plus today's date, `D_own_prompts`), on a
+   `streaming: true` agent. The event mapping:
+   - `UserTurn` → nothing; `Conversation` already showed the `UserMessage`;
    - `ThinkingDelta` → `ActivityChanged(working, "Thinking…")`; thinking is never shown;
    - `AssistantDelta` → `ReplyStream#append`, `BlockChanged(Reply)`, `ActivityChanged(streaming)`;
      `Assistant` → `ReplyStream#finish`, and the next delta opens a new `Reply`;
    - `ToolCall` / `ToolResult`: nothing until phase 2, whose tools word their own lines;
    - `Cancelled` → `Notice("Cancelled")`; a `StandardError` out of `run_loop` → an error `Notice`.
 
-   Done: `DummyConversation` became `Conversation`, shared by both backends; what a turn does
-   is its `turns:` strategy, `DummyTurn` or `AgentSession`'s `Turn`. First live turn on
-   Ornith 1.5: first token 18 s after Return, then 15 updates a second.
-
    A message sent while a turn runs waits for it to end, as `Backend#ask` promises
-   (`Q_interloper`).
-5. **Threads.** The turn thread at `priority = -3`; `TurnListener` behind
+   (`Q_interloper`). A down server ends the turn in "Can't reach the model at <url>: …"
+   (`RubyLLM::ConnectionError`, ~1 s after ruby_llm's retries). First live turn on Ornith 1.5:
+   first token 18 s after Return, then 15 updates a second.
+5. **Threads.** Done. The turn thread at `priority = -3`; `TurnListener` behind
    `Listener::RateLimited(fps: 15)`. Lossless flushing stays on: `Assistant` carries the final
    text, but the last flush is what puts it into `ReplyStream`.
-6. **Cancel.** `cancel` calls `Cancellable#cancel!` and wakes a parked confirmer. pikuri checks
+6. **Cancel.** Half done: `cancel` calls `Cancellable#cancel!`, which ends a streaming reply and
+   a parked confirmer; "Cancelling…" and the early-cancel fix wait on pikuri. pikuri checks
    before every streamed chunk, so a streaming answer stops at the next token; a prefill does not
    (a Faraday read is uninterruptible), so a cancel during a cold 25 s prefill lands on the first
    token. Until then the activity says "Cancelling…". **A pikuri gap:** `run_loop` starts with
    `Cancellable#reset!`, so a cancel sent before the turn's thread reaches it (Escape right
    after Return) is lost; the fix is upstream (`Q_early_cancel`).
-7. **The Confirmer.** `Core::Confirmer < Pikuri::Workspace::Confirmer`; `#ask` runs on the turn
-   thread: puts a pending `Confirmation` (the `Request`'s question through
-   `Pikuri::Sanitizer`), sets `confirming`, and parks on a queue that `answer`, `ask` and
-   `cancel` feed. `Approved` / `Rejected` / `Redirected(text)`, or it raises
-   `Cancellable::Cancelled`; the block is re-sent with its final state either way. No tool calls
-   it in phase 1, so its spec drives it through a spec-only tool (`Q_approve_label`).
-
-   Done: one `Confirmer` per conversation, handed to its tools through `PikuriCore.new(tools:)`;
-   a parked `ask` checks the `Cancellable` every 0.1 s. The spec streams its tool call with
-   pikuri's new `Testing::Script#stream_tool_call`, added upstream for it.
-8. **The Titler**, ported with its prompt, caps and `</think>` strip: on its own thread when a
+7. **The Confirmer.** Done. `Core::Confirmer < Pikuri::Workspace::Confirmer`, one per
+   conversation, handed to its tools through `PikuriCore.new(tools:)`. `#ask` runs on the turn
+   thread: puts a pending `Confirmation` (the question through `Pikuri::Sanitizer`, a spoof
+   warning first, the detail after), sets `confirming`, and waits for `answer` or `redirect`,
+   checking the `Cancellable` every 0.1 s. `Approved` / `Rejected` / `Redirected(text)`, or it
+   raises `Cancellable::Cancelled`; the block is re-sent with its final state either way. No
+   tool calls it in phase 1, so its spec drives it through a spec-only tool (`Q_approve_label`).
+8. **The Titler**, next. Ported from pikuri-web's `Agents::Titler` (`lib/pikuri_web/agents/titler.rb`)
+   with its prompt, caps and `</think>` strip: on its own thread when a
    conversation's first turn starts, on the `[titler]` connection (the example's is the main
    model with `params = { chat_template_kwargs = { enable_thinking = false } }`), under the
    `ServerPermits` pikuri sizes from the server's slots. A failure is logged and the title stays
@@ -137,7 +150,9 @@ Steps, each one landing green on `bundle exec rake`:
    removes its directory. A reload loses what never became a message (notices, a cancelled
    reply's partial text), as pikuri-web's does.
 10. **Wiring.** `exe/puri` loads the config and builds `PikuriCore`; `--dummy` keeps
-    `DummyCore` for Broadway demos (the argv filter learns the flag).
+    `DummyCore` for Broadway demos (the argv filter learns the flag). It also sets each
+    `[[server]]`'s `max_concurrent_requests` as a `ServerPermits.limit`, as pikuri-web's
+    `bin/pikuri-web-chat` does. The README gains the config file.
 11. **Measure on the owner's machine** and write it up as an `R_` entry: time to first token from
     Return, tok/s, the prefix size before the first word, and the main loop's jitter while a
     reply streams (a 16 ms `GLib::Timeout` logging its lateness), at priority 0 and −3. A stall
@@ -151,9 +166,8 @@ scratch XDG directories passed through its `env:`. One spec against a live llama
 the owner's own config, skipped unless `PURI_LIVE=1`. The GTK specs stay on `DummyCore`.
 
 **Docs**: `architecture.md` loses "the dummy Core emits the same as the real one will" and gains
-the agent per conversation, the store and the config; `D_own_config` (why Puri's own file, not
-the one pikuri's shells share; why the trimmed schema); a `D_` entry for each open question as
-it closes. The README gains the config file and its example.
+the agent per conversation, the shared `Conversation`, the store and the config; a `D_` entry
+for each open question as it closes. `D_own_config` is written.
 
 ### Phase 2: the first tools
 
@@ -164,9 +178,8 @@ system prompt taking the fragments the tools bring. Planned once phase 1 is in.
 ## Open questions
 
 - `Q_early_cancel`: a cancel that lands before `run_loop`'s `reset!` is lost. Filed as pikuri's
-  `design/ideas/early-cancel.md`, recommending that the host owns the reset; once it lands,
-  `Turn` resets as `Conversation` starts it, and step 6 goes on.
-
+  `design/ideas/early-cancel.md` (pushed), recommending that the host owns the reset; once it
+  lands, `Turn` resets as `Conversation` starts it, and step 6 goes on.
 - `Q_interloper`: a message typed during a turn waits for it (today's contract) or reaches the
   model at the next tool batch through `Control::Interloper`, as in pikuri-web. Moot without
   tools; recommended: keep waiting in phase 1, decide with phase 2.
