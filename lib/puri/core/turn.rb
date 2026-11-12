@@ -35,8 +35,11 @@ module Puri
       rescue StandardError => e
         @conversation.add(Protocol::Notice.new(id: nil, text: failure(e), error: true))
       ensure
-        @saved.call
-        @conversation.finish(self)
+        begin
+          @saved.call
+        ensure
+          @conversation.finish(self) # or the conversation runs forever, and its next message waits forever
+        end
       end
 
       # Stops at the next streamed token, or within 0.1 s from a waiting confirmation; a cancel

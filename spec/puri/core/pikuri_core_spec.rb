@@ -392,6 +392,26 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_empty Dir.children(@root)
     end
 
+    context 'when a save fails with something other than a SystemCallError' do
+      let(:store) do
+        Class.new(Puri::Core::Store) do
+          def save(*, **) = raise(JSON::GeneratorError, 'source sequence is illegal/malformed utf-8')
+        end.new(root: @root)
+      end
+      let(:script) { ->(llm) { llm.stream('Keep it cold.').stream('Wrap it.') } }
+
+      it 'ends the turn in an error notice, and takes the next question' do
+        id = core.ask(nil, 'how do I keep an avocado?')
+        notice = finished(id).blocks.last
+        assert notice.error
+        assert_equal "Can't save this conversation: source sequence is illegal/malformed utf-8", notice.text
+
+        core.ask(id, 'and a cut one?')
+        assert_equal [p::UserMessage, p::Reply, p::Notice, p::UserMessage, p::Reply, p::Notice],
+                     finished(id).blocks.map(&:class)
+      end
+    end
+
     it 'shows a history it cannot read as an error, and never saves over it' do
       id = core.ask(nil, 'how do I keep an avocado?')
       finished(id)

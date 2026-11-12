@@ -1002,6 +1002,9 @@ module Puri
       # _@param_ `conversation`
       def restore: (Puri::Core::Conversation conversation) -> void
 
+      # Any failure, not only a disk's, ends in the error notice: a history that won't serialize
+      # is as lost as one that won't write.
+      # 
       # _@param_ `conversation`
       def save: (Puri::Core::Conversation conversation) -> void
 

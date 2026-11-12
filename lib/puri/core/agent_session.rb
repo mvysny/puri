@@ -78,6 +78,9 @@ module Puri
                                               error: true))
       end
 
+      # Any failure, not only a disk's, ends in the error notice: a history that won't serialize
+      # is as lost as one that won't write.
+      #
       # @param conversation [Puri::Core::Conversation]
       # @return [void]
       def save(conversation)
@@ -87,7 +90,7 @@ module Puri
           @store.save(conversation.summary, @agent.export_history, model: @agent.transport.model,
                                                                    server: @agent.transport.api_base)
         end
-      rescue SystemCallError => e
+      rescue StandardError => e
         conversation.add(Protocol::Notice.new(id: nil, text: "Can't save this conversation: #{e.message}",
                                               error: true))
       end
