@@ -168,7 +168,13 @@ Steps, each one landing green on `bundle exec rake`:
     registers on the bus before building any backend, so a launch that only raises a running
     Puri reads no config; `core.close` runs once the app exits. Checked on Broadway: service
     mode starts with no window, a second launch raises it, a question against a closed port
-    ends in the error notice and is saved. The README gains the config file. **`--dummy` fakes pikuri
+    ends in the error notice and is saved. Then live on Broadway against the owner's
+    llama-server (2026-11-12, Ornith 1.5): a turn streams and is titled by the thinking-off
+    connection; a follow-up reads the earlier turn; after a restart the conversation reloads
+    from the history and carries on with its context; Escape mid-stream stops the reply within
+    2.5 s, keeps the partial text and adds a "Cancelled" notice. Text first showed ~13.6 s after
+    Return, timed by watching screenshots, not step 11's measurement. Untested: a cancel while
+    the model still thinks. The README gains the config file. **`--dummy` fakes pikuri
     whole:** it loads no config, builds no `Titler`, `Store` or permits, and never reaches a
     model; `Puri::Dummy::Backend` titles from `Script.title` and keeps its conversations in
     memory. So a fresh checkout walks the UI with no `config.toml`, and a dev session never
