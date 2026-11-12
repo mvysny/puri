@@ -22,12 +22,15 @@ module Puri
       SYSTEM_PROMPT = File.read(File.expand_path('../../../prompts/puri.txt', __dir__)).rstrip
 
       # @param transport [Pikuri::Agent::ChatTransport] where conversations run
+      # @param tools [Proc] takes a conversation's {Confirmer}, returns its agent's
+      #   `Array<Pikuri::Tool>`; called once per conversation
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(transport:, &listener)
+      def initialize(transport:, tools: ->(_confirmer) { [] }, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @transport = transport
+        @tools = tools
         @listener = listener
         @lock = Monitor.new
         @conversations = {}
@@ -90,7 +93,7 @@ module Puri
       # @return [Puri::Core::Conversation]
       def create
         id = SecureRandom.uuid
-        session = AgentSession.new(transport: @transport,
+        session = AgentSession.new(transport: @transport, lock: @lock, tools: @tools,
                                    system_prompt: "#{SYSTEM_PROMPT}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}.")
         conversation = Conversation.new(id:, lock: @lock, emit: @listener, changed: -> { publish },
                                         threads: @threads, turns: session)

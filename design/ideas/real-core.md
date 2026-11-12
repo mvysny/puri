@@ -119,6 +119,10 @@ Steps, each one landing green on `bundle exec rake`:
    `cancel` feed. `Approved` / `Rejected` / `Redirected(text)`, or it raises
    `Cancellable::Cancelled`; the block is re-sent with its final state either way. No tool calls
    it in phase 1, so its spec drives it through a spec-only tool (`Q_approve_label`).
+
+   Done: one `Confirmer` per conversation, handed to its tools through `PikuriCore.new(tools:)`;
+   a parked `ask` checks the `Cancellable` every 0.1 s. The spec streams its tool call with
+   pikuri's new `Testing::Script#stream_tool_call`, added upstream for it.
 8. **The Titler**, ported with its prompt, caps and `</think>` strip: on its own thread when a
    conversation's first turn starts, on the `[titler]` connection (the example's is the main
    model with `params = { chat_template_kwargs = { enable_thinking = false } }`), under the

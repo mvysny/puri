@@ -24,30 +24,40 @@ module Puri
     # ended by a {Protocol::Notice} when it is cancelled or fails. The agent reports the turn
     # itself, through the {TurnListener} it was built with.
     # 
-    #   turn = Turn.new(conversation, agent:, cancellable:)
+    #   turn = Turn.new(conversation, agent:, cancellable:, confirmer:)
     #   Thread.new { turn.run('how do I keep an avocado?') }
     #   turn.cancel   # from any thread
+    # 
+    # Answers to a confirmation go to the conversation's {Confirmer}, where its tool waits.
     class Turn
       # _@param_ `conversation`
       # 
       # _@param_ `agent` — the conversation's, kept across its turns
       # 
       # _@param_ `cancellable` — the agent's
-      def initialize: (Puri::Core::Conversation conversation, agent: Pikuri::Agent, cancellable: Pikuri::Agent::Control::Cancellable) -> void
+      # 
+      # _@param_ `confirmer` — the conversation's
+      def initialize: (
+                        Puri::Core::Conversation conversation,
+                        agent: Pikuri::Agent,
+                        cancellable: Pikuri::Agent::Control::Cancellable,
+                        confirmer: Puri::Core::Confirmer
+                      ) -> void
 
       # _@param_ `text` — the user's message
       def run: (String text) -> void
 
-      # Stops at the next streamed token; a cancel during prefill lands on the first one.
+      # Stops at the next streamed token, or within 0.1 s from a waiting confirmation; a cancel
+      # during prefill lands on the first token.
       def cancel: () -> void
 
-      # _@param_ `_confirmation`
+      # _@param_ `confirmation` — the block id
       # 
-      # _@param_ `_approved`
-      def answer: (String _confirmation, bool _approved) -> void
+      # _@param_ `approved`
+      def answer: (String confirmation, bool approved) -> void
 
-      # _@param_ `_text`
-      def redirect: (String _text) -> void
+      # _@param_ `text`
+      def redirect: (String text) -> void
 
       def confirming?: () -> bool
 
@@ -393,6 +403,72 @@ module Puri
       end
     end
 
+    # Asks the user in the transcript: a tool's `ask` shows a {Protocol::Confirmation} and waits
+    # on the turn's thread until the user answers from the main loop.
+    # 
+    #   confirmer.ask(request:)            # turn thread: a pending Confirmation, activity confirming
+    #   confirmer.answer('b4', true)       # main loop: Update → Approved
+    #   confirmer.answer('b4', false)      # Cancel → Rejected
+    #   confirmer.redirect('make it Wed')  # typed text → Redirected('make it Wed')
+    #   cancellable.cancel!                # Escape → ask raises Cancellable::Cancelled
+    # 
+    # Whichever way it ends, the Confirmation is re-sent with its final state. `D_confirmation_answers`
+    # has why each gesture is the answer it is.
+    # 
+    # One per conversation, built with its agent, since tools take their confirmer when they're
+    # built. An answer meant for a confirmation that no longer waits is dropped.
+    # 
+    # == Implementation details
+    # 
+    # The pending confirmation is guarded by the core's lock, which {Conversation} takes too, so
+    # showing it and marking it pending are one step for {#pending?}. A parked `ask` checks the
+    # Cancellable every {SLICE_SECONDS} rather than waiting for a message, so no cancel can fall
+    # between its check and its wait.
+    # 
+    # Thread-safe.
+    class Confirmer < Pikuri::Workspace::Confirmer
+      SLICE_SECONDS: Float
+
+      # _@param_ `conversation` — where the question shows
+      # 
+      # _@param_ `lock` — the core's
+      # 
+      # _@param_ `cancellable` — the conversation's agent's
+      def initialize: (Puri::Core::Conversation conversation, lock: Monitor, cancellable: Pikuri::Agent::Control::Cancellable) -> void
+
+      # The question is the tool's, sanitized; its detail follows it, and a spoof the sanitizer
+      # found leads it.
+      # 
+      # _@param_ `request`
+      def ask: (request: Pikuri::Workspace::Confirmer::Request) -> (Pikuri::Workspace::Confirmer::Approved | Pikuri::Workspace::Confirmer::Rejected | Pikuri::Workspace::Confirmer::Redirected)
+
+      # _@param_ `confirmation` — the block id the user answered
+      # 
+      # _@param_ `approved`
+      def answer: (String confirmation, bool approved) -> void
+
+      # _@param_ `text` — what the user typed while the confirmation waits
+      def redirect: (String text) -> void
+
+      # _@return_ — whether a confirmation waits for the user
+      def pending?: () -> bool
+
+      # _@param_ `request`
+      def decide: (Pikuri::Workspace::Confirmer::Request request) -> (Pikuri::Workspace::Confirmer::Approved | Pikuri::Workspace::Confirmer::Rejected | Pikuri::Workspace::Confirmer::Redirected)
+
+      # _@param_ `state` — the Confirmation's final state
+      # 
+      # _@param_ `decision`
+      # 
+      # _@return_ — `decision`
+      def settle: (String state, Object? decision) -> Object?
+
+      # _@param_ `request`
+      # 
+      # _@return_ — plain text
+      def question: (Pikuri::Workspace::Confirmer::Request request) -> String
+    end
+
     # Milestone 1's stand-in for the pikuri-backed Core. It answers from {DummyScript} instead of
     # a model, but otherwise behaves like the real one: conversations kept in memory and titled a
     # moment after they start, turns on threads of their own, confirmations that wait, Cancel,
@@ -583,7 +659,9 @@ module Puri
       SYSTEM_PROMPT: String
 
       # _@param_ `transport` — where conversations run
-      def initialize: (transport: Pikuri::Agent::ChatTransport) ?{ (Data event) -> void } -> void
+      # 
+      # _@param_ `tools` — takes a conversation's {Confirmer}, returns its agent's `Array<Pikuri::Tool>`; called once per conversation
+      def initialize: (transport: Pikuri::Agent::ChatTransport, ?tools: Proc) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
       # redirect: the model follows the words and proposes again. With a turn running, it waits
@@ -866,10 +944,10 @@ module Puri
     end
 
     # A {PikuriCore} conversation's pikuri agent, kept across its turns so the model sees the
-    # whole conversation. It is the {Conversation}'s `turns` strategy, and builds the agent on
-    # the first turn:
+    # whole conversation. It is the {Conversation}'s `turns` strategy, and builds the agent, its
+    # {Confirmer} and its tools on the first turn:
     # 
-    #   session = AgentSession.new(transport:, system_prompt:)
+    #   session = AgentSession.new(transport:, system_prompt:, lock:, tools: ->(confirmer) { [] })
     #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:, turns: session)
     #   conversation.ask('how do I keep an avocado?')   # session.call(conversation) → a Turn
     #   session.close                                    # the conversation is gone
@@ -879,7 +957,16 @@ module Puri
       # _@param_ `transport`
       # 
       # _@param_ `system_prompt`
-      def initialize: (transport: Pikuri::Agent::ChatTransport, system_prompt: String) -> void
+      # 
+      # _@param_ `lock` — the core's
+      # 
+      # _@param_ `tools` — takes the conversation's {Confirmer}, returns the agent's `Array<Pikuri::Tool>`
+      def initialize: (
+                        transport: Pikuri::Agent::ChatTransport,
+                        system_prompt: String,
+                        lock: Monitor,
+                        tools: Proc
+                      ) -> void
 
       # _@param_ `conversation`
       # 

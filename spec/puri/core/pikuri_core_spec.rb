@@ -127,6 +127,111 @@ RSpec.describe Puri::Core::PikuriCore do
     end
   end
 
+  context 'with a tool that asks before it acts' do
+    let(:observations) { [] }
+    let(:question) { 'Move “Dentist” (Personal) to Thursday 15:00?' }
+    let(:script) { ->(llm) { llm.stream_tool_call('move_event', question:).stream('Done.') } }
+    let(:core) do
+      tools = lambda do |confirmer|
+        [Pikuri::Tool.new(
+          name: 'move_event', description: 'Moves a calendar event.',
+          parameters: Pikuri::Tool::Parameters.build { |params| params.required_string :question, 'what to ask' },
+          execute: lambda { |question:|
+            request = Pikuri::Workspace::Confirmer::Request.new(question:)
+            result = case decision = confirmer.ask(request:)
+                     in Pikuri::Workspace::Confirmer::Approved then Pikuri::Tool::Result.new(content: 'Moved.',
+                                                                                             summary: 'Moved')
+                     else decision.observation('the move')
+                     end
+            observations << result.content
+            result
+          }
+        )]
+      end
+      described_class.new(transport:, tools:) { |event| events << p.round_trip(event) }
+    end
+
+    # @param id [String]
+    # @return [Puri::Protocol::Confirmation] the one waiting
+    def pending_confirmation(id)
+      wait_until('a confirmation waits') { core.load_conversation(id).activity.state == 'confirming' }
+      core.load_conversation(id).blocks.grep(Puri::Protocol::Confirmation).find(&:pending?)
+    end
+
+    # @param id [String]
+    # @return [Puri::Protocol::Confirmation] the conversation's only one
+    def confirmation(id)
+      confirmations = core.load_conversation(id).blocks.grep(Puri::Protocol::Confirmation)
+      assert_equal 1, confirmations.size
+      confirmations.first
+    end
+
+    it 'shows the question, and approves on the approve button' do
+      id = core.ask(nil, 'move my dentist to Thursday')
+      waiting = pending_confirmation(id)
+      assert_equal p::Confirmation.new(id: waiting.id, question:, approve_label: 'Approve', destructive: false,
+                                       state: 'pending'), waiting
+
+      core.answer(id, waiting.id, true)
+      assert_equal [p::UserMessage, p::Confirmation, p::Reply], finished(id).blocks.map(&:class)
+      assert_equal 'approved', confirmation(id).state
+      assert_equal ['Moved.'], observations
+    end
+
+    it 'tells the model the user declined, on Cancel' do
+      id = core.ask(nil, 'move my dentist to Thursday')
+      core.answer(id, pending_confirmation(id).id, false)
+      finished(id)
+      assert_equal 'rejected', confirmation(id).state
+      assert_equal 1, observations.size
+      assert_match(/\AError: user declined the move\. Don't retry it/, observations.first)
+    end
+
+    it 'passes typed words to the model as a redirect' do
+      id = core.ask(nil, 'move my dentist to Thursday')
+      pending_confirmation(id)
+      core.ask(id, 'make it Wednesday')
+      blocks = finished(id).blocks
+      assert_equal [p::UserMessage, p::Confirmation, p::UserMessage, p::Reply], blocks.map(&:class)
+      assert_equal 'redirected', confirmation(id).state
+      assert_equal ['The user declined the move and said: make it Wednesday'], observations
+    end
+
+    it 'ends the turn when it is cancelled while the question waits' do
+      id = core.ask(nil, 'move my dentist to Thursday')
+      pending_confirmation(id)
+      core.cancel(id)
+      assert_equal [p::UserMessage, p::Confirmation, p::Notice], finished(id).blocks.map(&:class)
+      assert_equal 'cancelled', confirmation(id).state
+      assert_empty observations
+    end
+
+    it 'drops an answer meant for another confirmation' do
+      id = core.ask(nil, 'move my dentist to Thursday')
+      waiting = pending_confirmation(id)
+      core.answer(id, 'b99', true)
+      sleep 0.2
+      assert_predicate confirmation(id), :pending?
+
+      core.answer(id, waiting.id, true)
+      finished(id)
+    end
+
+    context 'when the question hides control bytes' do
+      let(:question) { "Move \e[2KDentist?" }
+
+      it 'shows them escaped, under a warning' do
+        id = core.ask(nil, 'move my dentist')
+        waiting = pending_confirmation(id)
+        warning, shown = waiting.question.split("\n\n")
+        assert_match(/\A⚠ /, warning)
+        assert_equal 'Move \x1b[2KDentist?', shown
+        core.answer(id, waiting.id, true)
+        finished(id)
+      end
+    end
+  end
+
   it 'forgets a deleted conversation' do
     id = core.ask(nil, 'how do I keep an avocado?')
     finished(id)

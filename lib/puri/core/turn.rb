@@ -6,17 +6,21 @@ module Puri
     # ended by a {Protocol::Notice} when it is cancelled or fails. The agent reports the turn
     # itself, through the {TurnListener} it was built with.
     #
-    #   turn = Turn.new(conversation, agent:, cancellable:)
+    #   turn = Turn.new(conversation, agent:, cancellable:, confirmer:)
     #   Thread.new { turn.run('how do I keep an avocado?') }
     #   turn.cancel   # from any thread
+    #
+    # Answers to a confirmation go to the conversation's {Confirmer}, where its tool waits.
     class Turn
       # @param conversation [Puri::Core::Conversation]
       # @param agent [Pikuri::Agent] the conversation's, kept across its turns
       # @param cancellable [Pikuri::Agent::Control::Cancellable] the agent's
-      def initialize(conversation, agent:, cancellable:)
+      # @param confirmer [Puri::Core::Confirmer] the conversation's
+      def initialize(conversation, agent:, cancellable:, confirmer:)
         @conversation = conversation
         @agent = agent
         @cancellable = cancellable
+        @confirmer = confirmer
       end
 
       # @param text [String] the user's message
@@ -31,22 +35,23 @@ module Puri
         @conversation.finish(self)
       end
 
-      # Stops at the next streamed token; a cancel during prefill lands on the first one.
+      # Stops at the next streamed token, or within 0.1 s from a waiting confirmation; a cancel
+      # during prefill lands on the first token.
       #
       # @return [void]
       def cancel = @cancellable.cancel!
 
-      # @param _confirmation [String]
-      # @param _approved [Boolean]
+      # @param confirmation [String] the block id
+      # @param approved [Boolean]
       # @return [void]
-      def answer(_confirmation, _approved) = nil
+      def answer(confirmation, approved) = @confirmer.answer(confirmation, approved)
 
-      # @param _text [String]
+      # @param text [String]
       # @return [void]
-      def redirect(_text) = nil
+      def redirect(text) = @confirmer.redirect(text)
 
       # @return [Boolean]
-      def confirming? = false
+      def confirming? = @confirmer.pending?
 
       private
 
