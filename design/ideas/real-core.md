@@ -32,8 +32,8 @@ to be copied into `~/.config/puri/config.toml`), and it wants the `api_key` on i
 
 ## Phase 2: the first tools
 
-`web_search` and `web_read_cached`, in their own `pikuri-web` gem since pikuri `bf884ac` (a new
-Gemfile line): each tool's line worded by Core (`🔍 Searched: "avocado preservation"`), and the
+`web_search` and `web_read_cached`, in pikuri's own `pikuri-web` gem (a new Gemfile line in
+the pikuri `git` block): each tool's line worded by Core (`🔍 Searched: "avocado preservation"`), and the
 status under the progress bar from the latest step; the search engines configured through
 `Config`'s `[search]` table (*Search, never fetch*); the system prompt taking the fragments the
 tools bring. `Replay` must word a saved tool line by the same code as `TurnListener`. The first
