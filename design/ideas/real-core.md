@@ -159,9 +159,9 @@ system prompt taking the fragments the tools bring. Planned once phase 1 is in.
 
 ## Open questions
 
-- `Q_early_cancel`: what pikuri should offer so a host's cancel can't fall before `run_loop`'s
-  `reset!`: the host resetting the `Cancellable` itself when it starts a turn, or a fresh
-  `Cancellable` per turn. An issue for pikuri, then step 6 here.
+- `Q_early_cancel`: a cancel that lands before `run_loop`'s `reset!` is lost. Filed as pikuri's
+  `design/ideas/early-cancel.md`, recommending that the host owns the reset; once it lands,
+  `Turn` resets as `Conversation` starts it, and step 6 goes on.
 
 - `Q_interloper`: a message typed during a turn waits for it (today's contract) or reaches the
   model at the next tool batch through `Control::Interloper`, as in pikuri-web. Moot without
