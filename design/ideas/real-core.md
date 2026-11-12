@@ -165,7 +165,11 @@ Steps, each one landing green on `bundle exec rake`:
     `PikuriCore` unless `--dummy` is given (the flag, `dev/` and the running-instance abort are
     already in), loading `dev/` only then. It also sets each
     `[[server]]`'s `max_concurrent_requests` as a `ServerPermits.limit`, as pikuri-web's
-    `bin/pikuri-web-chat` does. The README gains the config file.
+    `bin/pikuri-web-chat` does. The README gains the config file. **`--dummy` fakes pikuri
+    whole:** it loads no config, builds no `Titler`, `Store` or permits, and never reaches a
+    model; `Puri::Dummy::Backend` titles from `Script.title` and keeps its conversations in
+    memory. So a fresh checkout walks the UI with no `config.toml`, and a dev session never
+    writes into the real conversations directory.
 11. **Measure on the owner's machine** and write it up as an `R_` entry: time to first token from
     Return, tok/s, the prefix size before the first word, and the main loop's jitter while a
     reply streams (a 16 ms `GLib::Timeout` logging its lateness), at priority 0 and −3. A stall
