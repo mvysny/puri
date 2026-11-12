@@ -2,7 +2,7 @@
 
 module Puri
   module Core
-    # One turn of a {DummyConversation}, on a thread of its own as a pikuri agent's turn is. A
+    # One turn of a {DummyCore} {Conversation}, on a thread of its own as a pikuri agent's turn is. A
     # {DummyScript} drives it through the steps a real turn takes, each reported as the events a
     # real Core would send:
     #
@@ -23,7 +23,7 @@ module Puri
       # Raised inside a step once the turn is cancelled.
       class Cancelled < StandardError; end
 
-      # @param conversation [Puri::Core::DummyConversation] where the blocks go
+      # @param conversation [Puri::Core::Conversation] where the blocks go
       # @param lock [Monitor] the conversation's, which also guards the pending confirmation
       # @param think [Float] seconds a {#think} step takes
       # @param pace [Float] seconds between streamed words

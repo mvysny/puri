@@ -86,7 +86,7 @@ module Puri
       private
 
       # @param id [String]
-      # @return [Puri::Core::DummyConversation]
+      # @return [Puri::Core::Conversation]
       # @raise [ArgumentError]
       def fetch(id)
         @lock.synchronize { @conversations[id] } or raise ArgumentError, "no conversation #{id.inspect}"
@@ -94,13 +94,13 @@ module Puri
 
       # @param text [String] the opening question, which the title comes from
       # @param started_at [Time]
-      # @return [Puri::Core::DummyConversation]
+      # @return [Puri::Core::Conversation]
       def create(text, started_at: Time.now)
-        conversation = DummyConversation.new(id: SecureRandom.uuid, lock: @lock, emit: lambda { |event|
-          @listener.call(event)
-        },
-                                             changed: -> { publish }, threads: @threads, think: @think,
-                                             pace: @pace, started_at:)
+        conversation = Conversation.new(
+          id: SecureRandom.uuid, lock: @lock, emit: ->(event) { @listener.call(event) },
+          changed: -> { publish }, threads: @threads, started_at:,
+          turns: ->(c) { DummyTurn.new(c, lock: @lock, think: @think, pace: @pace) }
+        )
         @conversations[conversation.id] = conversation
         publish
         @threads.add(Thread.new do

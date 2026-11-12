@@ -20,6 +20,43 @@ module Puri
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
+    # One turn of a {PikuriCore} {Conversation}: the agent's `run_loop` on the turn's thread,
+    # ended by a {Protocol::Notice} when it is cancelled or fails. The agent reports the turn
+    # itself, through the {TurnListener} it was built with.
+    # 
+    #   turn = Turn.new(conversation, agent:, cancellable:)
+    #   Thread.new { turn.run('how do I keep an avocado?') }
+    #   turn.cancel   # from any thread
+    class Turn
+      # _@param_ `conversation`
+      # 
+      # _@param_ `agent` — the conversation's, kept across its turns
+      # 
+      # _@param_ `cancellable` — the agent's
+      def initialize: (Puri::Core::Conversation conversation, agent: Pikuri::Agent, cancellable: Pikuri::Agent::Control::Cancellable) -> void
+
+      # _@param_ `text` — the user's message
+      def run: (String text) -> void
+
+      # Stops at the next streamed token; a cancel during prefill lands on the first one.
+      def cancel: () -> void
+
+      # _@param_ `_confirmation`
+      # 
+      # _@param_ `_approved`
+      def answer: (String _confirmation, bool _approved) -> void
+
+      # _@param_ `_text`
+      def redirect: (String _text) -> void
+
+      def confirming?: () -> bool
+
+      # _@param_ `error`
+      # 
+      # _@return_ — what the user reads
+      def failure: (StandardError error) -> String
+    end
+
     # Puri's `config.toml`: the model connections, and which one writes the titles. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
     # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
@@ -427,12 +464,12 @@ module Puri
       def close: () -> void
 
       # _@param_ `id`
-      def fetch: (String id) -> Puri::Core::DummyConversation
+      def fetch: (String id) -> Puri::Core::Conversation
 
       # _@param_ `text` — the opening question, which the title comes from
       # 
       # _@param_ `started_at`
-      def create: (String text, ?started_at: Time) -> Puri::Core::DummyConversation
+      def create: (String text, ?started_at: Time) -> Puri::Core::Conversation
 
       def publish: () -> void
 
@@ -440,7 +477,7 @@ module Puri
       def seed_history: () -> void
     end
 
-    # One turn of a {DummyConversation}, on a thread of its own as a pikuri agent's turn is. A
+    # One turn of a {DummyCore} {Conversation}, on a thread of its own as a pikuri agent's turn is. A
     # {DummyScript} drives it through the steps a real turn takes, each reported as the events a
     # real Core would send:
     # 
@@ -466,7 +503,7 @@ module Puri
       # 
       # _@param_ `pace` — seconds between streamed words
       def initialize: (
-                        Puri::Core::DummyConversation conversation,
+                        Puri::Core::Conversation conversation,
                         lock: Monitor,
                         think: Float,
                         pace: Float
@@ -530,6 +567,166 @@ module Puri
       # Raised inside a step once the turn is cancelled.
       class Cancelled < StandardError
       end
+    end
+
+    # The backend: each conversation a pikuri agent on the configured model, its turns on threads
+    # of their own, everything reported as {Protocol} events.
+    # 
+    #   core = PikuriCore.new(transport: config.primary_llm.transport) { |event| client.deliver(event) }
+    #   id = core.ask(nil, 'how do I keep an avocado?')
+    #   core.load_conversation(id).blocks   # => [UserMessage, Reply] once it has answered
+    #   core.close                           # stops every turn, closes every agent
+    # 
+    # Thread-safe.
+    class PikuriCore
+      include Puri::Protocol::Backend
+      SYSTEM_PROMPT: String
+
+      # _@param_ `transport` — where conversations run
+      def initialize: (transport: Pikuri::Agent::ChatTransport) ?{ (Data event) -> void } -> void
+
+      # Sends the user's message. With a confirmation pending, the message answers it as a
+      # redirect: the model follows the words and proposes again. With a turn running, it waits
+      # for that turn to end.
+      # 
+      # _@param_ `conversation` — the conversation to continue; nil starts a new one
+      # 
+      # _@param_ `text` — what the user typed
+      # 
+      # _@return_ — the conversation's id, new when `conversation` was nil
+      def ask: (String? conversation, String text) -> String
+
+      # Stops the running turn, if any; a pending confirmation ends as `cancelled`.
+      # 
+      # _@param_ `conversation`
+      def cancel: (String conversation) -> void
+
+      # Answers a pending {Confirmation}; one already answered is left alone.
+      # 
+      # _@param_ `conversation`
+      # 
+      # _@param_ `confirmation` — the {Confirmation}'s block id
+      # 
+      # _@param_ `approved` — true for its approve button, false for Cancel
+      def answer: (String conversation, String confirmation, bool approved) -> void
+
+      # _@return_ — newest first
+      def list_conversations: () -> ::Array[Puri::Protocol::ConversationSummary]
+
+      # _@param_ `conversation`
+      def load_conversation: (String conversation) -> Puri::Protocol::Transcript
+
+      # Forgets a conversation, cancelling its turn first.
+      # 
+      # _@param_ `conversation`
+      def delete_conversation: (String conversation) -> void
+
+      # Kills every turn's thread, waits until they're gone, then closes every agent.
+      def close: () -> void
+
+      # _@param_ `id`
+      def fetch: (String id) -> Puri::Core::Conversation
+
+      def create: () -> Puri::Core::Conversation
+
+      def publish: () -> void
+    end
+
+    # One conversation: its blocks, its activity, its title and its running turn. Every change
+    # is emitted as a {Protocol} event. What a turn *does* is the `turns` strategy's, so
+    # {PikuriCore} and {DummyCore} share everything else:
+    # 
+    #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:,
+    #                                   turns: ->(c) { DummyTurn.new(c, lock:, think: 1, pace: 0.03) })
+    #   conversation.ask('reschedule my dentist in the calendar')   # starts a turn
+    #   conversation.ask('make it Wednesday')    # a confirmation waits: redirects it
+    #   conversation.cancel
+    # 
+    # A message sent while a turn runs, but asks nothing, waits for that turn to end.
+    # 
+    # A turn is any object with `run(text)`, which runs on a thread of its own and ends by
+    # calling {#finish}; `cancel`, `answer(confirmation, approved)`, `redirect(text)` and
+    # `confirming?`, called from any thread. It reports through {#add}, {#put} and {#activity=}.
+    # 
+    # == Threading
+    # 
+    # Thread-safe: every method runs under the monitor its core shares with it. A turn's thread
+    # runs at priority −3, so a burst of Ruby on it stalls the GTK main loop by ~25 ms at most
+    # rather than a whole 100 ms time slice (`R_gvl_main_loop`).
+    class Conversation
+      # _@param_ `id`
+      # 
+      # _@param_ `lock` — the core's
+      # 
+      # _@param_ `emit` — takes a {Protocol} event
+      # 
+      # _@param_ `changed` — called when {#summary} changed
+      # 
+      # _@param_ `threads` — the core's, which takes each turn's thread
+      # 
+      # _@param_ `turns` — takes this conversation, returns a new turn (see the class doc)
+      # 
+      # _@param_ `started_at`
+      def initialize: (
+                        id: String,
+                        lock: Monitor,
+                        emit: Proc,
+                        changed: Proc,
+                        threads: ThreadGroup,
+                        turns: untyped,
+                        ?started_at: Time
+                      ) -> void
+
+      # _@param_ `text`
+      def ask: (String text) -> void
+
+      # Fills in an exchange that happened before Core started, as a saved history would.
+      # 
+      # _@param_ `question`
+      # 
+      # _@param_ `parts` — the answer
+      def restore: (String question, ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)] parts) -> void
+
+      def cancel: () -> void
+
+      # _@param_ `confirmation`
+      # 
+      # _@param_ `approved`
+      def answer: (String confirmation, bool approved) -> void
+
+      # _@param_ `title`
+      def title=: (String title) -> void
+
+      def summary: () -> Puri::Protocol::ConversationSummary
+
+      def transcript: () -> Puri::Protocol::Transcript
+
+      # Appends a block, giving it the next id.
+      # 
+      # _@param_ `block` — its id nil
+      # 
+      # _@return_ — the block as stored, id set
+      def add: (Puri::Protocol::Block block) -> Puri::Protocol::Block
+
+      # Replaces the block with this id, or appends it.
+      # 
+      # _@param_ `block`
+      def put: (Puri::Protocol::Block block) -> Puri::Protocol::Block
+
+      # _@param_ `activity`
+      def activity=: (Puri::Protocol::Activity activity) -> void
+
+      # Called by `turn` on its way out: goes idle, or starts the message that waited.
+      # 
+      # _@param_ `turn` — the turn {#ask} started
+      def finish: (Object turn) -> void
+
+      # _@param_ `text`
+      def start: (String text) -> void
+
+      attr_reader id: String
+
+      attr_reader started_at: Time
     end
 
     # What {DummyCore} answers, picked by words in the question, so every path through the UI
@@ -666,6 +863,70 @@ module Puri
 
       # _@param_ `root`
       def on_open: (Kramdown::Element root) -> void
+    end
+
+    # A {PikuriCore} conversation's pikuri agent, kept across its turns so the model sees the
+    # whole conversation. It is the {Conversation}'s `turns` strategy, and builds the agent on
+    # the first turn:
+    # 
+    #   session = AgentSession.new(transport:, system_prompt:)
+    #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:, turns: session)
+    #   conversation.ask('how do I keep an avocado?')   # session.call(conversation) → a Turn
+    #   session.close                                    # the conversation is gone
+    # 
+    # Each call comes from its conversation, under the core's lock.
+    class AgentSession
+      # _@param_ `transport`
+      # 
+      # _@param_ `system_prompt`
+      def initialize: (transport: Pikuri::Agent::ChatTransport, system_prompt: String) -> void
+
+      # _@param_ `conversation`
+      # 
+      # _@return_ — the next turn, not started
+      def call: (Puri::Core::Conversation conversation) -> Puri::Core::Turn
+
+      def close: () -> void
+
+      # _@param_ `conversation`
+      def build: (Puri::Core::Conversation conversation) -> Pikuri::Agent
+    end
+
+    # Turns a pikuri agent's events into a {Conversation}'s blocks and activity, the one place
+    # that decides which block an event becomes:
+    # 
+    #   ThinkingDelta            → ActivityChanged(working, "Thinking…")
+    #   AssistantDelta, …        → a Reply, re-sent per delta; ActivityChanged(streaming)
+    #   Assistant                → that Reply, rendered whole from the final text
+    # 
+    # Pass it to the agent behind `Listener::RateLimited`, which coalesces the deltas, so the
+    # reply re-renders at most 15 times a second however fast the model streams:
+    # 
+    #   listener = TurnListener.new(conversation)
+    #   Pikuri::Agent.new(transport:, system_prompt:, streaming: true) do |c|
+    #     c.add_listener(Pikuri::Agent::Listener::RateLimited.new(listener, fps: 15))
+    #   end
+    # 
+    # `UserTurn` shows nothing, since {Conversation} shows the user's message as the turn starts,
+    # before the agent's thread runs; it only drops a reply a cancel left open. Tool events wait
+    # for phase 2's tools, which word their own lines.
+    class TurnListener < Pikuri::Agent::Listener::Base
+      # _@param_ `conversation`
+      def initialize: (Puri::Core::Conversation conversation) -> void
+
+      # _@param_ `event` — a `Pikuri::Agent::Event` variant, or an extension's own
+      def on_event: (Object event) -> void
+
+      def thinking: () -> void
+
+      # _@param_ `text`
+      def delta: (String text) -> void
+
+      # The final text is authoritative: deltas need not add up to it. The agent streams, so a
+      # reply always opened with a delta.
+      # 
+      # _@param_ `text`
+      def finish: (String text) -> void
     end
 
     # The model's Markdown as {Protocol::Reply} parts: prose as Pango markup, code blocks and
@@ -826,95 +1087,6 @@ module Puri
       # 
       # _@return_ — safe inside Pango markup
       def self.escape: (String text) -> String
-    end
-
-    # One conversation of {DummyCore}: its blocks, its activity and its running {DummyTurn}.
-    # Every change is emitted as the {Protocol} event a real Core would send.
-    # 
-    #   conversation.ask('reschedule my dentist in the calendar')   # starts a turn
-    #   conversation.ask('make it Wednesday')    # a confirmation waits: redirects it
-    #   conversation.cancel
-    # 
-    # A message sent while a turn runs, but asks nothing, waits for that turn to end.
-    # 
-    # Thread-safe: every method runs under the monitor {DummyCore} shares with it.
-    class DummyConversation
-      # _@param_ `id`
-      # 
-      # _@param_ `lock` — {DummyCore}'s
-      # 
-      # _@param_ `emit` — takes a {Protocol} event
-      # 
-      # _@param_ `changed` — called when {#summary} changed
-      # 
-      # _@param_ `threads` — {DummyCore}'s, which takes each turn's thread
-      # 
-      # _@param_ `think` — see {DummyTurn#initialize}
-      # 
-      # _@param_ `pace` — see {DummyTurn#initialize}
-      # 
-      # _@param_ `started_at`
-      def initialize: (
-                        id: String,
-                        lock: Monitor,
-                        emit: Proc,
-                        changed: Proc,
-                        threads: ThreadGroup,
-                        think: Float,
-                        pace: Float,
-                        ?started_at: Time
-                      ) -> void
-
-      # _@param_ `text`
-      def ask: (String text) -> void
-
-      # Fills in an exchange that happened before Core started, as a saved history would.
-      # 
-      # _@param_ `question`
-      # 
-      # _@param_ `parts` — the answer
-      def restore: (String question, ::Array[(Puri::Protocol::Prose | Puri::Protocol::Code | Puri::Protocol::Table)] parts) -> void
-
-      def cancel: () -> void
-
-      # _@param_ `confirmation`
-      # 
-      # _@param_ `approved`
-      def answer: (String confirmation, bool approved) -> void
-
-      # _@param_ `title`
-      def title=: (String title) -> void
-
-      def summary: () -> Puri::Protocol::ConversationSummary
-
-      def transcript: () -> Puri::Protocol::Transcript
-
-      # Appends a block, giving it the next id.
-      # 
-      # _@param_ `block` — its id nil
-      # 
-      # _@return_ — the block as stored, id set
-      def add: (Puri::Protocol::Block block) -> Puri::Protocol::Block
-
-      # Replaces the block with this id, or appends it.
-      # 
-      # _@param_ `block`
-      def put: (Puri::Protocol::Block block) -> Puri::Protocol::Block
-
-      # _@param_ `activity`
-      def activity=: (Puri::Protocol::Activity activity) -> void
-
-      # Called by `turn` on its way out: goes idle, or starts the message that waited.
-      # 
-      # _@param_ `turn`
-      def finish: (Puri::Core::DummyTurn turn) -> void
-
-      # _@param_ `text`
-      def start: (String text) -> void
-
-      attr_reader id: String
-
-      attr_reader started_at: Time
     end
   end
 

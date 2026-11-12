@@ -4,36 +4,45 @@ require 'time'
 
 module Puri
   module Core
-    # One conversation of {DummyCore}: its blocks, its activity and its running {DummyTurn}.
-    # Every change is emitted as the {Protocol} event a real Core would send.
+    # One conversation: its blocks, its activity, its title and its running turn. Every change
+    # is emitted as a {Protocol} event. What a turn *does* is the `turns` strategy's, so
+    # {PikuriCore} and {DummyCore} share everything else:
     #
+    #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:,
+    #                                   turns: ->(c) { DummyTurn.new(c, lock:, think: 1, pace: 0.03) })
     #   conversation.ask('reschedule my dentist in the calendar')   # starts a turn
     #   conversation.ask('make it Wednesday')    # a confirmation waits: redirects it
     #   conversation.cancel
     #
     # A message sent while a turn runs, but asks nothing, waits for that turn to end.
     #
-    # Thread-safe: every method runs under the monitor {DummyCore} shares with it.
-    class DummyConversation
+    # A turn is any object with `run(text)`, which runs on a thread of its own and ends by
+    # calling {#finish}; `cancel`, `answer(confirmation, approved)`, `redirect(text)` and
+    # `confirming?`, called from any thread. It reports through {#add}, {#put} and {#activity=}.
+    #
+    # == Threading
+    #
+    # Thread-safe: every method runs under the monitor its core shares with it. A turn's thread
+    # runs at priority −3, so a burst of Ruby on it stalls the GTK main loop by ~25 ms at most
+    # rather than a whole 100 ms time slice (`R_gvl_main_loop`).
+    class Conversation
       # @return [String]
       attr_reader :id
 
       # @param id [String]
-      # @param lock [Monitor] {DummyCore}'s
+      # @param lock [Monitor] the core's
       # @param emit [Proc] takes a {Protocol} event
       # @param changed [Proc] called when {#summary} changed
-      # @param threads [ThreadGroup] {DummyCore}'s, which takes each turn's thread
-      # @param think [Float] see {DummyTurn#initialize}
-      # @param pace [Float] see {DummyTurn#initialize}
+      # @param threads [ThreadGroup] the core's, which takes each turn's thread
+      # @param turns [#call] takes this conversation, returns a new turn (see the class doc)
       # @param started_at [Time]
-      def initialize(id:, lock:, emit:, changed:, threads:, think:, pace:, started_at: Time.now)
+      def initialize(id:, lock:, emit:, changed:, threads:, turns:, started_at: Time.now)
         @id = id
         @lock = lock
         @emit = emit
         @changed = changed
         @threads = threads
-        @think = think
-        @pace = pace
+        @turns = turns
         @started_at = started_at
         @title = 'New conversation'
         @blocks = {}
@@ -156,7 +165,7 @@ module Puri
 
       # Called by `turn` on its way out: goes idle, or starts the message that waited.
       #
-      # @param turn [Puri::Core::DummyTurn]
+      # @param turn [Object] the turn {#ask} started
       # @return [void]
       def finish(turn)
         @lock.synchronize do
@@ -177,10 +186,13 @@ module Puri
       # @return [void]
       def start(text)
         add(Protocol::UserMessage.new(id: nil, text:))
-        turn = DummyTurn.new(self, lock: @lock, think: @think, pace: @pace)
+        turn = @turns.call(self)
         @turn = turn
         self.activity = Protocol::Activity.new(state: 'working', status: 'Thinking…')
-        @threads.add(Thread.new { turn.run(text) })
+        @threads.add(Thread.new do
+          Thread.current.priority = -3
+          turn.run(text)
+        end)
       end
     end
   end

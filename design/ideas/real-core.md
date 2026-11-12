@@ -95,9 +95,12 @@ Steps, each one landing green on `bundle exec rake`:
    - `ThinkingDelta` → `ActivityChanged(working, "Thinking…")`; thinking is never shown;
    - `AssistantDelta` → `ReplyStream#append`, `BlockChanged(Reply)`, `ActivityChanged(streaming)`;
      `Assistant` → `ReplyStream#finish`, and the next delta opens a new `Reply`;
-   - `ToolCall` / `ToolResult` → a `ToolLine` from `display_name` and `argument`, worded
-     generically until phase 2 words each tool;
+   - `ToolCall` / `ToolResult`: nothing until phase 2, whose tools word their own lines;
    - `Cancelled` → `Notice("Cancelled")`; a `StandardError` out of `run_loop` → an error `Notice`.
+
+   Done: `DummyConversation` became `Conversation`, shared by both backends; what a turn does
+   is its `turns:` strategy, `DummyTurn` or `AgentSession`'s `Turn`. First live turn on
+   Ornith 1.5: first token 18 s after Return, then 15 updates a second.
 
    A message sent while a turn runs waits for it to end, as `Backend#ask` promises
    (`Q_interloper`).
@@ -107,7 +110,9 @@ Steps, each one landing green on `bundle exec rake`:
 6. **Cancel.** `cancel` calls `Cancellable#cancel!` and wakes a parked confirmer. pikuri checks
    before every streamed chunk, so a streaming answer stops at the next token; a prefill does not
    (a Faraday read is uninterruptible), so a cancel during a cold 25 s prefill lands on the first
-   token. Until then the activity says "Cancelling…".
+   token. Until then the activity says "Cancelling…". **A pikuri gap:** `run_loop` starts with
+   `Cancellable#reset!`, so a cancel sent before the turn's thread reaches it (Escape right
+   after Return) is lost; the fix is upstream (`Q_early_cancel`).
 7. **The Confirmer.** `Core::Confirmer < Pikuri::Workspace::Confirmer`; `#ask` runs on the turn
    thread: puts a pending `Confirmation` (the `Request`'s question through
    `Pikuri::Sanitizer`), sets `confirming`, and parks on a queue that `answer`, `ask` and
@@ -153,6 +158,10 @@ search engines configured through `Config`'s `[search]` table (*Search, never fe
 system prompt taking the fragments the tools bring. Planned once phase 1 is in.
 
 ## Open questions
+
+- `Q_early_cancel`: what pikuri should offer so a host's cancel can't fall before `run_loop`'s
+  `reset!`: the host resetting the `Cancellable` itself when it starts a turn, or a fresh
+  `Cancellable` per turn. An issue for pikuri, then step 6 here.
 
 - `Q_interloper`: a message typed during a turn waits for it (today's contract) or reaches the
   model at the next tool batch through `Control::Interloper`, as in pikuri-web. Moot without
