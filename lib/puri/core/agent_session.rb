@@ -52,10 +52,15 @@ module Puri
         @persist = true
       end
 
+      # Resets the cancel flag: the conversation calls this under its lock, before the turn can
+      # be cancelled, so an Escape right after Return still stops the turn however late its
+      # thread reaches `run_loop`.
+      #
       # @param conversation [Puri::Core::Conversation]
       # @return [Puri::Core::Turn] the next turn, not started
       def call(conversation)
         @agent ||= build(conversation)
+        @cancellable.reset!
         Turn.new(conversation, agent: @agent, cancellable: @cancellable, confirmer: @confirmer,
                                saved: -> { save(conversation) })
       end

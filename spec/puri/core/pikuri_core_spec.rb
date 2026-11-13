@@ -8,8 +8,7 @@ require 'tmpdir'
 RSpec.describe Puri::Core::PikuriCore do
   p = Puri::Protocol
 
-  # A gate that also says when a turn has reached the model: `await` runs inside each HTTP call,
-  # after `run_loop` has reset the agent's Cancellable.
+  # A gate that also says when a turn has reached the model: `await` runs inside each HTTP call.
   parking_gate = Class.new(Pikuri::Testing::Gate) do
     def initialize
       super
@@ -159,6 +158,17 @@ RSpec.describe Puri::Core::PikuriCore do
 
       core.ask(id, 'hello again')
       assert_equal p::Reply, finished(id).blocks.last.class
+    end
+
+    # Return, then Escape at once: the turn's thread (priority −3) has usually not reached
+    # run_loop yet. Wherever it is, the cancel ends the turn.
+    it 'ends a turn cancelled before its thread reaches the model' do
+      gate.block!
+      id = core.ask(nil, 'wrong question')
+      core.cancel(id)
+      gate.release!
+
+      assert_equal [p::UserMessage, p::Notice], finished(id).blocks.map(&:class)
     end
   end
 
