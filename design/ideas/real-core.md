@@ -14,13 +14,12 @@ to be copied into `~/.config/puri/config.toml`), and it wants the `api_key` on i
 
 ## Phase 1: what's left
 
-- **Cancel, the other half** (waits on `Q_early_cancel`). `cancel` already calls
+- **Cancel, the other half.** `cancel` already calls
   `Cancellable#cancel!`, which stops a streaming reply at the next token and a parked confirmer
   within 0.1 s; live, Escape mid-stream stopped the reply within 2.5 s and kept the partial text.
   Missing: a cancel during prefill lands only on the first token (a Faraday read is
-  uninterruptible), up to a cold 25 s, so the activity should say "Cancelling…" meanwhile; and a
-  cancel sent before the turn's thread reaches `run_loop`'s `reset!` (Escape right after Return)
-  is lost. Untested live: a cancel while the model still thinks.
+  uninterruptible), up to a cold 25 s, so the activity should say "Cancelling…" meanwhile.
+  Untested live: a cancel while the model still thinks.
 - **Measure on the owner's machine** (next) and write it up as an `R_` entry: time to first
   token from Return, tok/s, the prefix size before the first word, and the main loop's jitter
   while a reply streams (a 16 ms `GLib::Timeout` logging its lateness), at priority 0 and −3. A
@@ -41,9 +40,6 @@ real confirmations come with them. Planned once phase 1 is in.
 
 ## Open questions
 
-- `Q_early_cancel`: a cancel that lands before `run_loop`'s `reset!` is lost. Filed as pikuri's
-  `design/ideas/early-cancel.md` (pushed), recommending that the host owns the reset; once it
-  lands, `Turn` resets as `Conversation` starts it.
 - `Q_interloper`: a message typed during a turn waits for it (today's contract) or reaches the
   model at the next tool batch through `Control::Interloper`, as in pikuri-web. Moot without
   tools; recommended: keep waiting in phase 1, decide with phase 2.
