@@ -235,9 +235,10 @@ RSpec.describe Puri::Core::PikuriCore do
         [Pikuri::Tool.new(
           name: 'move_event', description: 'Moves a calendar event.',
           parameters: Pikuri::Tool::Parameters.build { |params| params.required_string :question, 'what to ask' },
-          execute: lambda { |question:|
+          wants_context: true,
+          execute: lambda { |question:, context:|
             request = Pikuri::Workspace::Confirmer::Request.new(question:)
-            result = case decision = confirmer.ask(request:)
+            result = case decision = confirmer.ask(request:, cancellable: context.cancellable)
                      in Pikuri::Workspace::Confirmer::Approved then Pikuri::Tool::Result.new(content: 'Moved.',
                                                                                              summary: 'Moved')
                      else decision.observation('the move')

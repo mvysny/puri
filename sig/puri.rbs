@@ -374,11 +374,11 @@ module Puri
     # Asks the user in the transcript: a tool's `ask` shows a {Protocol::Confirmation} and waits
     # on the turn's thread until the user answers from the main loop.
     # 
-    #   confirmer.ask(request:)            # turn thread: a pending Confirmation, activity confirming
-    #   confirmer.answer('b4', true)       # main loop: Update → Approved
-    #   confirmer.answer('b4', false)      # Cancel → Rejected
-    #   confirmer.redirect('make it Wed')  # typed text → Redirected('make it Wed')
-    #   cancellable.cancel!                # Escape → ask raises Cancellable::Cancelled
+    #   confirmer.ask(request:, cancellable:)  # turn thread: a pending Confirmation, activity confirming
+    #   confirmer.answer('b4', true)           # main loop: Update → Approved
+    #   confirmer.answer('b4', false)          # Cancel → Rejected
+    #   confirmer.redirect('make it Wed')      # typed text → Redirected('make it Wed')
+    #   cancellable.cancel!                    # Escape, close, quit → ask raises Cancellable::Cancelled
     # 
     # Whichever way it ends, the Confirmation is re-sent with its final state. `D_confirmation_answers`
     # has why each gesture is the answer it is.
@@ -389,26 +389,24 @@ module Puri
     # == Implementation details
     # 
     # The pending confirmation is guarded by the core's lock, which {Conversation} takes too, so
-    # showing it and marking it pending are one step for {#pending?}. A parked `ask` checks the
-    # Cancellable every {SLICE_SECONDS} rather than waiting for a message, so no cancel can fall
-    # between its check and its wait.
+    # showing it and marking it pending are one step for {#pending?}. A parked `ask` waits in a
+    # `Pikuri::Agent::Control::Handoff` on the asking turn's Cancellable, so any cancel of that
+    # turn reaches it.
     # 
     # Thread-safe.
     class Confirmer < Pikuri::Workspace::Confirmer
-      SLICE_SECONDS: Float
-
       # _@param_ `conversation` — where the question shows
       # 
       # _@param_ `lock` — the core's
-      # 
-      # _@param_ `cancellable` — the conversation's agent's
-      def initialize: (Puri::Core::Conversation conversation, lock: Monitor, cancellable: Pikuri::Agent::Control::Cancellable) -> void
+      def initialize: (Puri::Core::Conversation conversation, lock: Monitor) -> void
 
       # The question is the tool's, sanitized; its detail follows it, and a spoof the sanitizer
       # found leads it.
       # 
       # _@param_ `request`
-      def ask: (request: Pikuri::Workspace::Confirmer::Request) -> (Pikuri::Workspace::Confirmer::Approved | Pikuri::Workspace::Confirmer::Rejected | Pikuri::Workspace::Confirmer::Redirected)
+      # 
+      # _@param_ `cancellable` — the asking turn's
+      def ask: (request: Pikuri::Workspace::Confirmer::Request, cancellable: Pikuri::Agent::Control::Cancellable) -> (Pikuri::Workspace::Confirmer::Approved | Pikuri::Workspace::Confirmer::Rejected | Pikuri::Workspace::Confirmer::Redirected)
 
       # _@param_ `confirmation` — the block id the user answered
       # 
@@ -424,8 +422,17 @@ module Puri
       # _@return_ — whether a confirmation waits for the user
       def pending?: () -> bool
 
+      # Hands the waiting `ask` its answer; the caller holds the lock.
+      # 
+      # _@param_ `answer`
+      # 
+      # _@return_ — false when no question waits for one, or it has its answer already
+      def hand: ((Symbol | [Symbol, String]) answer) -> bool
+
       # _@param_ `request`
-      def decide: (Pikuri::Workspace::Confirmer::Request request) -> (Pikuri::Workspace::Confirmer::Approved | Pikuri::Workspace::Confirmer::Rejected | Pikuri::Workspace::Confirmer::Redirected)
+      # 
+      # _@param_ `handoff`
+      def decide: (Pikuri::Workspace::Confirmer::Request request, Pikuri::Agent::Control::Handoff handoff) -> (Pikuri::Workspace::Confirmer::Approved | Pikuri::Workspace::Confirmer::Rejected | Pikuri::Workspace::Confirmer::Redirected)
 
       # _@param_ `state` — the Confirmation's final state
       # 

@@ -120,7 +120,7 @@ module Puri
       # @param config [Pikuri::Agent::Configurator]
       # @return [void]
       def configure(config)
-        @confirmer = Confirmer.new(@conversation, lock: @lock, cancellable: config.agent.cancellable)
+        @confirmer = Confirmer.new(@conversation, lock: @lock)
         config.add_tools(@tools.call(@confirmer))
       end
 
