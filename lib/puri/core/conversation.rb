@@ -4,27 +4,26 @@ require 'time'
 
 module Puri
   module Core
-    # One conversation: its blocks, its activity, its title and its running turn. Every change
-    # is emitted as a {Protocol} event. What a turn *does* is the `turns` strategy's, so
-    # {PikuriCore} and the dummy backend in `dev/` share everything else:
+    # One conversation as Desktop sees it: its blocks, its activity, its title and its last
+    # question, each change emitted as a {Protocol} event. Whatever runs its turns reports
+    # through {#add}, {#put} and {#activity=}, so {PikuriCore} and the dummy backend in `dev/`
+    # share it:
     #
-    #   conversation = Conversation.new(id:, lock:, emit:, changed:, threads:, turns: agent_session)
-    #   conversation.ask('reschedule my dentist in the calendar')   # starts a turn
-    #   conversation.ask('make it Wednesday')    # a confirmation waits: redirects it
-    #   conversation.cancel
-    #
-    # A message sent while a turn runs, but asks nothing, waits for that turn to end.
-    #
-    # A turn is any object with `run(text)`, which runs on a thread of its own and ends by
-    # calling {#finish}; `cancel`, `answer(confirmation, approved)`, `redirect(text)` and
-    # `confirming?`, called from any thread. It reports through {#add}, {#put} and {#activity=}.
+    #   conversation = Conversation.new(id:, lock:, emit:, changed:)
+    #   conversation.asked('how do I keep an avocado?')     # the question, for the history row
+    #   reply = conversation.add(Protocol::Reply.new(id: nil, parts: []))   # => the block, id "b1"
+    #   conversation.put(reply.with(parts:))                 # re-sent whole
+    #   conversation.activity = Protocol::Activity::IDLE
     #
     # == Threading
     #
-    # Thread-safe: every method runs under the monitor its core shares with it. A turn's thread
-    # runs at priority −3, so a burst of Ruby on it stalls the GTK main loop by ~25 ms at most
-    # rather than a whole 100 ms time slice (`R_gvl_main_loop`).
+    # Thread-safe: every method runs under the monitor its core shares with it.
     class Conversation
+      # What a conversation is called until it has been titled.
+      #
+      # @return [String]
+      NEW_TITLE = 'New conversation'
+
       # @return [String]
       attr_reader :id
 
@@ -32,27 +31,21 @@ module Puri
       # @param lock [Monitor] the core's
       # @param emit [Proc] takes a {Protocol} event
       # @param changed [Proc] called when {#summary} changed
-      # @param threads [ThreadGroup] the core's, which takes each turn's thread
-      # @param turns [#call] takes this conversation, returns a new turn (see the class doc)
       # @param started_at [Time]
       # @param title [String]
       # @param last_question [String, nil]
       # @param asked_at [Time, nil] when `last_question` was asked
-      def initialize(id:, lock:, emit:, changed:, threads:, turns:, started_at: Time.now,
-                     title: 'New conversation', last_question: nil, asked_at: nil)
+      def initialize(id:, lock:, emit:, changed:, started_at: Time.now, title: NEW_TITLE, last_question: nil,
+                     asked_at: nil)
         @id = id
         @lock = lock
         @emit = emit
         @changed = changed
-        @threads = threads
-        @turns = turns
         @started_at = started_at
         @title = title
         @blocks = {}
         @next_block = 0
         @activity = Protocol::Activity::IDLE
-        @turn = nil
-        @waiting = []
         @last_question = last_question
         @asked_at = asked_at
       end
@@ -60,20 +53,14 @@ module Puri
       # @return [Time]
       attr_reader :started_at
 
+      # Records the user's latest question, which the history shows under the title.
+      #
       # @param text [String]
       # @return [void]
-      def ask(text)
+      def asked(text)
         @lock.synchronize do
           @last_question = text
           @asked_at = Time.now
-          if @turn&.confirming?
-            add(Protocol::UserMessage.new(id: nil, text:))
-            @turn.redirect(text)
-          elsif @turn
-            @waiting << text
-          else
-            start(text)
-          end
           @changed.call
         end
       end
@@ -93,21 +80,6 @@ module Puri
         end
       end
 
-      # @return [void]
-      def cancel
-        @lock.synchronize do
-          @waiting.clear
-          @turn&.cancel
-        end
-      end
-
-      # @param confirmation [String]
-      # @param approved [Boolean]
-      # @return [void]
-      def answer(confirmation, approved)
-        @lock.synchronize { @turn&.answer(confirmation, approved) }
-      end
-
       # @param title [String]
       # @return [void]
       def title=(title)
@@ -116,6 +88,9 @@ module Puri
           @changed.call
         end
       end
+
+      # @return [Boolean] whether a turn runs
+      def running? = @lock.synchronize { @activity.running? }
 
       # @return [Puri::Protocol::ConversationSummary]
       def summary
@@ -165,38 +140,6 @@ module Puri
           @emit.call(Protocol::ActivityChanged.new(conversation: id, activity:))
           @changed.call if was_running != activity.running?
         end
-      end
-
-      # Called by `turn` on its way out: goes idle, or starts the message that waited.
-      #
-      # @param turn [Object] the turn {#ask} started
-      # @return [void]
-      def finish(turn)
-        @lock.synchronize do
-          next unless @turn.equal?(turn)
-
-          @turn = nil
-          if @waiting.empty?
-            self.activity = Protocol::Activity::IDLE
-          else
-            start(@waiting.shift)
-          end
-        end
-      end
-
-      private
-
-      # @param text [String]
-      # @return [void]
-      def start(text)
-        add(Protocol::UserMessage.new(id: nil, text:))
-        turn = @turns.call(self)
-        @turn = turn
-        self.activity = Protocol::Activity.new(state: 'working', status: 'Thinking…')
-        @threads.add(Thread.new do
-          Thread.current.priority = -3
-          turn.run(text)
-        end)
       end
     end
   end

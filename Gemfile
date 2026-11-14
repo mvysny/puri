@@ -29,6 +29,13 @@ git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-workspace'
 end
 
+# The conversations Core hosts: their agents and turns, the folder they are saved in, the titler
+# and the per-server request throttle. A workshop gem, on its git master like pikuri;
+# `bundle update pikuri-conversations` moves the pin.
+git 'https://github.com/mvysny/pikuri-workshop.git', branch: 'master' do
+  gem 'pikuri-conversations'
+end
+
 # Core::Config, ported from pikuri-web with its gems: tomlrb parses the TOML (pure Ruby, MIT, no
 # dependencies; toml-rb drags in the unlicensed, abandoned citrus), typemap maps it onto the
 # config's Data classes, checking every value against its YARD type. typemap reads those types

@@ -46,7 +46,7 @@ module Puri
         @lock.synchronize do
           target = conversation ? fetch(conversation) : create(text)
           target.ask(text)
-          target.id
+          target.conversation.id
         end
       end
 
@@ -58,11 +58,11 @@ module Puri
 
       # (see Puri::Protocol::Backend#list_conversations)
       def list_conversations
-        @lock.synchronize { @conversations.values.reverse.map(&:summary) }
+        @lock.synchronize { @conversations.values.reverse.map { _1.conversation.summary } }
       end
 
       # (see Puri::Protocol::Backend#load_conversation)
-      def load_conversation(conversation) = fetch(conversation).transcript
+      def load_conversation(conversation) = fetch(conversation).conversation.transcript
 
       # (see Puri::Protocol::Backend#delete_conversation)
       def delete_conversation(conversation)
@@ -86,7 +86,7 @@ module Puri
       private
 
       # @param id [String]
-      # @return [Puri::Core::Conversation]
+      # @return [Puri::Dummy::Session]
       # @raise [ArgumentError]
       def fetch(id)
         @lock.synchronize { @conversations[id] } or raise ArgumentError, "no conversation #{id.inspect}"
@@ -95,21 +95,20 @@ module Puri
       # @param text [String] the opening question, which the title comes from
       # @param started_at [Time]
       # @param asked [Boolean] whether `text` was asked already, at `started_at`
-      # @return [Puri::Core::Conversation]
+      # @return [Puri::Dummy::Session]
       def create(text, started_at: Time.now, asked: false)
         conversation = Core::Conversation.new(
           id: SecureRandom.uuid, lock: @lock, emit: ->(event) { @listener.call(event) },
-          changed: -> { publish }, threads: @threads, started_at:,
-          last_question: (text if asked), asked_at: (started_at if asked),
-          turns: ->(c) { Turn.new(c, lock: @lock, think: @think, pace: @pace) }
+          changed: -> { publish }, started_at:, last_question: (text if asked), asked_at: (started_at if asked)
         )
-        @conversations[conversation.id] = conversation
+        session = Session.new(conversation, lock: @lock, threads: @threads, think: @think, pace: @pace)
+        @conversations[conversation.id] = session
         publish
         @threads.add(Thread.new do
           sleep @title_delay
           @lock.synchronize { conversation.title = Script.title(text) if @conversations.key?(conversation.id) }
         end)
-        conversation
+        session
       end
 
       # @return [void]
@@ -129,7 +128,7 @@ module Puri
            'Your **Shopping** note: avocados, limes, coffee beans and AA batteries.'],
           [5400, 'when is the dentist?', 'Tuesday at **10:00**, in your Personal calendar.']
         ].each do |ago, question, answer|
-          conversation = create(question, started_at: Time.now - ago, asked: true)
+          conversation = create(question, started_at: Time.now - ago, asked: true).conversation
           conversation.restore([Protocol::UserMessage.new(id: nil, text: question),
                                 Protocol::Reply.new(id: nil, parts: Core::ReplyRenderer.render(answer))])
           conversation.title = Script.title(question)

@@ -60,19 +60,15 @@ button. The three results and their prompt wording are pikuri's `Confirmer` (pik
 ours. The question names everything that matters, which calendar, which note, because Siri's
 unconfirmed create picked the wrong calendar.
 
-## D_port_pikuri_web — Why copy pikuri-web's conversation store rather than lift it into pikuri?
+## D_port_pikuri_web — Why host conversations through pikuri-conversations rather than our own store, or pikuri?
 
-Puri is pikuri-web ported onto a backend that doesn't care what its frontend is: Core behind
-Protocol could one day grow an HTTP head, and pikuri-web could then retire. So the store moves
-here rather than being shared by two living apps, which is the case *Conventions*' "never a
-copy" guards against. What is copied is the on-disk format, not the code: a directory per
-conversation, pikuri's `history.json` beside our `meta.json` (schema 1: title, timestamps,
-`shell`, the `[model, server]` pair), 0700, temp-file-and-rename, `meta.json` last as the commit
-point. Its `shell` field exists for a second app, so Puri writes `"puri"` into one shared format.
-The Titler comes along, prompt included: naming a conversation is a UI matter, pikuri stays a
-lean agent runtime, and a prompt lives with the code that parses its answer (`D_own_prompts`).
-Whether the HTTP head comes over and pikuri-web retires is left to come up on its own; until
-then Puri is a desktop UI.
+Puri is pikuri-web ported onto a backend that doesn't care what its frontend is, and both hosts
+need the same hosting around pikuri's `Agent`: a turn per thread, mid-turn messages, cancel,
+one folder per conversation, a titler, a throttle per server. Two copies drifted, so it lives
+once, in the workshop's `pikuri-conversations`; pikuri itself stays the synchronous loop, since
+none of it matters to one conversation alone. The folder format is the one both already wrote:
+pikuri's `history.json` beside a `meta.json` envelope, where Puri adds `last_question` and
+`asked_at`. Displaying a turn stays ours: blocks, Markdown, wording.
 
 ## D_own_prompts — Why write our own system prompts rather than use pikuri's as they are?
 
@@ -112,14 +108,13 @@ know is an error. The loader is pikuri-web's, copied (`D_port_pikuri_web`). The 
 and nothing has a default, the titler included: a built-in model tag would be a second, invisible
 place a connection comes from, so a missing file fails at once and quotes the example to paste.
 
-## D_titler_model — Why title on the main model with thinking off, beside the answer, rather than on a small model or after it?
+## D_titler_model — Why title on the main model with thinking off, after the first answer, rather than on a small model or beside it?
 
 One model stays loaded, and the small instruct models pikuri-web tried failed the job: they
 titled in the wrong language, or obeyed the opener instead of naming it. Thinking off makes the
 main model cheap enough (`R_llama_server_titles`), so `[titler]` is a second connection to the
-same server that differs only in `params`. `Titler`'s caps and `</think>` strip stay, since a
-server can accept that parameter and ignore it. It runs beside the first turn so the title shows
-while the answer streams, at a cost of about a second to that answer. Why not one permit, as
-pikuri-web forces: its case is two full replies streaming at once, while a ten-token title
-barely overlaps the answer and the popup shows one conversation; `ServerPermits` sizes from the
-server's slot count. Why no slot is pinned: pinning the turn lost its cached prefix.
+same server that differs only in `params`. The Titler's caps and `</think>` strip stay, since a
+server can accept that parameter and ignore it. The title is asked once the first turn has ended:
+beside it, on a one-slot server, the title wins the permit and the answer waits about a second
+for it. The cost is a "New conversation" row until the answer is in. Why no slot is pinned:
+pinning the turn lost its cached prefix.

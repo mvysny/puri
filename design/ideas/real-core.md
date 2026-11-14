@@ -40,9 +40,6 @@ real confirmations come with them. Planned once phase 1 is in.
 
 ## Open questions
 
-- `Q_interloper`: a message typed during a turn waits for it (today's contract) or reaches the
-  model at the next tool batch through `Control::Interloper`, as in pikuri-web. Moot without
-  tools; recommended: keep waiting in phase 1, decide with phase 2.
 - `Q_approve_label`: `Protocol::Confirmation` has `approve_label` and `destructive`, a
   `Confirmer::Request` has neither. Phase 1 shows "Approve", not destructive. If the tools need
   more, the fields go upstream into `Request` (*a gap is a missing pikuri primitive*), not into

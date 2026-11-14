@@ -31,15 +31,17 @@ RSpec.describe Puri::Core::PikuriCore do
   let(:titles) { ['Keeping An Avocado'] }
   let(:titler) do
     titled = Pikuri::Testing.fake_transport(gate: title_gate) { |llm| titles.each { llm.reply(_1) } }
-    Puri::Core::Titler.new(transport: titled, params_declared: true)
+    Pikuri::Conversations::Titler.new(transport: titled, params_declared: true)
   end
-  let(:store) { Puri::Core::Store.new(root: @root) }
+  let(:store) { Pikuri::Conversations::Store.new(root: @root, shell: 'puri') }
   let(:core) { described_class.new(transport:, titler:, store:) { |event| events << p.round_trip(event) } }
 
-  # The context-window probe dials the fake's `.invalid` host and warns that it failed.
+  # The fake states its context window and modalities; sizing its server too leaves the probe
+  # nothing to ask. A server not sized is probed, and the probe warns that it failed.
   around do |example|
     log = Pikuri.log_io
     Pikuri.log_io = StringIO.new
+    Pikuri::Conversations::Throttle.limit('http://fake.invalid', nil)
     Dir.mktmpdir('puri-conversations') do |root|
       @root = root
       example.run
@@ -50,6 +52,8 @@ RSpec.describe Puri::Core::PikuriCore do
       @restarted&.close
     end
   ensure
+    Pikuri::Conversations::Throttle.reset!
+    Pikuri::Conversations::Probe.reset!
     Pikuri.log_io = log
   end
 
@@ -94,12 +98,16 @@ RSpec.describe Puri::Core::PikuriCore do
   # @return [String]
   def title(id) = core.list_conversations.find { _1.id == id }.title
 
-  it 'titles a new conversation while its first answer is still coming' do
+  it 'titles a new conversation once its first answer is in' do
     gate.block!
     id = core.ask(nil, 'how do I keep an avocado?')
     assert_equal 'New conversation', drain.grep(p::ConversationsChanged).first.conversations.first.title
+    gate.wait_arrived
+    sleep 0.1
+    assert_equal 'New conversation', title(id)
+
+    gate.release!
     wait_until('the title arrives') { title(id) == 'Keeping An Avocado' }
-    assert_predicate core.load_conversation(id).activity, :running?
   end
 
   context 'when the titler fails' do
@@ -107,7 +115,7 @@ RSpec.describe Puri::Core::PikuriCore do
 
     it 'logs it and keeps the name' do
       id = core.ask(nil, 'how do I keep an avocado?')
-      wait_until('the failure is logged') { Pikuri.log_io.string.include?("can't title conversation #{id}") }
+      wait_until('the failure is logged') { Pikuri.log_io.string.include?("conversation #{id}: titling failed") }
       assert_equal 'New conversation', title(finished(id).conversation)
     end
   end
@@ -135,7 +143,7 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_equal 'Your name is <b>Bob</b>.', blocks.last.parts.first.markup
     end
 
-    it 'holds a message sent during a turn until that turn ends' do
+    it 'shows a message sent during a turn once the model reads it, and answers it' do
       gate.block!
       id = core.ask(nil, "I'm Bob")
       gate.wait_arrived
@@ -143,8 +151,19 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_equal [p::UserMessage], core.load_conversation(id).blocks.map(&:class)
 
       gate.release!
-      wait_until('both turns end') { core.load_conversation(id).blocks.size == 4 }
+      wait_until('both answers are in') { core.load_conversation(id).blocks.size == 4 }
       assert_equal "what's my name?", finished(id).blocks[2].text
+    end
+
+    it 'shows a message a cancel dropped before the model read it' do
+      gate.block!
+      id = core.ask(nil, "I'm Bob")
+      gate.wait_arrived
+      core.ask(id, "what's my name?")
+      core.cancel(id)
+      gate.release!
+      assert_equal [p::UserMessage, p::UserMessage, p::Notice], finished(id).blocks.map(&:class)
+      assert_equal %w[user], store.history(store.find(id)).messages.map(&:role)
     end
 
     it 'ends a cancelled turn in a notice, and takes the next question' do
@@ -194,16 +213,16 @@ RSpec.describe Puri::Core::PikuriCore do
     end
     let(:core) { described_class.from_config(config, store:) { |event| events << p.round_trip(event) } }
 
-    after { Pikuri::Agent::ServerPermits.reset! }
-
-    it 'runs conversations on the first [[llm]]' do
+    it 'runs conversations on the first [[llm]], and titles them on the [titler]' do
       id = core.ask(nil, 'hi')
       assert_match %r{\ACan't reach the model at http://127\.0\.0\.1:9/v1: }, finished(id).blocks.last.text
+      wait_until('the title fails') { Pikuri.log_io.string.include?('titling failed: RubyLLM::ConnectionError') }
     end
 
     it 'limits the servers that state max_concurrent_requests, and only those' do
       core
-      assert_equal({ 'http://127.0.0.1:9' => 2 }, Pikuri::Agent::ServerPermits.sizes)
+      assert_equal({ 'http://127.0.0.1:9' => 2, 'http://fake.invalid' => nil },
+                   Pikuri::Conversations::Throttle.sizes)
     end
   end
 
@@ -320,15 +339,22 @@ RSpec.describe Puri::Core::PikuriCore do
     assert_raises(ArgumentError) { core.load_conversation(id) }
   end
 
+  it 'keeps its conversations under XDG_STATE_HOME' do
+    Dir.mktmpdir do |state|
+      assert_equal "#{state}/puri/conversations", described_class.store(env: { 'XDG_STATE_HOME' => state }).root.to_s
+    end
+  end
+
   describe 'saving' do
     # Closes the core, and starts another on the same directory, as Puri starting again would.
     #
+    # @param titles [Pikuri::Conversations::Titler] the restarted core's
     # @yieldparam llm [Pikuri::Testing::Script] what the model answers now
     # @return [Puri::Core::PikuriCore]
-    def restart(&script)
+    def restart(titles = titler, &script)
       core.close
-      @restarted = described_class.new(transport: Pikuri::Testing.fake_transport(&script), titler:,
-                                       store: Puri::Core::Store.new(root: @root)) { |_event| nil }
+      @restarted = described_class.new(transport: Pikuri::Testing.fake_transport(&script), titler: titles,
+                                       store: Pikuri::Conversations::Store.new(root: @root, shell: 'puri')) { nil }
     end
 
     # @param id [String]
@@ -350,7 +376,7 @@ RSpec.describe Puri::Core::PikuriCore do
 
       again.ask(id, 'and a cut one?')
       assert_equal [p::UserMessage, p::Reply, p::UserMessage, p::Reply], finished(id, again).blocks.map(&:class)
-      assert_equal %w[user assistant user assistant], store.history(id).messages.map(&:role)
+      assert_equal %w[user assistant user assistant], store.history(store.find(id)).messages.map(&:role)
     end
 
     it 'saves a cancelled turn too' do
@@ -364,23 +390,28 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_equal [p::UserMessage], restart {}.load_conversation(id).blocks.map(&:class)
     end
 
-    it 'saves the title whether it comes before the first save or after' do
-      gate.block!
-      early = core.ask(nil, 'how do I keep an avocado?')
-      wait_until('the title arrives') { title(early) == 'Keeping An Avocado' }
-      gate.release!
-      finished(early)
-      assert_equal 'Keeping An Avocado', saved_title(early)
+    it 'renames the saved conversation once its title arrives' do
+      title_gate.block!
+      id = core.ask(nil, 'how do I keep an avocado?')
+      finished(id)
+      assert store.stamp_titled?(store.find(id))
+
+      title_gate.release!
+      wait_until('the title is saved') { saved_title(id) == 'Keeping An Avocado' }
     end
 
-    context 'when the title comes after the first save' do
-      it 'renames the saved conversation' do
-        title_gate.block!
+    context 'when the titler failed the first time' do
+      let(:titles) { [] }
+
+      it 'titles the conversation at its next turn after a restart' do
         id = core.ask(nil, 'how do I keep an avocado?')
         finished(id)
-        assert_equal 'New conversation', saved_title(id)
+        wait_until('the failure is logged') { Pikuri.log_io.string.include?('titling failed') }
 
-        title_gate.release!
+        titled = Pikuri::Testing.fake_transport { |llm| llm.reply('Keeping An Avocado') }
+        again = restart(Pikuri::Conversations::Titler.new(transport: titled)) { |llm| llm.stream('Still cold.') }
+        assert_equal 'New conversation', again.list_conversations.first.title
+        again.ask(id, 'and a cut one?')
         wait_until('the title is saved') { saved_title(id) == 'Keeping An Avocado' }
       end
     end
@@ -404,9 +435,9 @@ RSpec.describe Puri::Core::PikuriCore do
 
     context 'when a save fails with something other than a SystemCallError' do
       let(:store) do
-        Class.new(Puri::Core::Store) do
+        Class.new(Pikuri::Conversations::Store) do
           def save(*, **) = raise(JSON::GeneratorError, 'source sequence is illegal/malformed utf-8')
-        end.new(root: @root)
+        end.new(root: @root, shell: 'puri')
       end
       let(:script) { ->(llm) { llm.stream('Keep it cold.').stream('Wrap it.') } }
 

@@ -23,12 +23,13 @@ module Puri
       # Raised inside a step once the turn is cancelled.
       class Cancelled < StandardError; end
 
-      # @param conversation [Puri::Core::Conversation] where the blocks go
-      # @param lock [Monitor] the conversation's, which also guards the pending confirmation
+      # @param session [Puri::Dummy::Session] whose conversation the blocks go to
+      # @param lock [Monitor] the backend's, which also guards the pending confirmation
       # @param think [Float] seconds a {#think} step takes
       # @param pace [Float] seconds between streamed words
-      def initialize(conversation, lock:, think:, pace:)
-        @conversation = conversation
+      def initialize(session, lock:, think:, pace:)
+        @session = session
+        @conversation = session.conversation
         @lock = lock
         @think = think
         @pace = pace
@@ -50,7 +51,7 @@ module Puri
         settle('cancelled')
         @conversation.add(Protocol::Notice.new(id: nil, text: e.message, error: true))
       ensure
-        @conversation.finish(self)
+        @session.finish(self)
       end
 
       # @return [void]

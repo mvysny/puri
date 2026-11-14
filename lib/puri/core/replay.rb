@@ -14,7 +14,7 @@ module Puri
       # @param history [Pikuri::Agent::History]
       # @return [Array<Puri::Protocol::UserMessage, Puri::Protocol::Reply>]
       def self.blocks(history)
-        history.lift_inline_thinking.messages.filter_map do |message|
+        history.messages.filter_map do |message|
           case message.role
           when 'user'
             Protocol::UserMessage.new(id: nil, text: message.content) unless message.kind == 'reference'

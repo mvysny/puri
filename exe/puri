@@ -59,8 +59,7 @@ core =
     rescue Puri::Core::Config::Error => e
       abort "puri: #{e.message}"
     end
-    store = Puri::Core::Store.new(root: Puri::Core::Store.default_root)
-    Puri::Core::PikuriCore.from_config(config, store:, &listener)
+    Puri::Core::PikuriCore.from_config(config, store: Puri::Core::PikuriCore.store, &listener)
   end
 client = Puri::Desktop::BackendClient.new(core)
 

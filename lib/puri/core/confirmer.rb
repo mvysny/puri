@@ -69,9 +69,15 @@ module Puri
       end
 
       # @param text [String] what the user typed while the confirmation waits
-      # @return [void]
+      # @return [Boolean] false when no confirmation waits for an answer, and `text` is the
+      #   caller's to send on
       def redirect(text)
-        @lock.synchronize { @answers << [:redirected, text] if @pending }
+        @lock.synchronize do
+          next false unless @pending && @answers.empty?
+
+          @answers << [:redirected, text]
+          true
+        end
       end
 
       # @return [Boolean] whether a confirmation waits for the user

@@ -1,16 +1,24 @@
 GIT
   remote: https://codeberg.org/mvysny/pikuri.git
-  revision: 5f025732653e4b1149b4ed69f544b6dfa2dbe6cf
+  revision: f4d0a6f239dfb8e9ef204b01c006568c4e1784d7
   branch: master
   specs:
     pikuri-core (0.1.0)
       faraday (~> 2.9)
       rainbow (~> 3.1)
-      ruby_llm (~> 2.1)
+      ruby_llm (~> 2.2)
       zeitwerk (~> 2.7)
     pikuri-workspace (0.1.0)
       pikuri-core (= 0.1.0)
       reline (~> 0.6)
+
+GIT
+  remote: https://github.com/mvysny/pikuri-workshop.git
+  revision: 8baedfdf21531fb900ef00a59d94436ae0908d2d
+  branch: master
+  specs:
+    pikuri-conversations (0.1.0)
+      pikuri-core (~> 0.1)
 
 GIT
   remote: https://github.com/mvysny/streaming-markdown-parser.git
@@ -151,6 +159,7 @@ DEPENDENCIES
   kramdown (~> 2.5)
   kramdown-parser-gfm (~> 1.1)
   minitest (~> 6.0)
+  pikuri-conversations!
   pikuri-core!
   pikuri-workspace!
   prism (< 2)
@@ -194,6 +203,7 @@ CHECKSUMS
   parallel (2.3.0) sha256=f75a3e904101ce6a1ccb6b8dc800cbafd42166d83330192438dcf29395167a6f
   parlour (9.1.2) sha256=446ce24243e125f0e8c4f9b5722c3b86063d42d8b106c847a7d73a8cc693c382
   parser (3.3.13.0) sha256=e02f9b63c2fe05b0c68f692ba4df89b3cb113b663964f75d988fbebfd6c3deca
+  pikuri-conversations (0.1.0)
   pikuri-core (0.1.0)
   pikuri-workspace (0.1.0)
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85

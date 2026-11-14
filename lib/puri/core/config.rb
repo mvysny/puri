@@ -23,7 +23,7 @@ module Puri
     #   id      = "local"
     #   url     = "http://localhost:8080"
     #   api_key = "…"                    # optional; a local llama-server needs none
-    #   max_concurrent_requests = 1      # optional; omitted, pikuri sizes it from the server's slots
+    #   max_concurrent_requests = 1      # optional; omitted, sized from the server's slots
     #
     #   [[llm]]                          # one model on a box; the first is the conversations'
     #   name           = "Ornith 1.5"
@@ -68,8 +68,8 @@ module Puri
       #   @return [String, nil] the key, stored literally, or nil for a server that needs none.
       #     In this file rather than an env var, which every subprocess would inherit.
       # @!attribute [r] max_concurrent_requests
-      #   @return [Integer, nil] a `Pikuri::Agent::ServerPermits` limit, or nil to let pikuri size
-      #     it from the server's own `total_slots`
+      #   @return [Integer, nil] a `Pikuri::Conversations::Throttle` limit, or nil to size it from
+      #     the server's own `total_slots`
       class Server < Data.define(:id, :url, :api_key, :max_concurrent_requests)
         extend Typemap::Constrain
 

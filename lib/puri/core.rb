@@ -2,6 +2,7 @@
 
 require 'pikuri-core'
 require 'pikuri-workspace'
+require 'pikuri-conversations'
 
 module Puri
   # The backend. It takes {Protocol} commands and emits {Protocol} events on its own threads.
