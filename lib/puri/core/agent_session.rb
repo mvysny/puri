@@ -21,9 +21,9 @@ module Puri
     # == Threading
     #
     # {#ask}, {#cancel}, {#answer}, {#restore} and {#delete} come from the core, under its lock.
-    # {#on_event} and {#save} run on the gem's threads; {#save}, {#delete} and a title's write take
-    # this session's own lock, so the folder never has two writers and nothing is written once
-    # it's deleted.
+    # {#on_event} and {#save} run on the gem's threads; {#save} and a title's write take this
+    # session's own lock, so a save never carries a title older than the one on disk. A save
+    # still ending after {#delete} writes nothing: `Store#delete` is final.
     class AgentSession < Pikuri::Agent::Listener::Base
       # @return [Logger]
       LOGGER = Pikuri.logger_for('AgentSession')
@@ -54,7 +54,7 @@ module Puri
         @history = nil
         @confirmer = nil
         @writes = Mutex.new
-        @persist = true
+        @unreadable = false
       end
 
       # Fills a saved conversation's blocks from its history, the first time only; the agent
@@ -69,7 +69,7 @@ module Puri
         @history = @store.history(@entry)
         @conversation.restore(Replay.blocks(@history))
       rescue Pikuri::Conversations::HistoryFile::Error => e
-        @persist = false
+        @unreadable = true
         @conversation.add(Protocol::Notice.new(id: nil, text: "Can't read this conversation: #{e.message}",
                                                error: true))
       end
@@ -104,15 +104,13 @@ module Puri
       # @return [void]
       def answer(confirmation, approved) = @confirmer&.answer(confirmation, approved)
 
-      # Closes the live conversation, cancelling its turn, and removes it from disk.
+      # Closes the live conversation, cancelling its turn, and removes it from disk; the turn's
+      # own save, still to come, writes nothing.
       #
       # @return [void]
       def delete
         @live&.close(force: true)
-        @writes.synchronize do
-          @persist = false
-          @store.delete(@entry)
-        end
+        @store.delete(@entry)
       end
 
       # The gem's `configure:`: the agent's {Confirmer} and tools, on the booting thread.
@@ -131,7 +129,7 @@ module Puri
       # @return [void]
       def save(history)
         @writes.synchronize do
-          next unless @persist
+          next if @unreadable
 
           summary = @conversation.summary
           extra = { 'last_question' => summary.last_question,
@@ -144,6 +142,8 @@ module Puri
                                                error: true))
       end
 
+      # Shows the event, then goes idle once the gem says no work is under way.
+      #
       # @param event [Object] an agent's `Pikuri::Agent::Event` or a `Pikuri::Conversations::Event`
       # @return [void]
       def on_event(event)
@@ -153,6 +153,7 @@ module Puri
         when Pikuri::Conversations::Event::BootFailed then failed_boot(event.error)
         else @display.on_event(event)
         end
+        settle
       end
 
       private
@@ -167,19 +168,19 @@ module Puri
       # @return [void]
       def retitle(title)
         @conversation.title = title
-        @writes.synchronize { @entry = @persist ? @store.retitle(@entry, title) : @entry.with(title:) }
+        @writes.synchronize { @entry = @unreadable ? @entry.with(title:) : @store.retitle(@entry, title) }
       rescue SystemCallError => e
         LOGGER.warn("can't save the title of #{@conversation.id}: #{e.message}")
       end
 
-      # A boot that ends with no turn to run was cancelled, its messages dropped.
+      # A boot that ends with no work under way was cancelled, its message dropped: every boot
+      # here has one waiting, since a conversation opens on its first {#ask}.
       #
       # @return [void]
       def cancelled_boot
-        return unless @live.status.state == :idle
+        return if @live.status.busy?
 
         @conversation.add(Protocol::Notice.new(id: nil, text: 'Cancelled', error: false))
-        @conversation.activity = Protocol::Activity::IDLE
       end
 
       # The messages that waited for the agent are shown, then dropped with the error.
@@ -189,7 +190,17 @@ module Puri
       def failed_boot(error)
         drop_pending
         @conversation.add(Protocol::Notice.new(id: nil, text: "Can't start the agent: #{error.message}", error: true))
-        @conversation.activity = Protocol::Activity::IDLE
+      end
+
+      # Idle once `Status#busy?` says so, re-read on every event rather than inferred from which
+      # events came: a boot cancelled before its turn ends in `Ready` alone. Under the core's lock,
+      # so it never undoes the "Thinking…" {#ask} shows before its message reaches the gem.
+      #
+      # @return [void]
+      def settle
+        @lock.synchronize do
+          @conversation.activity = Protocol::Activity::IDLE if @live && @conversation.running? && !@live.status.busy?
+        end
       end
 
       # Takes the messages the agent hasn't read, showing each, so none vanishes unseen.

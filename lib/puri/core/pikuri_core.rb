@@ -35,8 +35,8 @@ module Puri
       # @return [Logger]
       LOGGER = Pikuri.logger_for('PikuriCore')
 
-      # Longest {#close} waits for the cancelled turns to be saved, and then again for their
-      # agents to close.
+      # Longest {#close} waits, in all, for the cancelled turns to be saved and their agents
+      # closed.
       #
       # @return [Integer] seconds
       CLOSE_SECONDS = 5
@@ -139,16 +139,14 @@ module Puri
         end
       end
 
-      # Cancels every turn and waits for it to be saved, then closes every agent.
+      # Closes every conversation, cancelling its turn, and waits for each turn to be saved and
+      # its agent closed. Not under the core's lock: a turn's save takes it.
       #
       # @return [void]
       def close
-        @live.each(&:cancel)
-        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + CLOSE_SECONDS
-        until @live.none? { _1.status.state == :running } || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
-          sleep 0.01
-        end
-        @live.shutdown(timeout: CLOSE_SECONDS)
+        return if @live.shutdown(timeout: CLOSE_SECONDS)
+
+        LOGGER.warn("a turn still saving after #{CLOSE_SECONDS} s of closing")
       end
 
       private

@@ -179,14 +179,15 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_equal p::Reply, finished(id).blocks.last.class
     end
 
-    # Return, then Escape at once: the turn's thread (priority −3) has usually not reached
-    # run_loop yet. Wherever it is, the cancel ends the turn.
+    # Return, then Escape at once: the agent is usually still booting, and a boot goes idle on
+    # the cancel, its notice following once the boot is over. Wherever it is, the cancel ends it.
     it 'ends a turn cancelled before its thread reaches the model' do
       gate.block!
       id = core.ask(nil, 'wrong question')
       core.cancel(id)
       gate.release!
 
+      wait_until('the notice shows') { core.load_conversation(id).blocks.last.is_a?(p::Notice) }
       assert_equal [p::UserMessage, p::Notice], finished(id).blocks.map(&:class)
     end
   end
@@ -332,6 +333,36 @@ RSpec.describe Puri::Core::PikuriCore do
     end
   end
 
+  context 'when cancelled while the agent boots' do
+    let(:booting) { Thread::Queue.new }
+    let(:boot) { Thread::Queue.new }
+    let(:core) do
+      tools = lambda do |_confirmer|
+        booting << true
+        boot.pop(timeout: 5)
+        []
+      end
+      described_class.new(transport:, titler:, store:, tools:) { |event| events << p.round_trip(event) }
+    end
+
+    it 'goes idle at once, and ends in a notice once the boot is over' do
+      id = core.ask(nil, 'wrong question')
+      booting.pop(timeout: 5) or raise('the agent never booted')
+      core.cancel(id)
+      refute core.load_conversation(id).activity.running?
+      refute core.list_conversations.first.running
+
+      boot << true
+      wait_until('the notice shows') { core.load_conversation(id).blocks.last.is_a?(p::Notice) }
+      sleep 0.1
+      transcript = core.load_conversation(id)
+      assert_equal [p::UserMessage, p::Notice], transcript.blocks.map(&:class)
+      assert_equal 'Cancelled', transcript.blocks.last.text
+      refute transcript.activity.running?
+      assert_equal 'idle', drain.grep(p::ActivityChanged).last.activity.state
+    end
+  end
+
   it 'forgets a deleted conversation' do
     id = core.ask(nil, 'how do I keep an avocado?')
     finished(id)
@@ -417,14 +448,37 @@ RSpec.describe Puri::Core::PikuriCore do
       end
     end
 
-    it 'deletes a conversation from disk, and a turn still ending does not write it back' do
+    context 'when a conversation is deleted while its turn runs' do
+      let(:saves) { Thread::Queue.new }
+      let(:store) do
+        saves = self.saves
+        Class.new(Pikuri::Conversations::Store) do
+          define_method(:save) { |*args, **kwargs| super(*args, **kwargs).tap { |dir| saves << [dir] } }
+        end.new(root: @root, shell: 'puri')
+      end
+
+      it 'stays gone: the turn still saves, and that writes nothing' do
+        gate.block!
+        id = core.ask(nil, 'how do I keep an avocado?')
+        gate.wait_arrived
+        core.delete_conversation(id)
+        gate.release!
+        assert_equal [nil], saves.pop(timeout: 5)
+        assert_empty Dir.children(@root)
+      end
+    end
+
+    it 'saves the question of a turn cut short by quitting' do
       gate.block!
-      id = core.ask(nil, 'how do I keep an avocado?')
+      id = core.ask(nil, "I'm Bob")
       gate.wait_arrived
-      core.delete_conversation(id)
+      closing = Thread.new { core.close }
+      sleep 0.1
       gate.release!
-      sleep 0.2
-      assert_empty Dir.children(@root)
+      closing.join
+
+      first, = restart {}.load_conversation(id).blocks
+      assert_equal p::UserMessage.new(id: 'b1', text: "I'm Bob"), first
     end
 
     it 'deletes a saved conversation never opened' do

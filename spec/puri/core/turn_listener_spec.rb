@@ -47,10 +47,9 @@ RSpec.describe Puri::Core::TurnListener do
     assert_equal 'How long?', blocks.last.text
   end
 
-  it 'ends a cancelled turn in a notice, and goes idle' do
+  it 'ends a cancelled turn in a notice' do
     listener.on_event(c::TurnEnded.new(outcome: :cancelled, error: nil, restarting: false))
     assert_equal Puri::Protocol::Notice.new(id: 'b2', text: 'Cancelled', error: false), blocks.last
-    assert_equal 'idle', conversation.transcript.activity.state
   end
 
   it 'names the server in a failure it could not reach' do
@@ -58,11 +57,6 @@ RSpec.describe Puri::Core::TurnListener do
     listener.on_event(c::TurnEnded.new(outcome: :failed, error:, restarting: false))
     assert_equal "Can't reach the model at http://llm/v1: refused", blocks.last.text
     assert blocks.last.error
-  end
-
-  it 'stays busy when another turn follows' do
-    listener.on_event(c::TurnEnded.new(outcome: :completed, error: nil, restarting: true))
-    assert_equal 'working', conversation.transcript.activity.state
   end
 
   it 'shows the first delta at once, then at most one re-render a frame' do

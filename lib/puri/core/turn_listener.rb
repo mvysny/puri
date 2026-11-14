@@ -10,12 +10,13 @@ module Puri
     #   ThinkingDelta             → ActivityChanged(working, "Thinking…")
     #   AssistantDelta, …         → a Reply, re-sent at most `fps` times a second; ActivityChanged(streaming)
     #   Assistant                 → that Reply, rendered whole from the final text
-    #   TurnEnded                 → a Notice when cancelled or failed; ActivityChanged(idle) unless
-    #                               another turn follows
+    #   TurnEnded                 → a Notice when cancelled or failed
     #   any other event           → the deltas held back so far, shown first
     #
     #   listener = TurnListener.new(conversation, server: transport.api_base)
     #   conversations.open(id:, transport:, listener:)
+    #
+    # Going idle is not an event's: {AgentSession} asks the gem whether work is under way.
     #
     # Tool events wait for phase 2's tools, which word their own lines.
     #
@@ -93,7 +94,6 @@ module Puri
         when :cancelled then @conversation.add(Protocol::Notice.new(id: nil, text: 'Cancelled', error: false))
         when :failed then @conversation.add(Protocol::Notice.new(id: nil, text: failure(event.error), error: true))
         end
-        @conversation.activity = Protocol::Activity::IDLE unless event.restarting
       end
 
       # @param error [StandardError]

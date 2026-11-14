@@ -539,7 +539,8 @@ module Puri
       # _@param_ `conversation`
       def delete_conversation: (String conversation) -> void
 
-      # Cancels every turn and waits for it to be saved, then closes every agent.
+      # Closes every conversation, cancelling its turn, and waits for each turn to be saved and
+      # its agent closed. Not under the core's lock: a turn's save takes it.
       def close: () -> void
 
       # _@param_ `id`
@@ -719,9 +720,9 @@ module Puri
     # == Threading
     # 
     # {#ask}, {#cancel}, {#answer}, {#restore} and {#delete} come from the core, under its lock.
-    # {#on_event} and {#save} run on the gem's threads; {#save}, {#delete} and a title's write take
-    # this session's own lock, so the folder never has two writers and nothing is written once
-    # it's deleted.
+    # {#on_event} and {#save} run on the gem's threads; {#save} and a title's write take this
+    # session's own lock, so a save never carries a title older than the one on disk. A save
+    # still ending after {#delete} writes nothing: `Store#delete` is final.
     class AgentSession < Pikuri::Agent::Listener::Base
       LOGGER: Logger
 
@@ -770,7 +771,8 @@ module Puri
       # _@param_ `approved`
       def answer: (String confirmation, bool approved) -> void
 
-      # Closes the live conversation, cancelling its turn, and removes it from disk.
+      # Closes the live conversation, cancelling its turn, and removes it from disk; the turn's
+      # own save, still to come, writes nothing.
       def delete: () -> void
 
       # The gem's `configure:`: the agent's {Confirmer} and tools, on the booting thread.
@@ -784,6 +786,8 @@ module Puri
       # _@param_ `history`
       def save: (Pikuri::Agent::History history) -> void
 
+      # Shows the event, then goes idle once the gem says no work is under way.
+      # 
       # _@param_ `event` — an agent's `Pikuri::Agent::Event` or a `Pikuri::Conversations::Event`
       def on_event: (Object event) -> void
 
@@ -793,13 +797,19 @@ module Puri
       # _@param_ `title`
       def retitle: (String title) -> void
 
-      # A boot that ends with no turn to run was cancelled, its messages dropped.
+      # A boot that ends with no work under way was cancelled, its message dropped: every boot
+      # here has one waiting, since a conversation opens on its first {#ask}.
       def cancelled_boot: () -> void
 
       # The messages that waited for the agent are shown, then dropped with the error.
       # 
       # _@param_ `error`
       def failed_boot: (StandardError error) -> void
+
+      # Idle once `Status#busy?` says so, re-read on every event rather than inferred from which
+      # events came: a boot cancelled before its turn ends in `Ready` alone. Under the core's lock,
+      # so it never undoes the "Thinking…" {#ask} shows before its message reaches the gem.
+      def settle: () -> void
 
       # Takes the messages the agent hasn't read, showing each, so none vanishes unseen.
       def drop_pending: () -> void
@@ -813,12 +823,13 @@ module Puri
     #   ThinkingDelta             → ActivityChanged(working, "Thinking…")
     #   AssistantDelta, …         → a Reply, re-sent at most `fps` times a second; ActivityChanged(streaming)
     #   Assistant                 → that Reply, rendered whole from the final text
-    #   TurnEnded                 → a Notice when cancelled or failed; ActivityChanged(idle) unless
-    #                               another turn follows
+    #   TurnEnded                 → a Notice when cancelled or failed
     #   any other event           → the deltas held back so far, shown first
     # 
     #   listener = TurnListener.new(conversation, server: transport.api_base)
     #   conversations.open(id:, transport:, listener:)
+    # 
+    # Going idle is not an event's: {AgentSession} asks the gem whether work is under way.
     # 
     # Tool events wait for phase 2's tools, which word their own lines.
     # 
