@@ -49,7 +49,9 @@ module Puri
         @lock = lock
         @saved = saved
         @untitled = !saved || store.stamp_titled?(entry) || entry.title == Conversation::NEW_TITLE
-        @display = TurnListener.new(conversation, server: transport.api_base)
+        @display = Pikuri::Conversations::RateLimitedListener.new(
+          TurnListener.new(conversation, server: transport.api_base), fps: 15
+        )
         @live = nil
         @history = nil
         @confirmer = nil
@@ -142,7 +144,8 @@ module Puri
                                                error: true))
       end
 
-      # Shows the event, then goes idle once the gem says no work is under way.
+      # Shows the event, then goes idle once the gem says no work is under way. `TurnEnded` goes
+      # through the limiter too: it flushes a failed turn's tail ahead of the failure notice.
       #
       # @param event [Object] an agent's `Pikuri::Agent::Event` or a `Pikuri::Conversations::Event`
       # @return [void]

@@ -10,16 +10,11 @@ RSpec.describe Puri::Core::TurnListener do
   let(:conversation) do
     Puri::Core::Conversation.new(id: 'c1', lock: Monitor.new, emit: ->(event) { events << event }, changed: -> {})
   end
-  let(:now) { [0.0] }
-  let(:listener) { described_class.new(conversation, server: 'http://llm/v1', fps: 10, clock: -> { now.first }) }
+  let(:listener) { described_class.new(conversation, server: 'http://llm/v1') }
 
-  # @param seconds [Float]
   # @param content [String]
   # @return [void]
-  def delta_at(seconds, content)
-    now[0] = seconds
-    listener.on_event(Pikuri::Agent::Event::AssistantDelta.new(content:))
-  end
+  def delta(content) = listener.on_event(Pikuri::Agent::Event::AssistantDelta.new(content:))
 
   # @return [Array<String>] the reply's text as each BlockChanged carried it
   def shown
@@ -40,7 +35,7 @@ RSpec.describe Puri::Core::TurnListener do
   end
 
   it 'shows a message sent during the turn where the model reads it' do
-    delta_at(0.0, 'Keep it cold.')
+    delta('Keep it cold.')
     listener.on_event(e::Assistant.new(content: 'Keep it cold.'))
     listener.on_event(e::UserTurn.new(content: 'How long?', attachments: [], mid_loop: true))
     assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::Reply, Puri::Protocol::UserMessage], blocks.map(&:class)
@@ -59,34 +54,36 @@ RSpec.describe Puri::Core::TurnListener do
     assert blocks.last.error
   end
 
-  it 'shows the first delta at once, then at most one re-render a frame' do
-    delta_at(0.0, 'Keep ')
-    delta_at(0.03, 'it ')
-    delta_at(0.06, 'cold')
-    delta_at(0.1, '.')
-    assert_equal ['', 'Keep', 'Keep it cold.'], shown
-  end
-
-  it 'renders the final text whole, dropping the held deltas' do
-    delta_at(0.0, 'Keep ')
-    delta_at(0.03, 'it cold')
+  it 'shows every delta in one reply, then the final text whole' do
+    delta('Keep ')
+    delta('it cold')
     listener.on_event(e::Assistant.new(content: 'Keep it cold.'))
+    assert_equal ['', 'Keep', 'Keep it cold', 'Keep it cold.'], shown
+    assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::Reply], blocks.map(&:class)
+    assert_equal 'streaming', conversation.transcript.activity.state
+  end
+
+  it 'renders a reply that came with no delta' do
+    listener.on_event(e::Assistant.new(content: 'Keep it **cold**.'))
+    assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::Reply], blocks.map(&:class)
+    assert_equal 'Keep it <b>cold</b>.', shown.last
+  end
+
+  it 'leaves the reply alone on any other conversation event' do
+    delta('Keep ')
+    [c::PendingChanged.new(count: 1), c::CancelRequested.new, c::Cleared.new].each { listener.on_event(_1) }
+    delta('it cold.')
+    assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::Reply], blocks.map(&:class)
     assert_equal ['', 'Keep', 'Keep it cold.'], shown
   end
 
-  it 'shows the held deltas when the turn is cancelled' do
-    delta_at(0.0, 'Keep ')
-    delta_at(0.03, 'it cold')
-    listener.on_event(e::Cancelled.new)
-    assert_equal 'Keep it cold', shown.last
-  end
-
-  it 'shows the next turn’s first delta at once' do
-    delta_at(0.0, 'Keep it cold.')
+  it 'opens the next turn’s reply anew' do
+    delta('Keep it cold.')
     listener.on_event(e::Assistant.new(content: 'Keep it cold.'))
     listener.on_event(c::TurnStarted.new(user_message: 'How long?', attachments: []))
     listener.on_event(e::UserTurn.new(content: 'How long?', attachments: [], mid_loop: false))
-    delta_at(0.01, 'Days.')
-    assert_equal 'Days.', shown.last
+    delta('Days.')
+    assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::Reply] * 2, blocks.map(&:class)
+    assert_equal 'Days.', blocks.last.parts.map(&:markup).join
   end
 end

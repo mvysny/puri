@@ -786,7 +786,8 @@ module Puri
       # _@param_ `history`
       def save: (Pikuri::Agent::History history) -> void
 
-      # Shows the event, then goes idle once the gem says no work is under way.
+      # Shows the event, then goes idle once the gem says no work is under way. `TurnEnded` goes
+      # through the limiter too: it flushes a failed turn's tail ahead of the failure notice.
       # 
       # _@param_ `event` — an agent's `Pikuri::Agent::Event` or a `Pikuri::Conversations::Event`
       def on_event: (Object event) -> void
@@ -821,39 +822,32 @@ module Puri
     #   TurnStarted(user_message:) → a UserMessage; ActivityChanged(working, "Thinking…")
     #   UserTurn(mid_loop: true)  → a UserMessage: a message sent during the turn, as the model reads it
     #   ThinkingDelta             → ActivityChanged(working, "Thinking…")
-    #   AssistantDelta, …         → a Reply, re-sent at most `fps` times a second; ActivityChanged(streaming)
+    #   AssistantDelta            → appended to the Reply, opened on the first; ActivityChanged(streaming)
     #   Assistant                 → that Reply, rendered whole from the final text
     #   TurnEnded                 → a Notice when cancelled or failed
-    #   any other event           → the deltas held back so far, shown first
     # 
-    #   listener = TurnListener.new(conversation, server: transport.api_base)
+    # It renders every delta it gets, so it sits behind the gem's limiter, which coalesces them:
+    # 
+    #   listener = Pikuri::Conversations::RateLimitedListener.new(TurnListener.new(conversation, server:), fps: 15)
     #   conversations.open(id:, transport:, listener:)
     # 
     # Going idle is not an event's: {AgentSession} asks the gem whether work is under way.
     # 
     # Tool events wait for phase 2's tools, which word their own lines.
     # 
-    # == Implementation details
+    # == Threading
     # 
-    # A delta that comes within a frame of the last re-send waits, unparsed, for the next delta
-    # past it: a fast model then costs neither a Markdown parse nor a Desktop relayout per token.
-    # No timer: when the model stalls mid-reply, the held text waits for its next event.
+    # Its state is the turn thread's, with no lock: only the agent's events, `TurnStarted` and
+    # `TurnEnded` touch it, and the gem emits those on the turn's thread. Every other
+    # conversation event — `PendingChanged`, `CancelRequested`, `Cleared`… — may come from the
+    # thread that submits or cancels, so it must do nothing here.
     class TurnListener < Pikuri::Agent::Listener::Base
       THINKING: Puri::Protocol::Activity
 
       # _@param_ `conversation`
       # 
       # _@param_ `server` — the model's `api_base`, which a failure names
-      # 
-      # _@param_ `fps` — how often a streaming reply re-renders, at most
-      # 
-      # _@param_ `clock` — zero-arg, monotonic seconds as a Float; specs pass a fake one
-      def initialize: (
-                        Puri::Core::Conversation conversation,
-                        server: String?,
-                        ?fps: Numeric,
-                        ?clock: Proc
-                      ) -> void
+      def initialize: (Puri::Core::Conversation conversation, server: String?) -> void
 
       # _@param_ `event` — a `Pikuri::Agent::Event` or `Pikuri::Conversations::Event` variant, or an extension's own
       def on_event: (Object event) -> void
@@ -881,15 +875,13 @@ module Puri
       # _@param_ `text`
       def delta: (String text) -> void
 
-      # Shows the held deltas, opening the reply on the first.
-      def flush: () -> void
-
-      # The final text is authoritative: deltas need not add up to it, so the held ones are
-      # dropped. The agent streams, so a reply always opened with a delta, and the first delta
-      # of a turn shows at once.
+      # The final text is authoritative: deltas need not add up to it. A reply shorter than one
+      # frame comes with no delta at all, the limiter having dropped them at this bookend.
       # 
       # _@param_ `text`
       def finish: (String text) -> void
+
+      def open_reply: () -> void
     end
 
     # The model's Markdown as {Protocol::Reply} parts: prose as Pango markup, code blocks and
