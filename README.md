@@ -13,8 +13,8 @@ warm.
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."
 
-**Status:** the UI is done, and the model answers through pikuri, with no tools yet: no search,
-notes or reminders. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
+**Status:** the UI is done, and the model answers through pikuri. It can search the web, with no
+notes or reminders yet. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
 `search`, `note`, `table`, `long`, `fail`, `mail`, or `calendar` plus `reschedule` in a question
 walk the paths the tools will take. The plan lives in `design/ideas/`.
 
@@ -62,8 +62,22 @@ llm = "Ornith 1.5, no thinking"
 
 Conversations run on the first `[[llm]]`. `[titler]` names the connection that titles them; the
 same model with its thinking switched off writes a title in about a second rather than thirty.
-`chmod 600` the file if it holds an `api_key`. Conversations are saved under
+`chmod 600` the file if it holds a key. Conversations are saved under
 `~/.local/state/puri/conversations/`.
+
+To let Puri search the web, add a [Brave Search](https://api-dashboard.search.brave.com) or
+[Exa](https://exa.ai) key:
+
+```toml
+[search]
+brave_key = "…"
+# exa_key = "…"
+# engines = ["brave"]   # omitted, every engine with a key
+```
+
+Puri reads the pages a search finds from the engine's own copy, so it never opens a link itself.
+That is also why DuckDuckGo isn't offered: it returns no page text. Without a key Puri still
+runs, logs an error and doesn't search.
 
 To open Puri from a global shortcut, install it for your user:
 

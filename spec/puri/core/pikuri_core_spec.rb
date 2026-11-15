@@ -220,6 +220,23 @@ RSpec.describe Puri::Core::PikuriCore do
       wait_until('the title fails') { Pikuri.log_io.string.include?('titling failed: RubyLLM::ConnectionError') }
     end
 
+    it 'logs that the agent has no web tools, with no search key' do
+      core
+      assert_includes Pikuri.log_io.string, 'sets no Brave or Exa key: the agent has no web tools'
+    end
+
+    context 'with a Brave key' do
+      let(:config) do
+        main = c::Llm.new(name: 'Main', server: 'http://127.0.0.1:9', model: 'x')
+        c.new(llms: [main], servers: [], titler_llm: main, search: c::SearchTable.new(brave_key: 'B'))
+      end
+
+      it 'wires the web tools without a word' do
+        core
+        refute_includes Pikuri.log_io.string, 'no web tools'
+      end
+    end
+
     it 'limits the servers that state max_concurrent_requests, and only those' do
       core
       assert_equal({ 'http://127.0.0.1:9' => 2, 'http://fake.invalid' => nil },
@@ -274,7 +291,7 @@ RSpec.describe Puri::Core::PikuriCore do
                                        state: 'pending'), waiting
 
       core.answer(id, waiting.id, true)
-      assert_equal [p::UserMessage, p::Confirmation, p::Reply], finished(id).blocks.map(&:class)
+      assert_equal [p::UserMessage, p::Confirmation, p::ToolLine, p::Reply], finished(id).blocks.map(&:class)
       assert_equal 'approved', confirmation(id).state
       assert_equal ['Moved.'], observations
     end
@@ -293,7 +310,7 @@ RSpec.describe Puri::Core::PikuriCore do
       pending_confirmation(id)
       core.ask(id, 'make it Wednesday')
       blocks = finished(id).blocks
-      assert_equal [p::UserMessage, p::Confirmation, p::UserMessage, p::Reply], blocks.map(&:class)
+      assert_equal [p::UserMessage, p::Confirmation, p::UserMessage, p::ToolLine, p::Reply], blocks.map(&:class)
       assert_equal 'redirected', confirmation(id).state
       assert_equal ['The user declined the move and said: make it Wednesday'], observations
     end
@@ -302,7 +319,9 @@ RSpec.describe Puri::Core::PikuriCore do
       id = core.ask(nil, 'move my dentist to Thursday')
       pending_confirmation(id)
       core.cancel(id)
-      assert_equal [p::UserMessage, p::Confirmation, p::Notice], finished(id).blocks.map(&:class)
+      blocks = finished(id).blocks
+      assert_equal [p::UserMessage, p::Confirmation, p::ToolLine, p::Notice], blocks.map(&:class)
+      assert_match(/ — Interrupted\z/, blocks[2].text)
       assert_equal 'cancelled', confirmation(id).state
       assert_empty observations
     end
@@ -521,6 +540,38 @@ RSpec.describe Puri::Core::PikuriCore do
       again.ask(id, 'hello?')
       assert_equal p::Reply, finished(id, again).blocks.last.class
       assert_equal 'not json', File.read(history)
+    end
+
+    context 'with a web search' do
+      let(:script) { ->(llm) { llm.tool_call('web_search', query: 'avocado').stream('Keep it cold.') } }
+      let(:core) do
+        search = Pikuri::Tool.new(
+          name: 'web_search', description: 'Searches the web.',
+          parameters: Pikuri::Tool::Parameters.build { |params| params.required_string :query, 'what to search' },
+          execute: ->(query:) { Pikuri::Tool::Result.new(content: "1. #{query} …", summary: 'Returned 1 search result') }
+        )
+        described_class.new(transport:, titler:, store:, tools: ->(_) { [search] }) do |event|
+          events << p.round_trip(event)
+        end
+      end
+
+      it 'shows the search as a line, while it runs and after a restart' do
+        id = core.ask(nil, 'how do I keep an avocado?')
+        line = p::ToolLine.new(id: 'b2', text: '🔍 Searched: "avocado"', error: false)
+        assert_equal [p::UserMessage, p::ToolLine, p::Reply], finished(id).blocks.map(&:class)
+        assert_equal line, core.load_conversation(id).blocks[1]
+        assert_includes drain.grep(p::ActivityChanged).map { _1.activity.status }, 'Searching the web…'
+
+        assert_equal line, restart { |llm| llm.stream('Still cold.') }.load_conversation(id).blocks[1]
+      end
+    end
+  end
+
+  describe '.system_prompt' do
+    it 'says what the agent can reach' do
+      assert_includes described_class.system_prompt(web: true), 'You can search the web'
+      assert_includes described_class.system_prompt(web: false), 'You have no tools'
+      assert described_class.system_prompt(web: true).start_with?('You are Puri')
     end
   end
 end

@@ -73,10 +73,9 @@ What it still has:
 - **Leaks to the provider.** A query that quotes your mail lands in Brave's or Exa's logs. Exa's
   ToS also grants it a perpetual license to train on queries (see the rdoc of pikuri's
   `Web::Search::Exa`). That isn't exfiltration to an attacker, but it is a privacy cost. Hence the
-  search-confirm switch below.
-- **Usefulness.** Snippets only. For an assistant that's mostly enough; otherwise the user opens
-  the link. pikuri's `Web::Search::DESCRIPTION` currently tells the model to follow up with
-  `web_scrape`, which is wrong here. See `Q_search_description`.
+  search-confirm question below.
+- **Usefulness.** Built: the engine's own page text, read by handle through `web_read_cached`,
+  no URL opened (`D_search_engines`).
 
 ## Approve each search, or accept leaks to the engine
 
@@ -85,9 +84,9 @@ a write does. The query *is* the bytes that leave, so the human reviews the real
 leg becomes `egress_payload_review: :human_reviewed`. **Opt-out** (a `--no-confirm-searches` flag
 there): searches fly free, and the user accepts that private text may reach the engine's logs.
 
-In a popup the confirm costs more than in a TUI: Siri never asks. Now that this is its own app, a
-setting is fine (pikuri-tui avoided config keys only because the secretary was leaving). See
-`Q_search_confirm_ux`.
+In a popup the confirm costs more than in a TUI: Siri never asks. **Puri doesn't ask, for now**
+(`D_search_engines`): with no private tool yet, a query can only leak the user's own question.
+The first private tool reopens it, and `Web::Search.build(confirmer:)` is there for it.
 
 ## The tool set, capability by capability
 
@@ -101,7 +100,7 @@ setting is fine (pikuri-tui avoided config keys only because the secretary was l
 | Mail, read | pikuri-thunderbird `mail_search` / `mail_read` / attachments | private, untrusted | — |
 | Mail, write | pikuri-thunderbird `mail_compose`: opens a Thunderbird compose window, the user clicks Send | egress | human, always |
 | Contacts | pikuri-thunderbird `contact_search` | private | — |
-| Web | `web_search`, snippets only | egress (vouched) | confirm by default |
+| Web | built: `web_search` with page text, `web_read_cached` | untrusted, egress (vouched) | none yet (`D_search_engines`) |
 | Memory | its own memory file (below) | private | diff confirmed |
 | Arithmetic, dates | `calculator` | — | — |
 | System settings | not here: `pikuri-tui-computer` | — | — |
@@ -220,12 +219,6 @@ tools. If practice shows that hop is constant, v2 is worth building.
 
 - `Q_siri_send`: can Siri on the Mac send a mail or create an event *without* a click? Try
   "email Alice that I'm late" and "add lunch with Bob tomorrow to my calendar".
-- `Q_gate_primitive`: `Web::Search.build` takes no confirmer, so a gated search is a missing pikuri
-  primitive (a `confirmer:` kwarg that also flips the leg to `:human_reviewed`).
-- `Q_search_description`: pikuri needs a `Web::Search::DESCRIPTION` variant ("snippets are all you
-  get").
-- `Q_search_confirm_ux`: confirm each search in a popup, or default to free searches with a
-  per-conversation "searches go to Brave" banner?
 - `Q_prompt_home`: where does the system prompt live upstream? A new gem, pikuri-assistant's
   `prompts/`, or beside pikuri-thunderbird. It carries the "for the machine, run
   pikuri-tui-computer" hand-off.

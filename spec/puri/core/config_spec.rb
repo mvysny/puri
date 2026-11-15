@@ -96,6 +96,53 @@ RSpec.describe Puri::Core::Config do
       assert_equal 'http://localhost:8080', config.primary_llm.server
       assert_equal({ 'chat_template_kwargs' => { 'enable_thinking' => false } }, config.titler_llm.params)
       assert_equal config.primary_llm.model, config.titler_llm.model
+      assert_nil config.search
+    end
+  end
+
+  describe '[search]' do
+    # @param body [String] the [search] table's lines
+    # @return [void] the file written at 0600, as a file with a key should be
+    def with_search(body) = File.chmod(0o600, write(@home, "#{minimal}[search]\n#{body}\n"))
+
+    it 'is nil when absent' do
+      write(@home, minimal)
+      assert_nil load.search
+    end
+
+    it 'takes a Brave key, every keyed engine searched' do
+      with_search('brave_key = "B"')
+      assert_equal described_class::SearchTable.new(brave_key: 'B'), load.search
+    end
+
+    it 'takes an engine list naming engines with keys' do
+      with_search(%(brave_key = "B"\nexa_key = "E"\nengines = ["exa"]))
+      assert_equal %w[exa], load.search.engines
+    end
+
+    it 'is nil with neither key, whatever it names' do
+      with_search(%(engines = ["brave"]\nbrave_key = " "))
+      assert_nil load.search
+    end
+
+    it 'rejects duckduckgo: it returns no page text' do
+      with_search(%(brave_key = "B"\nengines = ["brave", "duckduckgo"]))
+      assert_rejected('duckduckgo returns no page text')
+    end
+
+    it 'rejects an engine named without its key' do
+      with_search(%(brave_key = "B"\nengines = ["exa"]))
+      assert_rejected('exa')
+    end
+
+    it 'rejects an unknown engine' do
+      with_search(%(brave_key = "B"\nengines = ["bing"]))
+      assert_rejected('unknown engine.*bing')
+    end
+
+    it 'rejects an unknown key' do
+      with_search(%(brave_key = "B"\nconfirm = false))
+      assert_rejected('confirm')
     end
   end
 
@@ -248,6 +295,11 @@ RSpec.describe Puri::Core::Config do
     it 'stays quiet at 0600' do
       File.chmod(0o600, write(@home, body))
       assert_output(nil, '') { load }
+    end
+
+    it "warns for a search engine's key too" do
+      File.chmod(0o644, write(@home, "#{minimal}[search]\nexa_key = \"E\"\n"))
+      assert_output(nil, /chmod 600/) { load }
     end
   end
 end

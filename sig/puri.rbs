@@ -20,7 +20,8 @@ module Puri
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
-    # Puri's `config.toml`: the model connections, and which one writes the titles. Loaded once
+    # Puri's `config.toml`: the model connections, which one writes the titles, and the search
+    # engines' keys. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
     # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
     # 
@@ -28,6 +29,7 @@ module Puri
     #   config.primary_llm   # => Llm(name:, server:, model:, api_key:, context_window:, params:)
     #   config.titler_llm    # => the [titler] connection, never nil
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
+    #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -49,6 +51,11 @@ module Puri
     # 
     #   [titler]
     #   llm = "Ornith 1.5, no thinking"  # an [[llm]] name; required
+    # 
+    #   [search]                         # optional; without a key, the agent has no web tools
+    #   brave_key = "…"                  # Brave's, Exa's or both: only they return page text
+    #   exa_key   = "…"
+    #   engines   = ["brave"]            # optional; omitted, every engine with a key
     # 
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -84,7 +91,14 @@ module Puri
       # _@param_ `servers` — the `[[server]]` entries `llms` were resolved against
       # 
       # _@param_ `titler_llm`
-      def initialize: (llms: ::Array[Puri::Core::Config::Llm], servers: ::Array[Puri::Core::Config::Server], titler_llm: Puri::Core::Config::Llm) -> void
+      # 
+      # _@param_ `search` — a keyed `[search]`, or nil
+      def initialize: (
+                        llms: ::Array[Puri::Core::Config::Llm],
+                        servers: ::Array[Puri::Core::Config::Server],
+                        titler_llm: Puri::Core::Config::Llm,
+                        ?search: Puri::Core::Config::SearchTable?
+                      ) -> void
 
       # _@return_ — where conversations run: the first `[[llm]]`
       def primary_llm: () -> Puri::Core::Config::Llm
@@ -94,12 +108,18 @@ module Puri
       # _@return_ — the files to read, lowest priority first
       def self.candidate_paths: (untyped env) -> ::Array[String]
 
-      # Warns on stderr, never fails, when a file holding an `api_key` is readable by others.
+      # Warns on stderr, never fails, when a file holding a key — a `[[server]]`'s `api_key`, a
+      # search engine's — is readable by others.
       # 
       # _@param_ `path`
       # 
       # _@param_ `parsed` — the file's raw TOML, unchecked
       def self.warn_loose_perms: (String path, ::Hash[String, Object] parsed) -> void
+
+      # _@param_ `parsed` — a file's raw TOML, unchecked
+      # 
+      # _@return_ — whether it holds a key
+      def self.keys?: (::Hash[String, Object] parsed) -> bool
 
       # _@param_ `path`
       def self.parse_file: (String path) -> ::Hash[String, Object]
@@ -126,6 +146,15 @@ module Puri
       # _@param_ `llms`
       def self.resolve_titler: (Puri::Core::Config::TitlerTable table, ::Array[Puri::Core::Config::Llm] llms) -> Puri::Core::Config::Llm
 
+      # A table with no key is no table: the agent goes without web tools, which {PikuriCore}
+      # logs. One with a key must name only engines that have theirs, and neither DuckDuckGo
+      # nor an engine pikuri doesn't know.
+      # 
+      # _@param_ `table`
+      # 
+      # _@return_ — `table`, or nil without a key
+      def self.resolve_search: (Puri::Core::Config::SearchTable? table) -> Puri::Core::Config::SearchTable?
+
       # _@param_ `env`
       # 
       # _@return_ — where to write the config, and what
@@ -140,6 +169,10 @@ module Puri
 
       # _@return_ — the connection `[titler]` names
       attr_reader titler_llm: Puri::Core::Config::Llm
+
+      # _@return_ — the engines `web_search` uses; nil when
+      # `[search]` sets neither Brave's key nor Exa's, and the agent goes without web tools
+      attr_reader search: Puri::Core::Config::SearchTable?
 
       # Raised for a missing, unreadable, malformed or incomplete config; the message names the
       # file or the offending key, and says what to write.
@@ -328,6 +361,39 @@ module Puri
         attr_reader llm: String
       end
 
+      # The `[search]` table: the keys `Pikuri::Web::Search.build` takes, and its engines. Only
+      # Brave and Exa: `web_read_cached` reads the page text an engine returns with its results,
+      # and DuckDuckGo returns none (`D_search_engines`).
+      # 
+      # @!attribute [r] brave_key
+      #   @return [String, nil] a Brave Search API key, https://api-dashboard.search.brave.com
+      # @!attribute [r] exa_key
+      #   @return [String, nil] an Exa key, https://exa.ai
+      # @!attribute [r] engines
+      #   @return [Array<String>, nil] `brave`, `exa` or both, each with its key; a set, since
+      #     pikuri shuffles them per query. Nil for every engine with a key.
+      class SearchTable
+        # _@param_ `brave_key`
+        # 
+        # _@param_ `exa_key`
+        # 
+        # _@param_ `engines`
+        def initialize: (?brave_key: String?, ?exa_key: String?, ?engines: ::Array[String]?) -> void
+
+        # _@return_ — whether a key is set, Brave's or Exa's
+        def keyed?: () -> bool
+
+        # _@return_ — a Brave Search API key, https://api-dashboard.search.brave.com
+        attr_reader brave_key: String?
+
+        # _@return_ — an Exa key, https://exa.ai
+        attr_reader exa_key: String?
+
+        # _@return_ — `brave`, `exa` or both, each with its key; a set, since
+        # pikuri shuffles them per query. Nil for every engine with a key.
+        attr_reader engines: ::Array[String]?
+      end
+
       # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
       # what is missing, with the example to paste.
       # 
@@ -337,6 +403,8 @@ module Puri
       #   @return [Array<LlmTable>] the `[[llm]]` entries, names unique
       # @!attribute [r] titler
       #   @return [TitlerTable, nil] the `[titler]` table
+      # @!attribute [r] search
+      #   @return [SearchTable, nil] the `[search]` table
       class Root
         extend Typemap::Constrain
 
@@ -345,7 +413,14 @@ module Puri
         # _@param_ `llm`
         # 
         # _@param_ `titler`
-        def initialize: (?server: ::Array[Server], ?llm: ::Array[LlmTable], ?titler: TitlerTable?) -> void
+        # 
+        # _@param_ `search`
+        def initialize: (
+                          ?server: ::Array[Server],
+                          ?llm: ::Array[LlmTable],
+                          ?titler: TitlerTable?,
+                          ?search: SearchTable?
+                        ) -> void
 
         # _@return_ — the `[[server]]` entries, ids unique
         attr_reader server: ::Array[Server]
@@ -355,20 +430,24 @@ module Puri
 
         # _@return_ — the `[titler]` table
         attr_reader titler: TitlerTable?
+
+        # _@return_ — the `[search]` table
+        attr_reader search: SearchTable?
       end
     end
 
     # A saved conversation's blocks, rebuilt from its pikuri history:
     # 
-    #   Replay.blocks(store.history(id))   # => [UserMessage, Reply, UserMessage, Reply]
+    #   Replay.blocks(store.history(id))   # => [UserMessage, ToolLine, Reply, UserMessage, Reply]
     # 
-    # Each user message becomes a {Protocol::UserMessage} and each assistant message with text a
+    # Each user message becomes a {Protocol::UserMessage}, each assistant message with text a
     # {Protocol::Reply}, as {TurnListener} renders one when it finishes, so a reloaded reply gets
-    # today's renderer. What never became a message is gone: notices, and the partial reply a
-    # cancel cut off. The blocks' ids are nil, for {Conversation#restore} to assign.
+    # today's renderer; each tool answer becomes the {Protocol::ToolLine} {ToolWording} words for
+    # its call, as it did live. What never became a message is gone: notices, and the partial
+    # reply a cancel cut off. The blocks' ids are nil, for {Conversation#restore} to assign.
     module Replay
       # _@param_ `history`
-      def self.blocks: (Pikuri::Agent::History history) -> ::Array[(Puri::Protocol::UserMessage | Puri::Protocol::Reply)]
+      def self.blocks: (Pikuri::Agent::History history) -> ::Array[(Puri::Protocol::UserMessage | Puri::Protocol::Reply | Puri::Protocol::ToolLine)]
     end
 
     # Asks the user in the transcript: a tool's `ask` shows a {Protocol::Confirmation} and waits
@@ -464,13 +543,16 @@ module Puri
     # Thread-safe.
     class PikuriCore
       include Puri::Protocol::Backend
-      SYSTEM_PROMPT: String
+      PROMPTS: String
       SHELL: String
       LOGGER: Logger
       CLOSE_SECONDS: Integer
 
       # The core `config` describes: conversations on its first `[[llm]]`, titles on its
-      # `[titler]`. Also sets each `[[server]]`'s `max_concurrent_requests` as that server's
+      # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
+      # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
+      # logs an error and wires no web tools, and the system prompt says so. Also sets each
+      # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
       # 
@@ -480,6 +562,21 @@ module Puri
       # 
       # _@param_ `store`
       def self.from_config: (Puri::Core::Config config, store: Pikuri::Conversations::Store) ?{ (Data event) -> void } -> Puri::Core::PikuriCore
+
+      # Our system prompt, and the fragment that says what the agent can reach; the date is
+      # appended per conversation.
+      # 
+      # _@param_ `web` — whether the agent has the web tools
+      def self.system_prompt: (web: bool) -> String
+
+      # One `web_search` for every conversation: built with no confirmer it keeps no
+      # conversation's state, and its engines' pacing is process-wide anyway.
+      # 
+      # _@param_ `search`
+      # 
+      # _@return_ — `web_search` with page text, and `web_read_cached`; none
+      # without a keyed `[search]`
+      def self.web_tools: (Puri::Core::Config::SearchTable? search) -> ::Array[Pikuri::Tool]
 
       # The saved conversations, in pikuri-web's folder format (`D_port_pikuri_web`).
       # 
@@ -495,11 +592,14 @@ module Puri
       # 
       # _@param_ `store` — where conversations are saved
       # 
+      # _@param_ `system_prompt` — see {.system_prompt}, which states what `tools` reach
+      # 
       # _@param_ `tools` — takes a conversation's {Confirmer}, returns its agent's `Array<Pikuri::Tool>`; called once per conversation
       def initialize: (
                         transport: Pikuri::Agent::ChatTransport,
                         titler: Pikuri::Conversations::Titler,
                         store: Pikuri::Conversations::Store,
+                        ?system_prompt: String,
                         ?tools: Proc
                       ) ?{ (Data event) -> void } -> void
 
@@ -701,6 +801,63 @@ module Puri
       def on_open: (Kramdown::Element root) -> void
     end
 
+    # How a tool call reads in the transcript: the status under the progress bar while it runs,
+    # and the {Protocol::ToolLine} that stays once it has answered.
+    # 
+    #   ToolWording.status(call)                          # => "Searching the web…"
+    #   ToolWording.line(call, content:, summary:)        # => ToolLine(text: '🔍 Searched: "avocado"')
+    # 
+    # `call` is the live `Pikuri::Agent::Event::ToolCall` or the saved
+    # `Pikuri::Agent::History::ToolCall`, so {TurnListener} and {Replay} word a line alike. Only the
+    # icon and the verb are ours: what follows them is the tool's own `argument` or `summary`
+    # (pikuri's display-line seam, `Pikuri::Tool`'s *Display lines*), never the model's text.
+    # 
+    # A failed call is the tool's `Error:` observation, and its line is red with the tool's
+    # summary, which for a failure is that message. A call a cancel cut short says so, not red.
+    # The tool's strings are the model's arguments, so a line is flattened and defanged as
+    # pikuri asks of every chrome: `Pikuri::Sanitizer` shows an escape byte, it never runs it.
+    module ToolWording
+      # _@param_ `call`
+      # 
+      # _@return_ — what the turn is doing while the call runs
+      def status: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call) -> String
+
+      # _@param_ `call`
+      # 
+      # _@return_ — what the turn is doing while the call runs
+      def self.status: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call) -> String
+
+      # _@param_ `call`
+      # 
+      # _@param_ `content` — the observation the model got
+      # 
+      # _@param_ `summary` — the tool's one-line summary of it
+      # 
+      # _@return_ — with no id, for {Conversation#add} or
+      # {Conversation#restore} to assign
+      def line: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, content: String, summary: String?) -> Puri::Protocol::ToolLine
+
+      # _@param_ `call`
+      # 
+      # _@param_ `content` — the observation the model got
+      # 
+      # _@param_ `summary` — the tool's one-line summary of it
+      # 
+      # _@return_ — with no id, for {Conversation#add} or
+      # {Conversation#restore} to assign
+      def self.line: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, content: String, summary: String?) -> Puri::Protocol::ToolLine
+
+      # _@param_ `call`
+      # 
+      # _@param_ `outcome` — the tool's summary of a call that failed or was cut short; nil when it answered
+      def text: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, String? outcome) -> String
+
+      # _@param_ `call`
+      # 
+      # _@param_ `outcome` — the tool's summary of a call that failed or was cut short; nil when it answered
+      def self.text: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, String? outcome) -> String
+    end
+
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
     # opened on the first question, the {Confirmer} its tools ask through, and its folder in the
     # store. It is that conversation's listener, so the gem's hooks reach it through
@@ -824,6 +981,8 @@ module Puri
     #   ThinkingDelta             → ActivityChanged(working, "Thinking…")
     #   AssistantDelta            → appended to the Reply, opened on the first; ActivityChanged(streaming)
     #   Assistant                 → that Reply, rendered whole from the final text
+    #   ToolCall                  → ActivityChanged(working, "Searching the web…")
+    #   ToolResult                → a ToolLine; ActivityChanged(working, "Thinking…")
     #   TurnEnded                 → a Notice when cancelled or failed
     # 
     # It renders every delta it gets, so it sits behind the gem's limiter, which coalesces them:
@@ -832,8 +991,7 @@ module Puri
     #   conversations.open(id:, transport:, listener:)
     # 
     # Going idle is not an event's: {AgentSession} asks the gem whether work is under way.
-    # 
-    # Tool events wait for phase 2's tools, which word their own lines.
+    # {ToolWording} words a tool's status and line, as {Replay} does a saved one's.
     # 
     # == Threading
     # 
@@ -864,6 +1022,14 @@ module Puri
 
       # _@param_ `event`
       def ended: (Pikuri::Conversations::Event::TurnEnded event) -> void
+
+      # _@param_ `event`
+      def tool_call: (Pikuri::Agent::Event::ToolCall event) -> void
+
+      # A result whose call never showed — one a cancel answered before it ran — shows nothing.
+      # 
+      # _@param_ `event`
+      def tool_result: (Pikuri::Agent::Event::ToolResult event) -> void
 
       # _@param_ `error`
       # 

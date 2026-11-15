@@ -23,9 +23,12 @@ gem 'streaming-markdown-parser', git: 'https://github.com/mvysny/streaming-markd
 # pikuri on its git master, as pikuri-tui and pikuri-web ride it: Core's confirmations need the
 # unreleased `Confirmer::Redirected` and the textless `Rejected` (pikuri#12). Gemfile.lock pins
 # the commit; `bundle update pikuri-core` moves it. One checkout for both, since every pikuri gem
-# pins `pikuri-core = <exact version>` in lockstep.
+# pins `pikuri-core = <exact version>` in lockstep. pikuri-web brings `web_search` and
+# `web_read_cached`, and with them nokogiri; pikuri-html registers the HTML → Markdown extractor.
 git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-core'
+  gem 'pikuri-html'
+  gem 'pikuri-web'
   gem 'pikuri-workspace'
 end
 

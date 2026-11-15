@@ -119,3 +119,14 @@ server can accept that parameter and ignore it. The title is asked once the firs
 beside it, on a one-slot server, the title wins the permit and the answer waits about a second
 for it. The cost is a "New conversation" row until the answer is in. Why no slot is pinned:
 pinning the turn lost its cached prefix.
+
+## D_search_engines — Why Brave or Exa with page text, no DuckDuckGo, and no confirmation per search?
+
+*Search, never fetch* leaves the agent the snippets, and snippets alone rarely answer. Brave and
+Exa return each result's page text from their own index, which `web_read_cached` reads by handle
+with no request of its own, so the agent reads whole pages and still opens no URL. DuckDuckGo
+returns no page text, so it is refused rather than mixed in, where half the results would read
+and half not. Without a Brave or Exa key Puri still starts, logs an error and has no web tools,
+and its system prompt says so. No search asks first (owner, 2026-11-15): Siri never asks, and
+until Puri reads mail or notes the only private text a query can carry is the user's own
+question. Revisit once a private tool joins it.

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'pikuri-core'
+require 'pikuri-html'
+require 'pikuri-web'
 require 'pikuri-workspace'
 require 'pikuri-conversations'
 

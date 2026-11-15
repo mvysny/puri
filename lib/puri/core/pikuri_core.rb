@@ -22,10 +22,10 @@ module Puri
     class PikuriCore
       include Protocol::Backend
 
-      # Our own system prompt (`D_own_prompts`); the date is appended per conversation.
+      # Where our own system prompts live (`D_own_prompts`).
       #
       # @return [String]
-      SYSTEM_PROMPT = File.read(File.expand_path('../../../prompts/puri.txt', __dir__)).rstrip
+      PROMPTS = File.expand_path('../../../prompts', __dir__)
 
       # What `meta.json`'s `shell` says wrote a conversation.
       #
@@ -42,7 +42,10 @@ module Puri
       CLOSE_SECONDS = 5
 
       # The core `config` describes: conversations on its first `[[llm]]`, titles on its
-      # `[titler]`. Also sets each `[[server]]`'s `max_concurrent_requests` as that server's
+      # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
+      # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
+      # logs an error and wires no web tools, and the system prompt says so. Also sets each
+      # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
       #
@@ -61,8 +64,37 @@ module Puri
         end
         titler = Pikuri::Conversations::Titler.new(transport: config.titler_llm.transport,
                                                    params_declared: !config.titler_llm.params.empty?)
-        new(transport: config.primary_llm.transport, titler:, store:, &)
+        tools = web_tools(config.search)
+        new(transport: config.primary_llm.transport, titler:, store:, system_prompt: system_prompt(web: tools.any?),
+            tools: ->(_confirmer) { tools }, &)
       end
+
+      # Our system prompt, and the fragment that says what the agent can reach; the date is
+      # appended per conversation.
+      #
+      # @param web [Boolean] whether the agent has the web tools
+      # @return [String]
+      def self.system_prompt(web:)
+        %W[puri.txt #{web ? 'web.txt' : 'offline.txt'}].map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
+      end
+
+      # One `web_search` for every conversation: built with no confirmer it keeps no
+      # conversation's state, and its engines' pacing is process-wide anyway.
+      #
+      # @param search [Puri::Core::Config::SearchTable, nil]
+      # @return [Array<Pikuri::Tool>] `web_search` with page text, and `web_read_cached`; none
+      #   without a keyed `[search]`
+      def self.web_tools(search)
+        unless search
+          LOGGER.error('[search] in config.toml sets no Brave or Exa key: the agent has no web tools')
+          return []
+        end
+
+        [Pikuri::Web::Search.build(engines: search.engines, brave_key: search.brave_key, exa_key: search.exa_key,
+                                   page_text: true),
+         Pikuri::Web::READ_CACHED].freeze
+      end
+      private_class_method :web_tools
 
       # The saved conversations, in pikuri-web's folder format (`D_port_pikuri_web`).
       #
@@ -77,11 +109,13 @@ module Puri
       # @param transport [Pikuri::Agent::ChatTransport] where conversations run
       # @param titler [Pikuri::Conversations::Titler] names each new conversation from its first message
       # @param store [Pikuri::Conversations::Store] where conversations are saved
+      # @param system_prompt [String] see {.system_prompt}, which states what `tools` reach
       # @param tools [Proc] takes a conversation's {Confirmer}, returns its agent's
       #   `Array<Pikuri::Tool>`; called once per conversation
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(transport:, titler:, store:, tools: ->(_confirmer) { [] }, &listener)
+      def initialize(transport:, titler:, store:, system_prompt: PikuriCore.system_prompt(web: false),
+                     tools: ->(_confirmer) { [] }, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @transport = transport
@@ -93,7 +127,7 @@ module Puri
         @entries = {}
         @sessions = {}
         @live = Pikuri::Conversations.new(
-          system_prompt: ->(_conversation) { "#{SYSTEM_PROMPT}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}." },
+          system_prompt: ->(_conversation) { "#{system_prompt}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}." },
           configure: ->(config, conversation) { conversation.listener.configure(config) },
           on_turn_end: ->(conversation, history) { conversation.listener.save(history) },
           streaming: true, priority: -3, titler:

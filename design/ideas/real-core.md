@@ -6,8 +6,9 @@ doesn't change.
 
 Two phases. **Phase 1** puts pikuri behind Protocol with no tools; **phase 2** adds the first
 tools. Phase 1 is built and graduated into `design/architecture.md` (Core's composition, threads),
-`D_titler_model`, `R_llama_server_titles`, `D_own_config` and the classes' doc comments; what is
-left of it is below.
+`D_titler_model`, `R_llama_server_titles`, `D_own_config` and the classes' doc comments. Phase 2's
+web search is built and graduated into `D_search_engines`, `design/architecture.md` and
+`ToolWording`. What is left of both is below.
 
 The owner's llama-server is `192.168.122.1:9081` (Ornith 1.5, in `~/.config/pikuri/config.toml`,
 to be copied into `~/.config/puri/config.toml`), and it wants the `api_key` on its `[[server]]`.
@@ -29,14 +30,20 @@ to be copied into `~/.config/puri/config.toml`), and it wants the `api_key` on i
 - **A live spec**: one spec against the owner's llama-server through their own config, skipped
   unless `PURI_LIVE=1`.
 
-## Phase 2: the first tools
+## Phase 2: what's left
 
-`web_search` and `web_read_cached`, in their own `pikuri-web` gem since pikuri `bf884ac` (a new
-Gemfile line): each tool's line worded by Core (`🔍 Searched: "avocado preservation"`), and the
-status under the progress bar from the latest step; the search engines configured through
-`Config`'s `[search]` table (*Search, never fetch*); the system prompt taking the fragments the
-tools bring. `Replay` must word a saved tool line by the same code as `TurnListener`. The first
-real confirmations come with them. Planned once phase 1 is in.
+- **Try it live** on the owner's Brave key: does Ornith 1.5 search when it should, read a page
+  rather than answer from snippets, and say where the answer came from? The prompt's `web.txt`
+  is a first guess.
+- **The read line names no page.** `web_read_cached`'s call is a handle and its summary a size
+  (`Read 12.4 kB`), so the line says only "📄 Read a page the search found". The fix is
+  upstream: `ReadCached` summarizing as `Read 12.4 kB of docs.ruby-lang.org` or the title
+  (*a gap is a missing pikuri primitive*), and `ToolWording` then shows that summary.
+- **A declined call reads as done.** A `Rejected` or `Redirected` observation doesn't start with
+  `Error:`, so its line looks like the tool ran. No tool here asks yet; the first one that does
+  needs the outcome on the line, from pikuri rather than by matching the observation's words.
+- **The first real confirmations** come with the first private or writing tool, not with search
+  (`D_search_engines`).
 
 ## Open questions
 

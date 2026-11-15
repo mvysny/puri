@@ -10,6 +10,8 @@ module Puri
     #   ThinkingDelta             → ActivityChanged(working, "Thinking…")
     #   AssistantDelta            → appended to the Reply, opened on the first; ActivityChanged(streaming)
     #   Assistant                 → that Reply, rendered whole from the final text
+    #   ToolCall                  → ActivityChanged(working, "Searching the web…")
+    #   ToolResult                → a ToolLine; ActivityChanged(working, "Thinking…")
     #   TurnEnded                 → a Notice when cancelled or failed
     #
     # It renders every delta it gets, so it sits behind the gem's limiter, which coalesces them:
@@ -18,8 +20,7 @@ module Puri
     #   conversations.open(id:, transport:, listener:)
     #
     # Going idle is not an event's: {AgentSession} asks the gem whether work is under way.
-    #
-    # Tool events wait for phase 2's tools, which word their own lines.
+    # {ToolWording} words a tool's status and line, as {Replay} does a saved one's.
     #
     # == Threading
     #
@@ -39,6 +40,7 @@ module Puri
         @server = server
         @reply = nil
         @stream = nil
+        @calls = {}
       end
 
       # @param event [Object] a `Pikuri::Agent::Event` or `Pikuri::Conversations::Event` variant,
@@ -51,6 +53,8 @@ module Puri
         when Pikuri::Agent::Event::ThinkingDelta then thinking
         when Pikuri::Agent::Event::AssistantDelta then delta(event.content)
         when Pikuri::Agent::Event::Assistant then finish(event.content)
+        when Pikuri::Agent::Event::ToolCall then tool_call(event)
+        when Pikuri::Agent::Event::ToolResult then tool_result(event)
         when Pikuri::Conversations::Event::TurnEnded then ended(event)
         end
       end
@@ -87,6 +91,24 @@ module Puri
         when :cancelled then @conversation.add(Protocol::Notice.new(id: nil, text: 'Cancelled', error: false))
         when :failed then @conversation.add(Protocol::Notice.new(id: nil, text: failure(event.error), error: true))
         end
+      end
+
+      # @param event [Pikuri::Agent::Event::ToolCall]
+      # @return [void]
+      def tool_call(event)
+        @calls[event.tool_call_id] = event
+        @conversation.activity = Protocol::Activity.new(state: 'working', status: ToolWording.status(event))
+      end
+
+      # A result whose call never showed — one a cancel answered before it ran — shows nothing.
+      #
+      # @param event [Pikuri::Agent::Event::ToolResult]
+      # @return [void]
+      def tool_result(event)
+        call = @calls.delete(event.tool_call_id) or return
+
+        @conversation.add(ToolWording.line(call, content: event.content, summary: event.summary))
+        @conversation.activity = THINKING
       end
 
       # @param error [StandardError]

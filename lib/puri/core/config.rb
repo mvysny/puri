@@ -5,7 +5,8 @@ require 'typemap'
 
 module Puri
   module Core
-    # Puri's `config.toml`: the model connections, and which one writes the titles. Loaded once
+    # Puri's `config.toml`: the model connections, which one writes the titles, and the search
+    # engines' keys. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
     # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
     #
@@ -13,6 +14,7 @@ module Puri
     #   config.primary_llm   # => Llm(name:, server:, model:, api_key:, context_window:, params:)
     #   config.titler_llm    # => the [titler] connection, never nil
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
+    #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -34,6 +36,11 @@ module Puri
     #
     #   [titler]
     #   llm = "Ornith 1.5, no thinking"  # an [[llm]] name; required
+    #
+    #   [search]                         # optional; without a key, the agent has no web tools
+    #   brave_key = "…"                  # Brave's, Exa's or both: only they return page text
+    #   exa_key   = "…"
+    #   engines   = ["brave"]            # optional; omitted, every engine with a key
     #
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -171,6 +178,27 @@ module Puri
         constrain :llm, not_blank: true
       end
 
+      # The `[search]` table: the keys `Pikuri::Web::Search.build` takes, and its engines. Only
+      # Brave and Exa: `web_read_cached` reads the page text an engine returns with its results,
+      # and DuckDuckGo returns none (`D_search_engines`).
+      #
+      # @!attribute [r] brave_key
+      #   @return [String, nil] a Brave Search API key, https://api-dashboard.search.brave.com
+      # @!attribute [r] exa_key
+      #   @return [String, nil] an Exa key, https://exa.ai
+      # @!attribute [r] engines
+      #   @return [Array<String>, nil] `brave`, `exa` or both, each with its key; a set, since
+      #     pikuri shuffles them per query. Nil for every engine with a key.
+      class SearchTable < Data.define(:brave_key, :exa_key, :engines)
+        # @param brave_key [String, nil]
+        # @param exa_key [String, nil]
+        # @param engines [Array<String>, nil]
+        def initialize(brave_key: nil, exa_key: nil, engines: nil) = super
+
+        # @return [Boolean] whether a key is set, Brave's or Exa's
+        def keyed? = [brave_key, exa_key].any? { !_1.to_s.strip.empty? }
+      end
+
       # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
       # what is missing, with the example to paste.
       #
@@ -180,7 +208,9 @@ module Puri
       #   @return [Array<LlmTable>] the `[[llm]]` entries, names unique
       # @!attribute [r] titler
       #   @return [TitlerTable, nil] the `[titler]` table
-      class Root < Data.define(:server, :llm, :titler)
+      # @!attribute [r] search
+      #   @return [SearchTable, nil] the `[search]` table
+      class Root < Data.define(:server, :llm, :titler, :search)
         extend Typemap::Constrain
 
         constrain :server, unique_by: :id
@@ -189,7 +219,8 @@ module Puri
         # @param server [Array<Server>]
         # @param llm [Array<LlmTable>]
         # @param titler [TitlerTable, nil]
-        def initialize(server: [], llm: [], titler: nil) = super
+        # @param search [SearchTable, nil]
+        def initialize(server: [], llm: [], titler: nil, search: nil) = super
       end
 
       # A file that loads: Ornith 1.5 on a local llama-server, and the same model with its
@@ -215,6 +246,10 @@ module Puri
 
         [titler]
         llm = "Ornith 1.5, no thinking"
+
+        # Web search, through Brave or Exa; without a key, the agent has no web tools.
+        # [search]
+        # brave_key = "…"
       TOML
 
       # The file's name, and its directory under each XDG config root.
@@ -236,7 +271,7 @@ module Puri
       #   their own
       # @return [Puri::Core::Config]
       # @raise [Error] when no file exists, a file can't be read or parsed, a value breaks the
-      #   schema, or no `[[llm]]` or `[titler]` is defined
+      #   schema, no `[[llm]]` or `[titler]` is defined, or `[search]` names an engine it can't use
       def self.load(env: ENV)
         files = candidate_paths(env).select { |path| File.file?(path) }
         raise Error, "no config file found. #{write_example(env)}" if files.empty?
@@ -252,17 +287,20 @@ module Puri
 
         servers = root.server.to_h { |server| [server.id, server] }
         llms = root.llm.map { |table| resolve_llm(table, servers) }
-        new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms))
+        new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
+            search: resolve_search(root.search))
       end
 
       # @param llms [Array<Puri::Core::Config::Llm>] never empty
       # @param servers [Array<Puri::Core::Config::Server>] the `[[server]]` entries `llms` were
       #   resolved against
       # @param titler_llm [Puri::Core::Config::Llm]
-      def initialize(llms:, servers:, titler_llm:)
+      # @param search [Puri::Core::Config::SearchTable, nil] a keyed `[search]`, or nil
+      def initialize(llms:, servers:, titler_llm:, search: nil)
         @llms = llms.freeze
         @servers = servers.freeze
         @titler_llm = titler_llm
+        @search = search
         freeze
       end
 
@@ -276,6 +314,10 @@ module Puri
       # @return [Puri::Core::Config::Llm] the connection `[titler]` names
       attr_reader :titler_llm
 
+      # @return [Puri::Core::Config::SearchTable, nil] the engines `web_search` uses; nil when
+      #   `[search]` sets neither Brave's key nor Exa's, and the agent goes without web tools
+      attr_reader :search
+
       # @return [Puri::Core::Config::Llm] where conversations run: the first `[[llm]]`
       def primary_llm = @llms.first
 
@@ -287,22 +329,31 @@ module Puri
         [*dirs.split(':').reverse, home].map { |root| File.join(root, XDG_SUBDIR, FILENAME) }
       end
 
-      # Warns on stderr, never fails, when a file holding an `api_key` is readable by others.
+      # Warns on stderr, never fails, when a file holding a key — a `[[server]]`'s `api_key`, a
+      # search engine's — is readable by others.
       #
       # @param path [String]
       # @param parsed [Hash{String => Object}] the file's raw TOML, unchecked
       # @return [void]
       def self.warn_loose_perms(path, parsed)
-        servers = parsed['server']
-        return unless servers.is_a?(Array) && servers.any? { |entry| entry.is_a?(Hash) && entry['api_key'] }
+        return unless keys?(parsed)
 
         mode = File.stat(path).mode & 0o777
         return if mode.nobits?(0o077)
 
-        warn "puri: #{path} holds an api_key but is readable by others " \
+        warn "puri: #{path} holds a key but is readable by others " \
              "(mode #{format('%04o', mode)}); run `chmod 600 #{path}`"
       rescue SystemCallError
         nil # a courtesy, never fatal
+      end
+
+      # @param parsed [Hash{String => Object}] a file's raw TOML, unchecked
+      # @return [Boolean] whether it holds a key
+      def self.keys?(parsed)
+        servers = parsed['server']
+        search = parsed['search']
+        (servers.is_a?(Array) && servers.any? { |entry| entry.is_a?(Hash) && entry['api_key'] }) ||
+          (search.is_a?(Hash) && (search['brave_key'] || search['exa_key'])) || false
       end
 
       # @param path [String]
@@ -354,14 +405,35 @@ module Puri
                        "known: #{llms.map { |llm| llm.name.inspect }.join(', ')}"
       end
 
+      # A table with no key is no table: the agent goes without web tools, which {PikuriCore}
+      # logs. One with a key must name only engines that have theirs, and neither DuckDuckGo
+      # nor an engine pikuri doesn't know.
+      #
+      # @param table [Puri::Core::Config::SearchTable, nil]
+      # @return [Puri::Core::Config::SearchTable, nil] `table`, or nil without a key
+      # @raise [Error] for an engine `table` can't use
+      def self.resolve_search(table)
+        return nil unless table&.keyed?
+
+        names = Pikuri::Web::Search::Engines.resolve(engines: table.engines, brave_key: table.brave_key,
+                                                     exa_key: table.exa_key)
+        if table.engines && names.include?(:duckduckgo)
+          raise Error, 'search.engines: duckduckgo returns no page text to read; name brave or exa'
+        end
+
+        table
+      rescue ArgumentError => e
+        raise Error, e.message
+      end
+
       # @param env [#[]]
       # @return [String] where to write the config, and what
       def self.write_example(env)
         "Puri has no built-in connection; write #{candidate_paths(env).last}, for example:\n\n#{EXAMPLE_CONFIG}"
       end
 
-      private_class_method :candidate_paths, :warn_loose_perms, :parse_file, :deep_merge, :map, :resolve_llm,
-                           :resolve_titler, :write_example
+      private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
+                           :resolve_llm, :resolve_titler, :resolve_search, :write_example
     end
   end
 end

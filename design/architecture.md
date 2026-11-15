@@ -16,6 +16,7 @@ over it, research or doc-comment content has crept in.
 - Protocol is already the D-Bus API: Desktop calls `Protocol::Backend`'s methods, which would map to D-Bus methods; Core pushes `BlockChanged`, `BlockRemoved`, `ActivityChanged` and `ConversationsChanged`, which would map to signals. `BackendClient` round-trips every value through JSON, so a D-Bus connection could take its place.
 - A transcript is a list of blocks by id, each re-sent whole on every change: a stale event is overwritten by the next, and a `load_conversation` snapshot converges with events already in flight. A failed or cancelled turn ends in a `Notice` block, not an outcome on a turn event.
 - `PikuriCore` hosts its conversations through the workshop's `pikuri-conversations` (`D_port_pikuri_web`): `Pikuri::Conversations` runs each one's agent and turns, its `Store` keeps them in `$XDG_STATE_HOME/puri/conversations/<id>/`, its `Titler` names them, and its `Throttle` bounds the requests per server. Each conversation is a `Conversation` (blocks, activity, title; shared with the dummy, which schedules its own turns) and an `AgentSession`: the gem's live conversation, opened on the first `ask`, its `Confirmer` and tools, and its store entry, saved after every turn. The `AgentSession` is that live conversation's listener, and hands what shows to a `TurnListener`, which turns the agent's and the gem's events into blocks, behind the gem's `RateLimitedListener`, which coalesces the deltas. A saved conversation is listed at start and read in (`Replay`) on its first `ask` or `load_conversation`.
+- Every agent gets the same tools, built once by `PikuriCore.from_config`: `web_search` on the `[search]` engines with their page text, and `web_read_cached` to read it, or none without a Brave or Exa key (`D_search_engines`); the system prompt is `prompts/puri.txt` plus the fragment saying which. `ToolWording` words a call's status and its `ToolLine` from the tool's own strings, for `TurnListener` live and `Replay` from the saved call alike.
 - Core does everything but drawing (`D_ruby_gtk4`): it orders and titles conversations, words tool lines and confirmations, and renders a reply's Markdown into `Prose` (Pango markup), `Code` and `Table` parts. Desktop places them and keeps only view state.
 - Components subscribe to `BackendClient` themselves, no controller: `PopupWindow` (the one window), `ConversationView` (a `TranscriptView` over a `PromptEntry`) and `HistorySidebar`. `TranscriptView` is pure view, fed by its `ConversationView`.
 
@@ -28,11 +29,11 @@ over it, research or doc-comment content has crept in.
 
 ## Flows
 
-**A question** (`PikuriCore` and the dummy emit the same; tool lines arrive with the tools):
+**A question** (`PikuriCore` and the dummy emit the same):
 
 1. Enter in `PromptEntry` → `ConversationView` → `client.ask(nil, text)`, which returns the new conversation's id at once; `PopupWindow` expands to its full size.
 2. On Core's thread: `ConversationsChanged` (a "New conversation" row), `ActivityChanged(working, status)` — the progress bar and the status under it — and `BlockChanged(UserMessage)` once the turn starts.
-3. Each tool step: `BlockChanged(ToolLine)`, and a new status.
+3. Each tool step: `ActivityChanged(working, "Searching the web…")` as the call starts, then `BlockChanged(ToolLine)` and "Thinking…" once it answers.
 4. `ActivityChanged(streaming)`, then `BlockChanged(Reply)` per delta, the whole reply each time; `ReplyView` updates its parts in place.
 5. `ActivityChanged(idle)` when the turn ends; `ConversationsChanged` again a second later, once Core has titled it.
 
