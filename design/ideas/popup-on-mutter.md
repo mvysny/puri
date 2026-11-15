@@ -21,7 +21,7 @@ natively (`R_gnome_activation`). What Broadway can't show is still open, all [un
 - `Q_user_resize`: does the next popup remember a size the user dragged, or always open at
   33 % × 70 %? Can an undecorated GTK4 window be resized from its edges on Mutter, or does it need
   GTK's own CSD resize borders?
-- `Q_copilot_key`: besides Super+Space, also bind the Copilot key (Shift+Super+F23) where a
+- `Q_copilot_key`: besides Super+Alt+Space, also bind the Copilot key (Shift+Super+F23) where a
   keyboard has one, the one key that already means "assistant"?
 - The XDG `GlobalShortcuts` portal instead of a custom keybinding: which GNOME version
   implements it, and is it worth it now that the keybinding works?

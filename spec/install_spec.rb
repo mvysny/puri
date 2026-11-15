@@ -12,7 +12,6 @@ RSpec.describe 'rake install' do
   root = File.expand_path('..', __dir__)
   app_id = 'io.github.mvysny.Puri'
   media_keys = 'org.gnome.settings-daemon.plugins.media-keys'
-  wm_keys = 'org.gnome.desktop.wm.keybindings'
   puri_keybinding = '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/puri/'
   other_keybinding = '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/'
 
@@ -80,30 +79,23 @@ RSpec.describe 'rake install' do
     refute File.exist?(autostart), 'autostart is opt-in'
   end
 
-  it 'binds Super+Space beside existing custom shortcuts, moving the layout switcher off it' do
+  it 'binds Super+Alt+Space beside existing custom shortcuts' do
     gsettings('set', media_keys, 'custom-keybindings', "['#{other_keybinding}']")
     out = rake!('install')
-    assert_includes out, 'Super+Space opens Puri'
+    assert_includes out, '<Super><Alt>space opens Puri'
 
     assert_equal [other_keybinding, puri_keybinding], strv(media_keys, 'custom-keybindings')
     entry = "#{media_keys}.custom-keybinding:#{puri_keybinding}"
-    assert_equal "'<Super>space'", gsettings('get', entry, 'binding')
+    assert_equal "'<Super><Alt>space'", gsettings('get', entry, 'binding')
     assert_equal "'gapplication launch #{app_id}'", gsettings('get', entry, 'command')
-
-    switcher = strv(wm_keys, 'switch-input-source')
-    assert_includes switcher, '<Super><Alt>space'
-    refute_includes switcher, '<Super>space'
-    assert_includes strv(wm_keys, 'switch-input-source-backward'), '<Shift><Super><Alt>space'
   end
 
-  it 'moves the layout switcher back for another HOTKEY, and uninstall undoes everything' do
+  it 'rebinds for another HOTKEY, and uninstall undoes everything' do
     gsettings('set', media_keys, 'custom-keybindings', "['#{other_keybinding}']")
-    switcher_before = strv(wm_keys, 'switch-input-source')
     rake!('install')
 
     rake!('install', 'HOTKEY' => '<Super>p')
     assert_equal "'<Super>p'", gsettings('get', "#{media_keys}.custom-keybinding:#{puri_keybinding}", 'binding')
-    assert_equal switcher_before, strv(wm_keys, 'switch-input-source')
 
     assert_includes rake!('install', 'HOTKEY' => ''), 'No shortcut bound'
     assert_equal [other_keybinding], strv(media_keys, 'custom-keybindings')
@@ -113,7 +105,6 @@ RSpec.describe 'rake install' do
     refute File.exist?(desktop)
     refute File.exist?(service)
     assert_equal [other_keybinding], strv(media_keys, 'custom-keybindings')
-    assert_equal switcher_before, strv(wm_keys, 'switch-input-source')
   end
 
   it 'adds a valid autostart entry for AUTOSTART=1, and a plain install takes it away' do

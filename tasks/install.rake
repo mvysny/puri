@@ -6,25 +6,14 @@ require 'open3'
 # `git pull` updates it. The session bus starts Puri on the first `gapplication launch`, the
 # command the global shortcut runs; `AUTOSTART=1` also starts it hidden at login.
 #
-# The shortcut is a GNOME custom keybinding, Super+Space unless `HOTKEY` names another
-# (`HOTKEY='<Super>p'`) or none (`HOTKEY=`). Super+Space is GNOME's input-source switcher, so
-# taking it moves the switcher to Super+Alt+Space; any other choice moves it back.
+# The shortcut is a GNOME custom keybinding, Super+Alt+Space unless `HOTKEY` names another
+# (`HOTKEY='<Super>p'`) or none (`HOTKEY=`).
 
 # @return [String] the D-Bus name, and the base name of every installed file
 INSTALL_APP_ID = 'io.github.mvysny.Puri'
 
 # @return [String] what Puri is bound to when `HOTKEY` is unset
-INSTALL_DEFAULT_HOTKEY = '<Super>space'
-
-# @return [String] GNOME's window-manager keybindings, the input-source switcher among them
-INSTALL_WM_KEYS = 'org.gnome.desktop.wm.keybindings'
-
-# @return [Hash{String => Array(String, String)}] each switcher key: the binding Puri takes, and
-#   where it moves to
-INSTALL_SWITCHER_MOVES = {
-  'switch-input-source' => ['<Super>space', '<Super><Alt>space'],
-  'switch-input-source-backward' => ['<Shift><Super>space', '<Shift><Super><Alt>space']
-}.freeze
+INSTALL_DEFAULT_HOTKEY = '<Super><Alt>space'
 
 # @return [String] GNOME's custom keybindings, the ones Settings → Keyboard lists
 INSTALL_MEDIA_KEYS = 'org.gnome.settings-daemon.plugins.media-keys'
@@ -96,19 +85,6 @@ def install_hotkey
   hotkey
 end
 
-# Moves the input-source switcher off Super+Space, or back onto it. Only the two bindings in
-# {INSTALL_SWITCHER_MOVES} change; anything else the user bound stays.
-#
-# @param off [Boolean] true to move it off Super+Space, false to move it back
-# @return [void]
-def install_switcher(off:)
-  INSTALL_SWITCHER_MOVES.each do |key, (taken, moved)|
-    from, to = off ? [taken, moved] : [moved, taken]
-    list = install_strv(INSTALL_WM_KEYS, key)
-    install_set_strv(INSTALL_WM_KEYS, key, list.map { _1 == from ? to : _1 }.uniq) if list.include?(from)
-  end
-end
-
 # Binds Puri's custom keybinding to `hotkey`, or removes it.
 #
 # @param hotkey [String, nil] nil removes it
@@ -127,14 +103,7 @@ def install_keybinding(hotkey)
   end
 end
 
-# @param hotkey [String, nil] nil for none
-# @return [void]
-def install_shortcut(hotkey)
-  install_keybinding(hotkey)
-  install_switcher(off: hotkey == INSTALL_DEFAULT_HOTKEY)
-end
-
-desc "Install Puri for this user, run from this checkout; HOTKEY='<Super>p' (default Super+Space), AUTOSTART=1"
+desc "Install Puri for this user, run from this checkout; HOTKEY='<Super>p' (default Super+Alt+Space), AUTOSTART=1"
 task :install do
   hotkey = install_hotkey # first, so a bad HOTKEY writes nothing
   paths = install_paths
@@ -168,18 +137,16 @@ task :install do
     rm_f paths[:autostart]
   end
 
-  install_shortcut(hotkey)
-  if hotkey == INSTALL_DEFAULT_HOTKEY
-    puts 'Super+Space opens Puri; the keyboard layout switcher moved to Super+Alt+Space'
-  elsif hotkey
+  install_keybinding(hotkey)
+  if hotkey
     puts "#{hotkey} opens Puri"
   else
     puts "No shortcut bound; bind one to: gapplication launch #{INSTALL_APP_ID}"
   end
 end
 
-desc 'Remove what `rake install` wrote, and move the keyboard layout switcher back to Super+Space'
+desc 'Remove what `rake install` wrote'
 task :uninstall do
   install_paths.each_value { |path| rm_f path }
-  install_shortcut(nil)
+  install_keybinding(nil)
 end
