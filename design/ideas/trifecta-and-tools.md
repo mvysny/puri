@@ -228,7 +228,7 @@ tools. If practice shows that hop is constant, v2 is worth building.
 - `Q_synced_folder`: detect a synced notes folder and treat writes as egress?
 - `Q_link_rendering`: only tool-result URLs clickable; is that enough, or show the full URL on
   hover too?
-- `Q_rag_backend`: in-memory (re-embed every boot) for the prototype, or Qdrant / Chroma from day
-  one? Which embedding model, and does it share the llama-server with the chat model?
+- `Q_rag_backend`: in-memory (re-embed every boot) for the prototype, or Qdrant (pikuri's one
+  persistent engine) from day one? Which embedding model, and does it share the llama-server with the chat model?
 - `Q_trifecta_verdict`: what does pikuri's `/trifecta` report say about all three legs meeting with
   egress `:tool_vouched`? It should read as "broken by construction", not a warning to ignore.
