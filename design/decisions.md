@@ -21,9 +21,10 @@ hotkey — ~1.2 s (`R_gtk4_binding_cost`) — so the UI stays resident too, hidd
 closed, and a second process would save only a hidden window's memory. The costs we carry: a
 crash in GTK or its binding takes a running turn and the reminder timers down with it; pikuri's
 threads reach GTK only through the main loop; trying a UI change restarts pikuri too. So it is
-drawn as two: Core and Desktop share no constants, and every value crosses as JSON, so a split
-over D-Bus swaps only the connection. Splitting is optional, not a milestone: when those costs
-bite, when a second client appears, or when Desktop leaves Ruby (`D_ruby_gtk4`). Why not
+drawn as two, and Protocol is kept as the divider meticulously: Core and Desktop share no
+constants, and every value crosses as JSON, so a split swaps only the connection. Only trouble
+with `ruby-gtk4` reopens the split (`D_ruby_gtk4`); Protocol then rides the D-Bus session bus,
+never a TCP port, not even on loopback, since *Local first* means no network listener. Why not
 separate gems to hold the line: `gtk4` comes from apt, on the default load path whatever a
 gemspec says, so gems enforce nothing; a grep spec and a GTK-free load spec do. Packwerk would
 do the grep statically, but apt doesn't ship it.
