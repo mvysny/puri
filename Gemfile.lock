@@ -1,6 +1,6 @@
 GIT
   remote: https://codeberg.org/mvysny/pikuri.git
-  revision: c413e83acdeda4f74d5b9f93d6a0ae78184c356d
+  revision: 0cc65080b4e62bea9e6289acd1bc9c8295cc9744
   branch: master
   specs:
     pikuri-core (0.1.0)
@@ -14,7 +14,7 @@ GIT
 
 GIT
   remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: 42baf35dc259b0b86eb76da8c77cbf0b1c6cb571
+  revision: d414690b15bf0f05f4ec5ba55dca4882e35de036
   branch: master
   specs:
     pikuri-conversations (0.1.0)
