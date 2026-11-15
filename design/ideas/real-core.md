@@ -10,8 +10,8 @@ tools. Phase 1 is built and graduated into `design/architecture.md` (Core's comp
 web search is built and graduated into `D_search_engines`, `design/architecture.md` and
 `ToolWording`. What is left of both is below.
 
-The owner's llama-server is `192.168.122.1:9081` (Ornith 1.5, in `~/.config/pikuri/config.toml`,
-to be copied into `~/.config/puri/config.toml`), and it wants the `api_key` on its `[[server]]`.
+The owner's llama-server is `192.168.122.1:9081` (Ornith 1.5, in `~/.config/puri/config.toml`
+with the Brave key), and it wants the `api_key` on its `[[server]]`.
 
 ## Phase 1: what's left
 
@@ -26,15 +26,14 @@ to be copied into `~/.config/puri/config.toml`), and it wants the `api_key` on i
   while a reply streams (a 16 ms `GLib::Timeout` logging its lateness), at priority 0 and −3. A
   stall over ~25 ms is a finding: profile the turn thread's Ruby (`ReplyStream`,
   `ReplyRenderer`, `Protocol.round_trip`) before blaming GTK. The informal baseline from
-  watching screenshots: first token 13.6–18 s after Return, then 15 updates a second.
+  watching screenshots: first token 13.6–18 s after Return, then 15 updates a second. With search
+  (2026-11-15, headless): 10–20 s of thinking before each step, a Brave search ~1.3 s, a
+  `web_read_cached` read instant; a two-search answer took 30–57 s.
 - **A live spec**: one spec against the owner's llama-server through their own config, skipped
   unless `PURI_LIVE=1`.
 
 ## Phase 2: what's left
 
-- **Try it live** on the owner's Brave key: does Ornith 1.5 search when it should, read a page
-  rather than answer from snippets, and say where the answer came from? The prompt's `web.txt`
-  is a first guess.
 - **The read line names no page.** `web_read_cached`'s call is a handle and its summary a size
   (`Read 12.4 kB`), so the line says only "📄 Read a page the search found". The fix is
   upstream: `ReadCached` summarizing as `Read 12.4 kB of docs.ruby-lang.org` or the title
