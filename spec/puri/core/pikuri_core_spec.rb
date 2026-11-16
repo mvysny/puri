@@ -34,7 +34,33 @@ RSpec.describe Puri::Core::PikuriCore do
     Pikuri::Conversations::Titler.new(transport: titled, params_declared: true)
   end
   let(:store) { Pikuri::Conversations::Store.new(root: @root, shell: 'puri') }
-  let(:core) { described_class.new(transport:, titler:, store:) { |event| events << p.round_trip(event) } }
+  let(:config) { Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil) }
+  let(:core) { described_class.new(config:, transport:, titler:, store:) { |event| events << p.round_trip(event) } }
+
+  # A core whose every agent also gets what the block adds: Puri wires no tool that asks, no slow
+  # boot, and no web_search that answers offline, so a spec that needs one brings its own.
+  #
+  # @yieldparam configurator [Pikuri::Agent::Configurator]
+  # @yieldparam confirmer [Puri::Core::Confirmer] the agent's
+  # @yieldreturn [void]
+  # @return [Puri::Core::PikuriCore]
+  def core_with(&extra)
+    initializer = Class.new(Puri::Core::AgentSession::Initializer) do
+      define_method(:configure) do |configurator, conversation|
+        super(configurator, conversation)
+        extra.call(configurator, confirmer)
+      end
+    end
+    session = Class.new(Puri::Core::AgentSession) { const_set(:Initializer, initializer) }
+    core = Class.new(described_class) do
+      define_method(:agent_session) do |conversation, entry, saved:|
+        session.new(conversation, entry:, store: @store, conversations: @live, transport: @transport, config: @config,
+                                  lock: @lock, saved:)
+      end
+      private :agent_session
+    end
+    core.new(config:, transport:, titler:, store:) { |event| events << Puri::Protocol.round_trip(event) }
+  end
 
   # The fake states its context window and modalities; sizing its server too leaves the probe
   # nothing to ask. A server not sized is probed, and the probe warns that it failed.
@@ -260,8 +286,7 @@ RSpec.describe Puri::Core::PikuriCore do
     end
     let(:core) do
       calendar = self.calendar
-      configure = ->(c, confirmer) { c.add_extension(calendar.new(confirmer)) }
-      described_class.new(transport:, titler:, store:, configure:) { |event| events << p.round_trip(event) }
+      core_with { |c, confirmer| c.add_extension(calendar.new(confirmer)) }
     end
 
     # @param confirmer [Puri::Core::Confirmer]
@@ -371,11 +396,12 @@ RSpec.describe Puri::Core::PikuriCore do
     let(:booting) { Thread::Queue.new }
     let(:boot) { Thread::Queue.new }
     let(:core) do
-      configure = lambda do |_c, _confirmer|
+      booting = self.booting
+      boot = self.boot
+      core_with do
         booting << true
         boot.pop(timeout: 5)
       end
-      described_class.new(transport:, titler:, store:, configure:) { |event| events << p.round_trip(event) }
     end
 
     it 'goes idle at once, and ends in a notice once the boot is over' do
@@ -418,7 +444,7 @@ RSpec.describe Puri::Core::PikuriCore do
     # @return [Puri::Core::PikuriCore]
     def restart(titles = titler, &script)
       core.close
-      @restarted = described_class.new(transport: Pikuri::Testing.fake_transport(&script), titler: titles,
+      @restarted = described_class.new(config:, transport: Pikuri::Testing.fake_transport(&script), titler: titles,
                                        store: Pikuri::Conversations::Store.new(root: @root, shell: 'puri')) { nil }
     end
 
@@ -564,9 +590,7 @@ RSpec.describe Puri::Core::PikuriCore do
           parameters: Pikuri::Tool::Parameters.build { |params| params.required_string :query, 'what to search' },
           execute: ->(query:) { Pikuri::Tool::Result.new(content: "1. #{query} …", summary: 'Returned 1 search result') }
         )
-        described_class.new(transport:, titler:, store:, configure: ->(c, _) { c.add_tool(search) }) do |event|
-          events << p.round_trip(event)
-        end
+        core_with { |c, _confirmer| c.add_tool(search) }
       end
 
       it 'shows the search as a line, while it runs and after a restart' do
@@ -578,14 +602,6 @@ RSpec.describe Puri::Core::PikuriCore do
 
         assert_equal line, restart { |llm| llm.stream('Still cold.') }.load_conversation(id).blocks[1]
       end
-    end
-  end
-
-  describe '.system_prompt' do
-    it 'says what the agent can reach' do
-      assert_includes described_class.system_prompt(web: true), 'You can search the web'
-      assert_includes described_class.system_prompt(web: false), 'You have no tools'
-      assert described_class.system_prompt(web: true).start_with?('You are Puri')
     end
   end
 end

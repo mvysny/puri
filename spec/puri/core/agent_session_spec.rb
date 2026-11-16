@@ -17,10 +17,17 @@ RSpec.describe Puri::Core::AgentSession do
   end
   let(:session) do
     store = Pikuri::Conversations::Store.new(root: @root, shell: 'puri')
+    config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil)
     described_class.new(conversation, entry: store.create, store:, conversations: Pikuri::Conversations.new,
-                                      transport: Pikuri::Testing.fake_transport { nil }, system_prompt: '',
-                                      configure: ->(_, _) {},
-                                      lock:, saved: false)
+                                      transport: Pikuri::Testing.fake_transport { nil }, config:, lock:, saved: false)
+  end
+
+  describe 'Initializer.system_prompt' do
+    it 'says what the agent can reach' do
+      assert_includes described_class::Initializer.system_prompt(web: true), 'You can search the web'
+      assert_includes described_class::Initializer.system_prompt(web: false), 'You have no tools'
+      assert described_class::Initializer.system_prompt(web: true).start_with?('You are Puri')
+    end
   end
 
   around do |example|

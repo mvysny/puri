@@ -7,7 +7,7 @@ module Puri
     # The backend: each conversation a pikuri agent on the configured model, hosted by
     # `Pikuri::Conversations`, everything reported as {Protocol} events.
     #
-    #   core = PikuriCore.new(transport: config.primary_llm.transport, titler:, store:) { |event| … }
+    #   core = PikuriCore.new(config:, transport: config.primary_llm.transport, titler:, store:) { |event| … }
     #   id = core.ask(nil, 'how do I keep an avocado?')
     #   core.load_conversation(id).blocks   # => [UserMessage, Reply] once it has answered
     #   core.list_conversations.first.title  # => "Keeping An Avocado Fresh", once titled
@@ -21,11 +21,6 @@ module Puri
     # Thread-safe.
     class PikuriCore
       include Protocol::Backend
-
-      # Where our own system prompts live (`D_own_prompts`).
-      #
-      # @return [String]
-      PROMPTS = File.expand_path('../../../prompts', __dir__)
 
       # What `meta.json`'s `shell` says wrote a conversation.
       #
@@ -64,37 +59,11 @@ module Puri
         end
         titler = Pikuri::Conversations::Titler.new(transport: config.titler_llm.transport,
                                                    params_declared: !config.titler_llm.params.empty?)
-        web = web_tools(config.search)
-        new(transport: config.primary_llm.transport, titler:, store:, system_prompt: system_prompt(web: web.any?),
-            configure: ->(c, _confirmer) { c.add_tools(web) }, &)
-      end
-
-      # Our system prompt, and the fragment that says what the agent can reach; the date is
-      # appended per conversation.
-      #
-      # @param web [Boolean] whether the agent has the web tools
-      # @return [String]
-      def self.system_prompt(web:)
-        %W[puri.txt #{web ? 'web.txt' : 'offline.txt'}].map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
-      end
-
-      # One `web_search` for every conversation: built with no confirmer it keeps no
-      # conversation's state, and its engines' pacing is process-wide anyway.
-      #
-      # @param search [Puri::Core::Config::SearchTable, nil]
-      # @return [Array<Pikuri::Tool>] `web_search` with page text, and `web_read_cached`; none
-      #   without a keyed `[search]`
-      def self.web_tools(search)
-        unless search
+        unless config.search
           LOGGER.error('[search] in config.toml sets no Brave or Exa key: the agent has no web tools')
-          return []
         end
-
-        [Pikuri::Web::Search.build(engines: search.engines, brave_key: search.brave_key, exa_key: search.exa_key,
-                                   page_text: true),
-         Pikuri::Web::READ_CACHED].freeze
+        new(config:, transport: config.primary_llm.transport, titler:, store:, &)
       end
-      private_class_method :web_tools
 
       # The saved conversations, in pikuri-web's folder format (`D_port_pikuri_web`).
       #
@@ -106,24 +75,18 @@ module Puri
         Pikuri::Conversations::Store.new(root: File.join(state, 'puri', 'conversations'), shell: SHELL)
       end
 
+      # @param config [Puri::Core::Config] what each conversation's agent is built from
       # @param transport [Pikuri::Agent::ChatTransport] where conversations run
       # @param titler [Pikuri::Conversations::Titler] names each new conversation from its first message
       # @param store [Pikuri::Conversations::Store] where conversations are saved
-      # @param system_prompt [String] see {.system_prompt}, which states what `configure` reaches;
-      #   the agent appends its extensions' own fragments
-      # @param configure [Proc] takes each agent's `Pikuri::Agent::Configurator` and its
-      #   conversation's {Confirmer}, and adds its tools and extensions; called once per agent, so
-      #   it builds every extension afresh, as pikuri asks
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(transport:, titler:, store:, system_prompt: PikuriCore.system_prompt(web: false),
-                     configure: ->(_c, _confirmer) {}, &listener)
+      def initialize(config:, transport:, titler:, store:, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @transport = transport
         @store = store
-        @system_prompt = system_prompt
-        @configure = configure
+        @config = config
         @listener = listener
         @lock = Monitor.new
         @conversations = {}
@@ -238,7 +201,7 @@ module Puri
       # @return [Puri::Core::AgentSession]
       def agent_session(conversation, entry, saved:)
         AgentSession.new(conversation, entry:, store: @store, conversations: @live, transport: @transport,
-                                       system_prompt: @system_prompt, configure: @configure, lock: @lock, saved:)
+                                       config: @config, lock: @lock, saved:)
       end
 
       # @return [void]

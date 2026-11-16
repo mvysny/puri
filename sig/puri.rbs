@@ -529,7 +529,7 @@ module Puri
     # The backend: each conversation a pikuri agent on the configured model, hosted by
     # `Pikuri::Conversations`, everything reported as {Protocol} events.
     # 
-    #   core = PikuriCore.new(transport: config.primary_llm.transport, titler:, store:) { |event| … }
+    #   core = PikuriCore.new(config:, transport: config.primary_llm.transport, titler:, store:) { |event| … }
     #   id = core.ask(nil, 'how do I keep an avocado?')
     #   core.load_conversation(id).blocks   # => [UserMessage, Reply] once it has answered
     #   core.list_conversations.first.title  # => "Keeping An Avocado Fresh", once titled
@@ -543,7 +543,6 @@ module Puri
     # Thread-safe.
     class PikuriCore
       include Puri::Protocol::Backend
-      PROMPTS: String
       SHELL: String
       LOGGER: Logger
       CLOSE_SECONDS: Integer
@@ -563,21 +562,6 @@ module Puri
       # _@param_ `store`
       def self.from_config: (Puri::Core::Config config, store: Pikuri::Conversations::Store) ?{ (Data event) -> void } -> Puri::Core::PikuriCore
 
-      # Our system prompt, and the fragment that says what the agent can reach; the date is
-      # appended per conversation.
-      # 
-      # _@param_ `web` — whether the agent has the web tools
-      def self.system_prompt: (web: bool) -> String
-
-      # One `web_search` for every conversation: built with no confirmer it keeps no
-      # conversation's state, and its engines' pacing is process-wide anyway.
-      # 
-      # _@param_ `search`
-      # 
-      # _@return_ — `web_search` with page text, and `web_read_cached`; none
-      # without a keyed `[search]`
-      def self.web_tools: (Puri::Core::Config::SearchTable? search) -> ::Array[Pikuri::Tool]
-
       # The saved conversations, in pikuri-web's folder format (`D_port_pikuri_web`).
       # 
       # _@param_ `env` — where `XDG_STATE_HOME` comes from
@@ -586,21 +570,18 @@ module Puri
       # `~/.local/state` by default
       def self.store: (?env: untyped) -> Pikuri::Conversations::Store
 
+      # _@param_ `config` — what each conversation's agent is built from
+      # 
       # _@param_ `transport` — where conversations run
       # 
       # _@param_ `titler` — names each new conversation from its first message
       # 
       # _@param_ `store` — where conversations are saved
-      # 
-      # _@param_ `system_prompt` — see {.system_prompt}, which states what `configure` reaches; the agent appends its extensions' own fragments
-      # 
-      # _@param_ `configure` — takes each agent's `Pikuri::Agent::Configurator` and its conversation's {Confirmer}, and adds its tools and extensions; called once per agent, so it builds every extension afresh, as pikuri asks
       def initialize: (
+                        config: Puri::Core::Config,
                         transport: Pikuri::Agent::ChatTransport,
                         titler: Pikuri::Conversations::Titler,
-                        store: Pikuri::Conversations::Store,
-                        ?system_prompt: String,
-                        ?configure: Proc
+                        store: Pikuri::Conversations::Store
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
@@ -860,11 +841,11 @@ module Puri
 
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
     # opened on the first question, the {Confirmer} its tools and extensions ask through, and its folder in the
-    # store. It opens that conversation as its listener, its initializer and its saver alike:
+    # store. It opens that conversation as its listener and its saver, its agents built by its
+    # {Initializer}:
     # 
-    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:,
-    #                              system_prompt: 'You are Puri.', configure: ->(c, confirmer) {},
-    #                              lock:, saved: true)
+    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:, config:, lock:,
+    #                              saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
     #   session.cancel
@@ -881,7 +862,6 @@ module Puri
     # session's own lock, so a save never carries a title older than the one on disk. A save
     # still ending after {#delete} writes nothing: `Store#delete` is final.
     class AgentSession < Pikuri::Agent::Listener::Base
-      include Pikuri::Conversations::AgentInitializer
       include Pikuri::Conversations::Saver
       LOGGER: Logger
 
@@ -895,9 +875,7 @@ module Puri
       # 
       # _@param_ `transport`
       # 
-      # _@param_ `system_prompt` — the agent's, without the date
-      # 
-      # _@param_ `configure` — takes the agent's `Pikuri::Agent::Configurator` and the conversation's {Confirmer}, and adds its tools and extensions
+      # _@param_ `config` — what its agents are built from
       # 
       # _@param_ `lock` — the core's
       # 
@@ -908,8 +886,7 @@ module Puri
                         store: Pikuri::Conversations::Store,
                         conversations: Pikuri::Conversations,
                         transport: Pikuri::Agent::ChatTransport,
-                        system_prompt: String,
-                        configure: Proc,
+                        config: Puri::Core::Config,
                         lock: Monitor,
                         saved: bool
                       ) -> void
@@ -936,18 +913,6 @@ module Puri
       # Closes the live conversation, cancelling its turn, and removes it from disk; the turn's
       # own save, still to come, writes nothing.
       def delete: () -> void
-
-      # _@param_ `_conversation` — this session's
-      # 
-      # _@return_ — the prompt, then today's date
-      def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
-
-      # The agent's {Confirmer}, then the core's `configure:` with it, on the booting thread.
-      # 
-      # _@param_ `configurator`
-      # 
-      # _@param_ `_conversation` — this session's
-      def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation _conversation) -> void
 
       # Any failure, not only a disk's, ends in the error notice: a history that won't serialize
       # is as lost as one that won't write.
@@ -985,6 +950,54 @@ module Puri
 
       # Takes the messages the agent hasn't read, showing each, so none vanishes unseen.
       def drop_pending: () -> void
+
+      # Builds each of a session's agents from the config: our system prompt, the web tools
+      # `[search]` keys, and the {Confirmer} the agent's tools ask through.
+      # 
+      #   initializer = Initializer.new(config, conversation, lock:)
+      #   conversations.open(id:, transport:, listener:, initializer:)
+      #   initializer.confirmer   # the latest agent's, once one has booted
+      # 
+      # Called on the boot's thread, once per agent: a clear or a failed boot builds another, with
+      # a {Confirmer} of its own.
+      class Initializer
+        include Pikuri::Conversations::AgentInitializer
+        PROMPTS: String
+
+        # Our system prompt, and the fragment that says what the agent can reach; {#system_prompt}
+        # appends the date.
+        # 
+        # _@param_ `web` — whether the agent has the web tools
+        def self.system_prompt: (web: bool) -> String
+
+        # _@param_ `config`
+        # 
+        # _@param_ `conversation` — where a confirmation shows
+        # 
+        # _@param_ `lock` — the core's
+        def initialize: (Puri::Core::Config config, Puri::Core::Conversation conversation, lock: Monitor) -> void
+
+        # _@param_ `_conversation` — this session's
+        # 
+        # _@return_ — {.system_prompt} for the tools the config gives, then today's date; the
+        # agent appends its extensions' own fragments
+        def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
+
+        # Adds the web tools. An extension goes here too, built afresh for each agent as pikuri
+        # asks, and one that asks before it acts takes {#confirmer}.
+        # 
+        # _@param_ `configurator`
+        # 
+        # _@param_ `_conversation` — this session's
+        def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation _conversation) -> void
+
+        # _@return_ — `web_search` with page text, and `web_read_cached`; none
+        # without a keyed `[search]`
+        def web_tools: () -> ::Array[Pikuri::Tool]
+
+        # _@return_ — the latest agent's; nil until one has booted
+        attr_reader confirmer: Confirmer?
+      end
     end
 
     # Turns a pikuri conversation's events into a {Conversation}'s blocks and activity, the one

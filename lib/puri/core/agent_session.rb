@@ -4,11 +4,11 @@ module Puri
   module Core
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
     # opened on the first question, the {Confirmer} its tools and extensions ask through, and its folder in the
-    # store. It opens that conversation as its listener, its initializer and its saver alike:
+    # store. It opens that conversation as its listener and its saver, its agents built by its
+    # {Initializer}:
     #
-    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:,
-    #                              system_prompt: 'You are Puri.', configure: ->(c, confirmer) {},
-    #                              lock:, saved: true)
+    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:, config:, lock:,
+    #                              saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
     #   session.cancel
@@ -25,11 +25,79 @@ module Puri
     # session's own lock, so a save never carries a title older than the one on disk. A save
     # still ending after {#delete} writes nothing: `Store#delete` is final.
     class AgentSession < Pikuri::Agent::Listener::Base
-      include Pikuri::Conversations::AgentInitializer
       include Pikuri::Conversations::Saver
 
       # @return [Logger]
       LOGGER = Pikuri.logger_for('AgentSession')
+
+      # Builds each of a session's agents from the config: our system prompt, the web tools
+      # `[search]` keys, and the {Confirmer} the agent's tools ask through.
+      #
+      #   initializer = Initializer.new(config, conversation, lock:)
+      #   conversations.open(id:, transport:, listener:, initializer:)
+      #   initializer.confirmer   # the latest agent's, once one has booted
+      #
+      # Called on the boot's thread, once per agent: a clear or a failed boot builds another, with
+      # a {Confirmer} of its own.
+      class Initializer
+        include Pikuri::Conversations::AgentInitializer
+
+        # Where our own system prompts live (`D_own_prompts`).
+        #
+        # @return [String]
+        PROMPTS = File.expand_path('../../../prompts', __dir__)
+
+        # Our system prompt, and the fragment that says what the agent can reach; {#system_prompt}
+        # appends the date.
+        #
+        # @param web [Boolean] whether the agent has the web tools
+        # @return [String]
+        def self.system_prompt(web:)
+          %W[puri.txt #{web ? 'web.txt' : 'offline.txt'}].map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
+        end
+
+        # @return [Confirmer, nil] the latest agent's; nil until one has booted
+        attr_reader :confirmer
+
+        # @param config [Puri::Core::Config]
+        # @param conversation [Puri::Core::Conversation] where a confirmation shows
+        # @param lock [Monitor] the core's
+        def initialize(config, conversation, lock:)
+          @config = config
+          @conversation = conversation
+          @lock = lock
+          @confirmer = nil
+        end
+
+        # @param _conversation [Pikuri::Conversations::Conversation] this session's
+        # @return [String] {.system_prompt} for the tools the config gives, then today's date; the
+        #   agent appends its extensions' own fragments
+        def system_prompt(_conversation)
+          "#{Initializer.system_prompt(web: !@config.search.nil?)}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
+        end
+
+        # Adds the web tools. An extension goes here too, built afresh for each agent as pikuri
+        # asks, and one that asks before it acts takes {#confirmer}.
+        #
+        # @param configurator [Pikuri::Agent::Configurator]
+        # @param _conversation [Pikuri::Conversations::Conversation] this session's
+        # @return [void]
+        def configure(configurator, _conversation)
+          @confirmer = Confirmer.new(@conversation, lock: @lock)
+          configurator.add_tools(web_tools)
+        end
+
+        private
+
+        # @return [Array<Pikuri::Tool>] `web_search` with page text, and `web_read_cached`; none
+        #   without a keyed `[search]`
+        def web_tools
+          search = @config.search or return []
+          [Pikuri::Web::Search.build(engines: search.engines, brave_key: search.brave_key, exa_key: search.exa_key,
+                                     page_text: true),
+           Pikuri::Web::READ_CACHED]
+        end
+      end
 
       # @param conversation [Puri::Core::Conversation] where the turns show
       # @param entry [Pikuri::Conversations::Store::Entry] its folder
@@ -37,21 +105,18 @@ module Puri
       # @param conversations [Pikuri::Conversations] the live ones, which this one joins on its
       #   first question
       # @param transport [Pikuri::Agent::ChatTransport]
-      # @param system_prompt [String] the agent's, without the date
-      # @param configure [Proc] takes the agent's `Pikuri::Agent::Configurator` and the
-      #   conversation's {Confirmer}, and adds its tools and extensions
+      # @param config [Puri::Core::Config] what its agents are built from
       # @param lock [Monitor] the core's
       # @param saved [Boolean] whether the store holds this conversation already
-      def initialize(conversation, entry:, store:, conversations:, transport:, system_prompt:, configure:, lock:,
-                     saved:)
+      def initialize(conversation, entry:, store:, conversations:, transport:, config:, lock:, saved:)
         super()
         @conversation = conversation
         @entry = entry
         @store = store
         @conversations = conversations
         @transport = transport
-        @system_prompt = system_prompt
-        @configure = configure
+        # self.class's: a spec's subclass brings an Initializer that adds what Puri doesn't wire.
+        @initializer = self.class::Initializer.new(config, conversation, lock:)
         @lock = lock
         @saved = saved
         @untitled = !saved || store.stamp_titled?(entry) || entry.title == Conversation::NEW_TITLE
@@ -60,7 +125,6 @@ module Puri
         )
         @live = nil
         @history = nil
-        @confirmer = nil
         @writes = Mutex.new
         @unreadable = false
       end
@@ -89,7 +153,7 @@ module Puri
       # @return [void]
       def ask(text)
         @conversation.asked(text)
-        if @confirmer&.redirect(text)
+        if @initializer.confirmer&.redirect(text)
           @conversation.add(Protocol::UserMessage.new(id: nil, text:))
         else
           @conversation.activity = TurnListener::THINKING unless @conversation.running?
@@ -110,7 +174,7 @@ module Puri
       # @param confirmation [String] the block id the user answered
       # @param approved [Boolean]
       # @return [void]
-      def answer(confirmation, approved) = @confirmer&.answer(confirmation, approved)
+      def answer(confirmation, approved) = @initializer.confirmer&.answer(confirmation, approved)
 
       # Closes the live conversation, cancelling its turn, and removes it from disk; the turn's
       # own save, still to come, writes nothing.
@@ -119,20 +183,6 @@ module Puri
       def delete
         @live&.close(force: true)
         @store.delete(@entry)
-      end
-
-      # @param _conversation [Pikuri::Conversations::Conversation] this session's
-      # @return [String] the prompt, then today's date
-      def system_prompt(_conversation) = "#{@system_prompt}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
-
-      # The agent's {Confirmer}, then the core's `configure:` with it, on the booting thread.
-      #
-      # @param configurator [Pikuri::Agent::Configurator]
-      # @param _conversation [Pikuri::Conversations::Conversation] this session's
-      # @return [void]
-      def configure(configurator, _conversation)
-        @confirmer = Confirmer.new(@conversation, lock: @lock)
-        @configure.call(configurator, @confirmer)
       end
 
       # Any failure, not only a disk's, ends in the error notice: a history that won't serialize
@@ -175,8 +225,9 @@ module Puri
 
       # @return [Pikuri::Conversations::Conversation] opened on first use
       def live
-        @live ||= @conversations.open(id: @conversation.id, transport: @transport, listener: self, initializer: self,
-                                      saver: self, history: @history, boot: false, untitled: @untitled)
+        @live ||= @conversations.open(id: @conversation.id, transport: @transport, listener: self, saver: self,
+                                      initializer: @initializer, history: @history, boot: false,
+                                      untitled: @untitled)
       end
 
       # @param title [String]
