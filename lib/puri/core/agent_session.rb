@@ -28,6 +28,35 @@ module Puri
       # @return [Logger]
       LOGGER = Pikuri.logger_for('AgentSession')
 
+      # The gem's initializer and saver for every conversation: one shared prompt, dated per
+      # agent; the tools and the save are each conversation's {AgentSession}'s.
+      #
+      #   hooks = AgentSession::Hooks.new('You are Puri.')
+      #   Pikuri::Conversations.new(initializer: hooks, saver: hooks)
+      class Hooks
+        include Pikuri::Conversations::AgentInitializer
+        include Pikuri::Conversations::Saver
+
+        # @param prompt [String] the agents' system prompt, without the date
+        def initialize(prompt)
+          @prompt = prompt
+        end
+
+        # @param _conversation [Pikuri::Conversations::Conversation]
+        # @return [String] the prompt, then today's date
+        def system_prompt(_conversation) = "#{@prompt}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
+
+        # @param configurator [Pikuri::Agent::Configurator]
+        # @param conversation [Pikuri::Conversations::Conversation] its listener is its {AgentSession}
+        # @return [void]
+        def configure(configurator, conversation) = conversation.listener.configure(configurator)
+
+        # @param conversation [Pikuri::Conversations::Conversation] its listener is its {AgentSession}
+        # @param history [Pikuri::Agent::History]
+        # @return [void]
+        def save(conversation, history) = conversation.listener.save(history)
+      end
+
       # @param conversation [Puri::Core::Conversation] where the turns show
       # @param entry [Pikuri::Conversations::Store::Entry] its folder
       # @param store [Pikuri::Conversations::Store]
@@ -115,7 +144,7 @@ module Puri
         @store.delete(@entry)
       end
 
-      # The gem's `configure:`: the agent's {Confirmer}, then the core's `configure:` with it, on
+      # {Hooks#configure}'s: the agent's {Confirmer}, then the core's `configure:` with it, on
       # the booting thread.
       #
       # @param config [Pikuri::Agent::Configurator]
@@ -125,7 +154,7 @@ module Puri
         @configure.call(config, @confirmer)
       end
 
-      # The gem's `on_turn_end:`. Any failure, not only a disk's, ends in the error notice: a
+      # {Hooks#save}'s. Any failure, not only a disk's, ends in the error notice: a
       # history that won't serialize is as lost as one that won't write.
       #
       # @param history [Pikuri::Agent::History]

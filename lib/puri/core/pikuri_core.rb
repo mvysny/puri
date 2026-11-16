@@ -128,12 +128,8 @@ module Puri
         @conversations = {}
         @entries = {}
         @sessions = {}
-        @live = Pikuri::Conversations.new(
-          system_prompt: ->(_conversation) { "#{system_prompt}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}." },
-          configure: ->(config, conversation) { conversation.listener.configure(config) },
-          on_turn_end: ->(conversation, history) { conversation.listener.save(history) },
-          streaming: true, priority: -3, titler:
-        )
+        hooks = AgentSession::Hooks.new(system_prompt)
+        @live = Pikuri::Conversations.new(initializer: hooks, saver: hooks, streaming: true, priority: -3, titler:)
         store.list.reverse_each { |entry| saved(entry) }
       end
 

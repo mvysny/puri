@@ -932,13 +932,13 @@ module Puri
       # own save, still to come, writes nothing.
       def delete: () -> void
 
-      # The gem's `configure:`: the agent's {Confirmer}, then the core's `configure:` with it, on
+      # {Hooks#configure}'s: the agent's {Confirmer}, then the core's `configure:` with it, on
       # the booting thread.
       # 
       # _@param_ `config`
       def configure: (Pikuri::Agent::Configurator config) -> void
 
-      # The gem's `on_turn_end:`. Any failure, not only a disk's, ends in the error notice: a
+      # {Hooks#save}'s. Any failure, not only a disk's, ends in the error notice: a
       # history that won't serialize is as lost as one that won't write.
       # 
       # _@param_ `history`
@@ -972,6 +972,34 @@ module Puri
 
       # Takes the messages the agent hasn't read, showing each, so none vanishes unseen.
       def drop_pending: () -> void
+
+      # The gem's initializer and saver for every conversation: one shared prompt, dated per
+      # agent; the tools and the save are each conversation's {AgentSession}'s.
+      # 
+      #   hooks = AgentSession::Hooks.new('You are Puri.')
+      #   Pikuri::Conversations.new(initializer: hooks, saver: hooks)
+      class Hooks
+        include Pikuri::Conversations::AgentInitializer
+        include Pikuri::Conversations::Saver
+
+        # _@param_ `prompt` — the agents' system prompt, without the date
+        def initialize: (String prompt) -> void
+
+        # _@param_ `_conversation`
+        # 
+        # _@return_ — the prompt, then today's date
+        def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
+
+        # _@param_ `configurator`
+        # 
+        # _@param_ `conversation` — its listener is its {AgentSession}
+        def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation conversation) -> void
+
+        # _@param_ `conversation` — its listener is its {AgentSession}
+        # 
+        # _@param_ `history`
+        def save: (Pikuri::Conversations::Conversation conversation, Pikuri::Agent::History history) -> void
+      end
     end
 
     # Turns a pikuri conversation's events into a {Conversation}'s blocks and activity, the one

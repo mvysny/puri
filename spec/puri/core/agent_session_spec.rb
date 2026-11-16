@@ -17,8 +17,8 @@ RSpec.describe Puri::Core::AgentSession do
   end
   let(:session) do
     store = Pikuri::Conversations::Store.new(root: @root, shell: 'puri')
-    described_class.new(conversation, entry: store.create, store:,
-                                      conversations: Pikuri::Conversations.new(system_prompt: ->(_) { '' }),
+    conversations = Pikuri::Conversations.new(initializer: described_class::Hooks.new(''))
+    described_class.new(conversation, entry: store.create, store:, conversations:,
                                       transport: Pikuri::Testing.fake_transport { nil }, configure: ->(_, _) {},
                                       lock:, saved: false)
   end
