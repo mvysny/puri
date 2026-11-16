@@ -27,7 +27,7 @@ RSpec.describe 'rake install' do
   def env(extra = {})
     { 'XDG_DATA_HOME' => "#{@home}/data", 'XDG_CONFIG_HOME' => "#{@home}/config",
       'XDG_STATE_HOME' => "#{@home}/state", 'GSETTINGS_BACKEND' => 'keyfile', 'HOTKEY' => nil,
-      'AUTOSTART' => nil }.merge(extra)
+      'AUTOSTART' => nil, 'DBUS_SESSION_BUS_ADDRESS' => "unix:path=#{@home}/no-bus" }.merge(extra)
   end
 
   # @param task [String]
@@ -123,12 +123,20 @@ RSpec.describe 'rake install' do
     refute File.exist?(desktop)
   end
 
+  it 'warns, and still installs, with no session bus to reload' do
+    out, err, status = rake('install')
+    assert status.success?, "#{out}#{err}"
+    assert_includes err, "The session bus didn't reload"
+    assert File.exist?(service)
+  end
+
   # The whole path a shortcut takes, on a private session bus that reads the services from the
-  # scratch home: `gapplication launch` with no Puri running makes the bus start one. It starts the
-  # real backend, so it needs a config; nothing asks, so nothing dials the server.
+  # scratch home: `gapplication launch` with no Puri running makes the bus start one. The bus
+  # starts before the install, as the login session's does, so the install has one to reload,
+  # though dbus-daemon would find the file without it (`R_gnome_activation`). It starts the real
+  # backend, so it needs a config; nothing asks, so nothing dials the server.
   it 'lets the session bus start Puri on `gapplication launch`' do
     Broadway.start
-    rake!('install', 'HOTKEY' => '')
     FileUtils.mkdir_p("#{@home}/config/puri")
     File.write("#{@home}/config/puri/config.toml", Puri::Core::Config::EXAMPLE_CONFIG)
     # The bus hands its own environment to the Puri it starts. Local GIO, or that Puri asks the bus
@@ -138,6 +146,9 @@ RSpec.describe 'rake install' do
     begin
       address = bus.gets&.strip or raise 'dbus-daemon printed no address'
       on_bus = env('DBUS_SESSION_BUS_ADDRESS' => address)
+      out, err, status = rake('install', 'HOTKEY' => '', 'DBUS_SESSION_BUS_ADDRESS' => address)
+      assert status.success?, "#{out}#{err}"
+      refute_includes err, "didn't reload"
 
       _, err, status = Open3.capture3(on_bus, 'gapplication', 'launch', app_id)
       assert status.success?, err

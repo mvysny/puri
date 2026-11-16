@@ -76,6 +76,19 @@ def install_set_strv(schema, key, list)
   install_gsettings('set', schema, key, list.empty? ? '@as []' : "[#{list.map { "'#{_1}'" }.join(', ')}]")
 end
 
+# Makes the session bus re-read its service files, or `gapplication launch` may find Puri "not
+# activatable" until the next login (`R_gnome_activation`).
+#
+# @return [void]
+def install_reload_bus
+  _, err, status = Open3.capture3('gdbus', 'call', '--session', '--dest', 'org.freedesktop.DBus',
+                                  '--object-path', '/org/freedesktop/DBus',
+                                  '--method', 'org.freedesktop.DBus.ReloadConfig')
+  return if status.success?
+
+  warn "The session bus didn't reload (#{err.strip}); log out and back in before the shortcut starts Puri"
+end
+
 # @return [String, nil] the accelerator to bind, nil for none
 def install_hotkey
   hotkey = ENV.fetch('HOTKEY', INSTALL_DEFAULT_HOTKEY)
@@ -137,6 +150,7 @@ task :install do
     rm_f paths[:autostart]
   end
 
+  install_reload_bus
   install_keybinding(hotkey)
   if hotkey
     puts "#{hotkey} opens Puri"
@@ -148,5 +162,6 @@ end
 desc 'Remove what `rake install` wrote'
 task :uninstall do
   install_paths.each_value { |path| rm_f path }
+  install_reload_bus
   install_keybinding(nil)
 end

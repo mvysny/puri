@@ -118,6 +118,10 @@ from the server's send. `ruby-gtk4` 4.3.4, Ruby 3.3.8, on Broadway.
   switch-input-source`). **[verified 2026-11-11, GNOME on Ubuntu 26.04]**
 - `gapplication launch <id>` activates the running instance over the session bus in a few
   milliseconds, or has the bus start it from a `dbus-1/services/<id>.service` file. **[docs]**
+- A `.service` file written after login stays unknown to the running session bus: `gapplication
+  launch` answers "The name is not activatable" until a `ReloadConfig` call on the bus, or the next
+  login. A private `dbus-daemon` 1.16 picks the same file up unasked. **[verified 2026-11-16,
+  GNOME on Ubuntu, owner's second machine]**
 - A Puri started that way from a custom shortcut gets the graphical session's environment, and
   its window comes up with keyboard focus. **[verified 2026-11-11, GNOME on Ubuntu 26.04]**
 
