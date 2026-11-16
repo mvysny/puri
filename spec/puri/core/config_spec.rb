@@ -146,6 +146,32 @@ RSpec.describe Puri::Core::Config do
     end
   end
 
+  describe '[thunderbird]' do
+    it 'discovers the profile when absent' do
+      write(@home, minimal)
+      assert_equal described_class::ThunderbirdTable.new, load.thunderbird
+    end
+
+    it 'takes a profile directory, ~ expanded' do
+      write(@home, %(#{minimal}[thunderbird]\nprofile_dir = "~/tb/x"\n))
+      assert_equal File.expand_path('~/tb/x'), load.thunderbird.profile_dir
+    end
+
+    it 'is nil when switched off' do
+      write(@home, "#{minimal}[thunderbird]\nenabled = false\n")
+      assert_nil load.thunderbird
+    end
+
+    it 'rejects a blank profile directory' do
+      write(@home, %(#{minimal}[thunderbird]\nprofile_dir = " "\n))
+      assert_raises(described_class::Error) { load }
+    end
+
+    it 'stays off in a config built in code' do
+      assert_nil described_class.new(llms: [], servers: [], titler_llm: nil).thunderbird
+    end
+  end
+
   describe 'connections' do
     it "resolves an [[llm]]'s server id into that [[server]]'s URL and key" do
       write(@home, <<~TOML)

@@ -2,6 +2,7 @@
 
 require 'pikuri-core'
 require 'pikuri-html'
+require 'pikuri-thunderbird'
 require 'pikuri-web'
 require 'pikuri-workspace'
 require 'pikuri-conversations'

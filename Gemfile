@@ -25,9 +25,12 @@ gem 'streaming-markdown-parser', git: 'https://github.com/mvysny/streaming-markd
 # the commit; `bundle update pikuri-core` moves it. One checkout for both, since every pikuri gem
 # pins `pikuri-core = <exact version>` in lockstep. pikuri-web brings `web_search` and
 # `web_read_cached`, and with them nokogiri; pikuri-html registers the HTML → Markdown extractor.
+# pikuri-thunderbird reads the local Thunderbird profile's mail, contacts and calendar, and hands a
+# drafted mail or event to Thunderbird's own UI; it brings sqlite3 and mail (parse-only).
 git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-core'
   gem 'pikuri-html'
+  gem 'pikuri-thunderbird'
   gem 'pikuri-web'
   gem 'pikuri-workspace'
 end

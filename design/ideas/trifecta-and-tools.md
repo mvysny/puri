@@ -33,7 +33,8 @@ the dangerous action*, not *make the dangerous combination impossible*. We do th
 
 **Siri confirms an event update but not a create** (owner, 2026-11-11), and the create it didn't
 confirm went to the wrong place: asked for the private calendar, it used the family one. Our
-calendar create is gated like compose (the table below), and its confirmation names the calendar.
+calendar create is gated like compose (the table below): Thunderbird's import wizard has the user
+pick the calendar.
 
 ## One agent in v1, a federation member toward the machine
 
@@ -84,9 +85,9 @@ a write does. The query *is* the bytes that leave, so the human reviews the real
 leg becomes `egress_payload_review: :human_reviewed`. **Opt-out** (a `--no-confirm-searches` flag
 there): searches fly free, and the user accepts that private text may reach the engine's logs.
 
-In a popup the confirm costs more than in a TUI: Siri never asks. **Puri doesn't ask, for now**
-(`D_search_engines`): with no private tool yet, a query can only leak the user's own question.
-The first private tool reopens it, and `Web::Search.build(confirmer:)` is there for it.
+In a popup the confirm costs more than in a TUI: Siri never asks. **Puri doesn't ask**
+(`D_search_engines`), kept when Thunderbird's mail joined: the leak to the engine's logs is
+accepted.
 
 ## The tool set, capability by capability
 
@@ -95,11 +96,11 @@ The first private tool reopens it, and `Web::Search.build(confirmer:)` is there 
 | Notes, read | pikuri-rag over the notes folder | private, untrusted | — |
 | Notes, write | create / edit inside the notes folder only | (integrity) | `Q_notes_write_gate` |
 | Reminders | `Q_reminders_backend` | private | create: `Q_notes_write_gate` |
-| Calendar, read | pikuri-thunderbird `calendar_search` / `calendar_read` | private, untrusted (invites) | — |
-| Calendar, create | pikuri-thunderbird `calendar_create` | egress if it invites | human, like compose |
-| Mail, read | pikuri-thunderbird `mail_search` / `mail_read` / attachments | private, untrusted | — |
-| Mail, write | pikuri-thunderbird `mail_compose`: opens a Thunderbird compose window, the user clicks Send | egress | human, always |
-| Contacts | pikuri-thunderbird `contact_search` | private | — |
+| Calendar, read | built: pikuri-thunderbird `calendar_search` / `calendar_read` | private, untrusted (invites) | — |
+| Calendar, create | built: pikuri-thunderbird `calendar_create`, Thunderbird's import wizard | egress if it invites | human, in Thunderbird |
+| Mail, read | built: pikuri-thunderbird `mail_search` / `mail_read` / attachments | private, untrusted | — |
+| Mail, write | built: pikuri-thunderbird `mail_compose`: opens a Thunderbird compose window, the user clicks Send | egress | human, always |
+| Contacts | built: pikuri-thunderbird `contact_search` | private | — |
 | Web | built: `web_search` with page text, `web_read_cached` | untrusted, egress (vouched) | none yet (`D_search_engines`) |
 | Memory | its own memory file (below) | private | diff confirmed |
 | Arithmetic, dates | `calculator` | — | — |

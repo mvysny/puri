@@ -3,8 +3,8 @@
 A Siri-style desktop assistant for Linux and GNOME, on top of [pikuri](https://codeberg.org/mvysny/pikuri).
 A global shortcut pops up a search bar; you type, and the bar grows into a streamed conversation,
 with every earlier conversation one click away in the same window.
-It reads and writes your notes and reminders and can search the web, but never opens a URL, and
-the model runs on your own machine whenever it can.
+It reads your Thunderbird mail and calendar, drafts a mail or an event for you to send, and can
+search the web, but never opens a URL, and the model runs on your own machine whenever it can.
 
 Pikuri owns the agent loop, the tools, the prompts and the LLM transport. This project owns the
 popup window, the conversation history beside it, and the resident process that keeps the agent
@@ -13,8 +13,8 @@ warm.
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."
 
-**Status:** the UI is done, and the model answers through pikuri. It can search the web, with no
-notes or reminders yet. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
+**Status:** the UI is done, and the model answers through pikuri. It can search the web and
+read your Thunderbird mail, contacts and calendar, with no notes yet. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
 `search`, `note`, `table`, `long`, `fail`, `mail`, or `calendar` plus `reschedule` in a question
 walk the paths the tools will take. The plan lives in `design/ideas/`.
 
@@ -78,6 +78,18 @@ brave_key = "…"
 Puri reads the pages a search finds from the engine's own copy, so it never opens a link itself.
 That is also why DuckDuckGo isn't offered: it returns no page text. Without a key Puri still
 runs, logs an error and doesn't search.
+
+Puri reads mail, contacts and calendar from your local Thunderbird profile, snap or apt, found on
+its own; it never speaks IMAP or CalDAV. Mail search needs Thunderbird's global search index, and
+the calendar its Offline Support. Asked to write a mail or add an event, Puri opens the draft in
+Thunderbird's compose window or import wizard, and nothing leaves until you send or add it there.
+To point it elsewhere, or switch it off:
+
+```toml
+[thunderbird]
+profile_dir = "~/snap/thunderbird/common/.thunderbird/abcd1234.default"
+# enabled = false
+```
 
 To open Puri from a global shortcut, install it for your user:
 

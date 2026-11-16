@@ -25,8 +25,47 @@ RSpec.describe Puri::Core::AgentSession do
   describe 'Initializer.system_prompt' do
     it 'says what the agent can reach' do
       assert_includes described_class::Initializer.system_prompt(web: true), 'You can search the web'
-      assert_includes described_class::Initializer.system_prompt(web: false), 'You have no tools'
+      assert_includes described_class::Initializer.system_prompt(web: false), "You can't search the web"
       assert described_class::Initializer.system_prompt(web: true).start_with?('You are Puri')
+    end
+  end
+
+  describe 'Initializer#configure' do
+    # @param thunderbird [Puri::Core::Config::ThunderbirdTable, nil]
+    # @return [Pikuri::Agent] built as a session's, its tools wired
+    def agent(thunderbird)
+      config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil, thunderbird:)
+      initializer = described_class::Initializer.new(config, conversation, lock:)
+      Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport { nil }, system_prompt: '') do |c|
+        initializer.configure(c, nil)
+      end
+    end
+
+    around do |example|
+      log = Pikuri.log_io
+      Pikuri.log_io = StringIO.new
+      example.run
+    ensure
+      Pikuri.log_io = log
+    end
+
+    it 'wires the calendar and both hand-offs from the profile [thunderbird] names' do
+      Dir.mktmpdir('puri-thunderbird') do |profile_dir|
+        built = agent(Puri::Core::Config::ThunderbirdTable.new(profile_dir:))
+        # No Gloda index in an empty profile, so no mail tools; the calendar says it is empty.
+        assert_equal %w[thunderbird_calendar_search thunderbird_calendar_read thunderbird_mail_compose
+                        thunderbird_calendar_create], built.tools.map(&:name)
+        assert_includes built.system_prompt, '<thunderbird_usage>'
+      ensure
+        built&.close
+      end
+    end
+
+    it 'wires no Thunderbird tool when [thunderbird] is off' do
+      built = agent(nil)
+      assert_empty built.tools.map(&:name).grep(/thunderbird/)
+    ensure
+      built&.close
     end
   end
 

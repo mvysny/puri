@@ -20,8 +20,8 @@ module Puri
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
-    # Puri's `config.toml`: the model connections, which one writes the titles, and the search
-    # engines' keys. Loaded once
+    # Puri's `config.toml`: the model connections, which one writes the titles, the search
+    # engines' keys, and the Thunderbird profile. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
     # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
     # 
@@ -30,6 +30,7 @@ module Puri
     #   config.titler_llm    # => the [titler] connection, never nil
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
+    #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -56,6 +57,10 @@ module Puri
     #   brave_key = "…"                  # Brave's, Exa's or both: only they return page text
     #   exa_key   = "…"
     #   engines   = ["brave"]            # optional; omitted, every engine with a key
+    # 
+    #   [thunderbird]                    # optional; omitted, the profile is discovered
+    #   enabled     = false              # optional; false, the agent has no mail or calendar
+    #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
     # 
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -93,11 +98,14 @@ module Puri
       # _@param_ `titler_llm`
       # 
       # _@param_ `search` — a keyed `[search]`, or nil
+      # 
+      # _@param_ `thunderbird` — an enabled `[thunderbird]`, or nil; nil by default, so a config built in code reads no profile unless it says which
       def initialize: (
                         llms: ::Array[Puri::Core::Config::Llm],
                         servers: ::Array[Puri::Core::Config::Server],
                         titler_llm: Puri::Core::Config::Llm,
-                        ?search: Puri::Core::Config::SearchTable?
+                        ?search: Puri::Core::Config::SearchTable?,
+                        ?thunderbird: Puri::Core::Config::ThunderbirdTable?
                       ) -> void
 
       # _@return_ — where conversations run: the first `[[llm]]`
@@ -155,6 +163,15 @@ module Puri
       # _@return_ — `table`, or nil without a key
       def self.resolve_search: (Puri::Core::Config::SearchTable? table) -> Puri::Core::Config::SearchTable?
 
+      # Thunderbird is on unless switched off: with no profile on the machine, pikuri wires
+      # nothing and says so in the log.
+      # 
+      # _@param_ `table`
+      # 
+      # _@return_ — nil when `enabled = false`, the
+      # defaults when the table is absent, `profile_dir` expanded
+      def self.resolve_thunderbird: (Puri::Core::Config::ThunderbirdTable? table) -> Puri::Core::Config::ThunderbirdTable?
+
       # _@param_ `env`
       # 
       # _@return_ — where to write the config, and what
@@ -173,6 +190,10 @@ module Puri
       # _@return_ — the engines `web_search` uses; nil when
       # `[search]` sets neither Brave's key nor Exa's, and the agent goes without web tools
       attr_reader search: Puri::Core::Config::SearchTable?
+
+      # _@return_ — the profile the agent reads mail and
+      # calendar from; nil when `[thunderbird]` says `enabled = false`
+      attr_reader thunderbird: Puri::Core::Config::ThunderbirdTable?
 
       # Raised for a missing, unreadable, malformed or incomplete config; the message names the
       # file or the offending key, and says what to write.
@@ -394,6 +415,29 @@ module Puri
         attr_reader engines: ::Array[String]?
       end
 
+      # The `[thunderbird]` table: which local profile `Pikuri::Thunderbird::Extension` reads.
+      # 
+      # @!attribute [r] enabled
+      #   @return [Boolean] false leaves the agent without mail, contacts and calendar
+      # @!attribute [r] profile_dir
+      #   @return [String, nil] the profile directory, `~` expanded; nil to discover it, which
+      #     fails, naming both, when two installs hold a mail account
+      class ThunderbirdTable
+        extend Typemap::Constrain
+
+        # _@param_ `enabled`
+        # 
+        # _@param_ `profile_dir`
+        def initialize: (?enabled: bool, ?profile_dir: String?) -> void
+
+        # _@return_ — false leaves the agent without mail, contacts and calendar
+        attr_reader enabled: bool
+
+        # _@return_ — the profile directory, `~` expanded; nil to discover it, which
+        # fails, naming both, when two installs hold a mail account
+        attr_reader profile_dir: String?
+      end
+
       # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
       # what is missing, with the example to paste.
       # 
@@ -405,6 +449,8 @@ module Puri
       #   @return [TitlerTable, nil] the `[titler]` table
       # @!attribute [r] search
       #   @return [SearchTable, nil] the `[search]` table
+      # @!attribute [r] thunderbird
+      #   @return [ThunderbirdTable, nil] the `[thunderbird]` table
       class Root
         extend Typemap::Constrain
 
@@ -415,11 +461,14 @@ module Puri
         # _@param_ `titler`
         # 
         # _@param_ `search`
+        # 
+        # _@param_ `thunderbird`
         def initialize: (
                           ?server: ::Array[Server],
                           ?llm: ::Array[LlmTable],
                           ?titler: TitlerTable?,
-                          ?search: SearchTable?
+                          ?search: SearchTable?,
+                          ?thunderbird: ThunderbirdTable?
                         ) -> void
 
         # _@return_ — the `[[server]]` entries, ids unique
@@ -433,6 +482,9 @@ module Puri
 
         # _@return_ — the `[search]` table
         attr_reader search: SearchTable?
+
+        # _@return_ — the `[thunderbird]` table
+        attr_reader thunderbird: ThunderbirdTable?
       end
     end
 
@@ -798,6 +850,9 @@ module Puri
     # The tool's strings are the model's arguments, so a line is flattened and defanged as
     # pikuri asks of every chrome: `Pikuri::Sanitizer` shows an escape byte, it never runs it.
     module ToolWording
+      WORDINGS: ::Hash[String, Wording]
+      BARE: ::Array[String]
+
       # _@param_ `call`
       # 
       # _@return_ — what the turn is doing while the call runs
@@ -837,6 +892,39 @@ module Puri
       # 
       # _@param_ `outcome` — the tool's summary of a call that failed or was cut short; nil when it answered
       def self.text: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, String? outcome) -> String
+
+      # _@param_ `call`
+      # 
+      # _@return_ — its {WORDINGS} line, or pikuri's name behind a gear
+      def worded: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call) -> String
+
+      # _@param_ `call`
+      # 
+      # _@return_ — its {WORDINGS} line, or pikuri's name behind a gear
+      def self.worded: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call) -> String
+
+      # One tool's wording.
+      # 
+      # @!attribute [r] status
+      #   @return [String] what the turn is doing while the call runs
+      # @!attribute [r] line
+      #   @return [String] the line once it answered, the call's argument after a colon when
+      #     there is one
+      class Wording
+        # _@return_ — what the turn is doing while the call runs
+        def status: () -> String
+
+        # _@return_ — the line once it answered, the call's argument after a colon when
+        # there is one
+        def line: () -> String
+
+        # _@return_ — what the turn is doing while the call runs
+        def self.status: () -> String
+
+        # _@return_ — the line once it answered, the call's argument after a colon when
+        # there is one
+        def self.line: () -> String
+      end
     end
 
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
@@ -952,7 +1040,8 @@ module Puri
       def drop_pending: () -> void
 
       # Builds each of a session's agents from the config: our system prompt, the web tools
-      # `[search]` keys, and the {Confirmer} the agent's tools ask through.
+      # `[search]` keys, the Thunderbird profile `[thunderbird]` names, and the {Confirmer} the
+      # agent's tools ask through.
       # 
       #   initializer = Initializer.new(config, conversation, lock:)
       #   conversations.open(id:, transport:, listener:, initializer:)
@@ -983,13 +1072,19 @@ module Puri
         # agent appends its extensions' own fragments
         def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
-        # Adds the web tools. An extension goes here too, built afresh for each agent as pikuri
-        # asks, and one that asks before it acts takes {#confirmer}.
+        # Adds the web tools and the Thunderbird extension. An extension is built afresh for each
+        # agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         # 
         # _@param_ `configurator`
         # 
         # _@param_ `_conversation` — this session's
         def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation _conversation) -> void
+
+        # Mail, contacts and calendar, read from the local profile, and both hand-offs: a drafted
+        # mail opens in Thunderbird's compose window, an event in its import wizard, and the user
+        # sends or adds it there, so neither asks through {#confirmer}. No profile on the machine
+        # wires nothing; two installs with a mail account fail the boot, naming both.
+        def thunderbird: () -> Pikuri::Thunderbird::Extension
 
         # _@return_ — `web_search` with page text, and `web_read_cached`; none
         # without a keyed `[search]`

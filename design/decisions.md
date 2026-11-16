@@ -127,6 +127,8 @@ Exa return each result's page text from their own index, which `web_read_cached`
 with no request of its own, so the agent reads whole pages and still opens no URL. DuckDuckGo
 returns no page text, so it is refused rather than mixed in, where half the results would read
 and half not. Without a Brave or Exa key Puri still starts, logs an error and has no web tools,
-and its system prompt says so. No search asks first (owner, 2026-11-15): Siri never asks, and
-until Puri reads mail or notes the only private text a query can carry is the user's own
-question. Revisit once a private tool joins it.
+and its system prompt says so. No search asks first (owner, 2026-11-15): Siri never asks.
+Revisited when Thunderbird's mail and calendar joined (owner, 2026-11-16), and kept: a query can
+now quote the user's mail, but it lands in Brave's or Exa's logs, where no attacker reads it back
+(egress `:tool_vouched`), and that privacy cost is accepted. `Web::Search.build(confirmer:)` is
+there if it isn't any more.

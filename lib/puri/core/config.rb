@@ -5,8 +5,8 @@ require 'typemap'
 
 module Puri
   module Core
-    # Puri's `config.toml`: the model connections, which one writes the titles, and the search
-    # engines' keys. Loaded once
+    # Puri's `config.toml`: the model connections, which one writes the titles, the search
+    # engines' keys, and the Thunderbird profile. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
     # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
     #
@@ -15,6 +15,7 @@ module Puri
     #   config.titler_llm    # => the [titler] connection, never nil
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
+    #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -41,6 +42,10 @@ module Puri
     #   brave_key = "…"                  # Brave's, Exa's or both: only they return page text
     #   exa_key   = "…"
     #   engines   = ["brave"]            # optional; omitted, every engine with a key
+    #
+    #   [thunderbird]                    # optional; omitted, the profile is discovered
+    #   enabled     = false              # optional; false, the agent has no mail or calendar
+    #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
     #
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -199,6 +204,23 @@ module Puri
         def keyed? = [brave_key, exa_key].any? { !_1.to_s.strip.empty? }
       end
 
+      # The `[thunderbird]` table: which local profile `Pikuri::Thunderbird::Extension` reads.
+      #
+      # @!attribute [r] enabled
+      #   @return [Boolean] false leaves the agent without mail, contacts and calendar
+      # @!attribute [r] profile_dir
+      #   @return [String, nil] the profile directory, `~` expanded; nil to discover it, which
+      #     fails, naming both, when two installs hold a mail account
+      class ThunderbirdTable < Data.define(:enabled, :profile_dir)
+        extend Typemap::Constrain
+
+        constrain :profile_dir, not_blank: true
+
+        # @param enabled [Boolean]
+        # @param profile_dir [String, nil]
+        def initialize(enabled: true, profile_dir: nil) = super
+      end
+
       # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
       # what is missing, with the example to paste.
       #
@@ -210,7 +232,9 @@ module Puri
       #   @return [TitlerTable, nil] the `[titler]` table
       # @!attribute [r] search
       #   @return [SearchTable, nil] the `[search]` table
-      class Root < Data.define(:server, :llm, :titler, :search)
+      # @!attribute [r] thunderbird
+      #   @return [ThunderbirdTable, nil] the `[thunderbird]` table
+      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird)
         extend Typemap::Constrain
 
         constrain :server, unique_by: :id
@@ -220,7 +244,8 @@ module Puri
         # @param llm [Array<LlmTable>]
         # @param titler [TitlerTable, nil]
         # @param search [SearchTable, nil]
-        def initialize(server: [], llm: [], titler: nil, search: nil) = super
+        # @param thunderbird [ThunderbirdTable, nil]
+        def initialize(server: [], llm: [], titler: nil, search: nil, thunderbird: nil) = super
       end
 
       # A file that loads: Ornith 1.5 on a local llama-server, and the same model with its
@@ -288,7 +313,7 @@ module Puri
         servers = root.server.to_h { |server| [server.id, server] }
         llms = root.llm.map { |table| resolve_llm(table, servers) }
         new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
-            search: resolve_search(root.search))
+            search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird))
       end
 
       # @param llms [Array<Puri::Core::Config::Llm>] never empty
@@ -296,11 +321,14 @@ module Puri
       #   resolved against
       # @param titler_llm [Puri::Core::Config::Llm]
       # @param search [Puri::Core::Config::SearchTable, nil] a keyed `[search]`, or nil
-      def initialize(llms:, servers:, titler_llm:, search: nil)
+      # @param thunderbird [Puri::Core::Config::ThunderbirdTable, nil] an enabled `[thunderbird]`,
+      #   or nil; nil by default, so a config built in code reads no profile unless it says which
+      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil)
         @llms = llms.freeze
         @servers = servers.freeze
         @titler_llm = titler_llm
         @search = search
+        @thunderbird = thunderbird
         freeze
       end
 
@@ -317,6 +345,10 @@ module Puri
       # @return [Puri::Core::Config::SearchTable, nil] the engines `web_search` uses; nil when
       #   `[search]` sets neither Brave's key nor Exa's, and the agent goes without web tools
       attr_reader :search
+
+      # @return [Puri::Core::Config::ThunderbirdTable, nil] the profile the agent reads mail and
+      #   calendar from; nil when `[thunderbird]` says `enabled = false`
+      attr_reader :thunderbird
 
       # @return [Puri::Core::Config::Llm] where conversations run: the first `[[llm]]`
       def primary_llm = @llms.first
@@ -426,6 +458,19 @@ module Puri
         raise Error, e.message
       end
 
+      # Thunderbird is on unless switched off: with no profile on the machine, pikuri wires
+      # nothing and says so in the log.
+      #
+      # @param table [Puri::Core::Config::ThunderbirdTable, nil]
+      # @return [Puri::Core::Config::ThunderbirdTable, nil] nil when `enabled = false`, the
+      #   defaults when the table is absent, `profile_dir` expanded
+      def self.resolve_thunderbird(table)
+        table ||= ThunderbirdTable.new
+        return nil unless table.enabled
+
+        table.profile_dir ? table.with(profile_dir: File.expand_path(table.profile_dir)) : table
+      end
+
       # @param env [#[]]
       # @return [String] where to write the config, and what
       def self.write_example(env)
@@ -433,7 +478,8 @@ module Puri
       end
 
       private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
-                           :resolve_llm, :resolve_titler, :resolve_search, :write_example
+                           :resolve_llm, :resolve_titler, :resolve_search, :resolve_thunderbird,
+                           :write_example
     end
   end
 end

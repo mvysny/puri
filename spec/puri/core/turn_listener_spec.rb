@@ -144,6 +144,17 @@ RSpec.describe Puri::Core::TurnListener do
       assert_equal '⚙ Calculator: 2 + 2', blocks.last.text
     end
 
+    it 'words a Thunderbird search by its query, and a read without the id it took' do
+      call('thunderbird_mail_search', 'invoice', display_name: 'Thunderbird Mail Search')
+      assert_equal 'Searching your mail…', activity.status
+      result('1. Invoice …', 'Found 1 message')
+      assert_equal '📧 Searched mail: invoice', blocks.last.text
+
+      call('thunderbird_mail_read', '<CAF1@mail.example.com>', display_name: 'Thunderbird Mail Read')
+      result('From: …', 'Read 2 kB')
+      assert_equal '📧 Read a mail', blocks.last.text
+    end
+
     it 'says when a cancel cut the call short' do
       call('web_search', 'avocado')
       result(Pikuri::Agent::CANCELLED_RESULT, Pikuri::Agent::INTERRUPTED_SUMMARY)

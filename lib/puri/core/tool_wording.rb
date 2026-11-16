@@ -20,13 +20,42 @@ module Puri
     module ToolWording
       module_function
 
+      # One tool's wording.
+      #
+      # @!attribute [r] status
+      #   @return [String] what the turn is doing while the call runs
+      # @!attribute [r] line
+      #   @return [String] the line once it answered, the call's argument after a colon when
+      #     there is one
+      class Wording < Data.define(:status, :line); end
+
+      # Every tool Puri wires but the web's, by name; a tool missing here reads as pikuri names it.
+      # The ids `*_read` takes say nothing to a human, so those lines drop the argument.
+      #
+      # @return [Hash{String => Wording}]
+      WORDINGS = {
+        'thunderbird_mail_search' => Wording.new('Searching your mail…', '📧 Searched mail'),
+        'thunderbird_mail_read' => Wording.new('Reading a mail…', '📧 Read a mail'),
+        'thunderbird_mail_attachment_read' => Wording.new('Reading an attachment…', '📎 Read an attachment'),
+        'thunderbird_contact_search' => Wording.new('Looking up a contact…', '👤 Looked up'),
+        'thunderbird_calendar_search' => Wording.new('Searching your calendar…', '📅 Searched the calendar'),
+        'thunderbird_calendar_read' => Wording.new('Reading an event…', '📅 Read an event'),
+        'thunderbird_mail_compose' => Wording.new('Drafting a mail…', '✉ Draft opened in Thunderbird'),
+        'thunderbird_calendar_create' => Wording.new('Drafting an event…', '📅 Event opened in Thunderbird')
+      }.freeze
+
+      # Whose argument a line leaves out.
+      #
+      # @return [Array<String>]
+      BARE = %w[thunderbird_mail_read thunderbird_mail_attachment_read thunderbird_calendar_read].freeze
+
       # @param call [Pikuri::Agent::Event::ToolCall, Pikuri::Agent::History::ToolCall]
       # @return [String] what the turn is doing while the call runs
       def status(call)
         case call.name
         when 'web_search' then 'Searching the web…'
         when 'web_read_cached' then 'Reading a page…'
-        else "#{call.display_name}…"
+        else WORDINGS[call.name]&.status || "#{call.display_name}…"
         end
       end
 
@@ -52,11 +81,20 @@ module Puri
                # The handle is all the call says, and the summary only a size: which page it was
                # waits on the tool's summary naming it.
                when 'web_read_cached' then '📄 Read a page the search found'
-               else call.argument.to_s.empty? ? "⚙ #{call.display_name}" : "⚙ #{call.display_name}: #{call.argument}"
+               else worded(call)
                end
         outcome ? "#{line} — #{outcome}" : line
       end
       private_class_method :text
+
+      # @param call [Pikuri::Agent::Event::ToolCall, Pikuri::Agent::History::ToolCall]
+      # @return [String] its {WORDINGS} line, or pikuri's name behind a gear
+      def worded(call)
+        head = WORDINGS[call.name]&.line || "⚙ #{call.display_name}"
+        argument = call.argument.to_s unless BARE.include?(call.name)
+        argument.to_s.empty? ? head : "#{head}: #{argument}"
+      end
+      private_class_method :worded
     end
   end
 end

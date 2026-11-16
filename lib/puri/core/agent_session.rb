@@ -31,7 +31,8 @@ module Puri
       LOGGER = Pikuri.logger_for('AgentSession')
 
       # Builds each of a session's agents from the config: our system prompt, the web tools
-      # `[search]` keys, and the {Confirmer} the agent's tools ask through.
+      # `[search]` keys, the Thunderbird profile `[thunderbird]` names, and the {Confirmer} the
+      # agent's tools ask through.
       #
       #   initializer = Initializer.new(config, conversation, lock:)
       #   conversations.open(id:, transport:, listener:, initializer:)
@@ -76,8 +77,8 @@ module Puri
           "#{Initializer.system_prompt(web: !@config.search.nil?)}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
         end
 
-        # Adds the web tools. An extension goes here too, built afresh for each agent as pikuri
-        # asks, and one that asks before it acts takes {#confirmer}.
+        # Adds the web tools and the Thunderbird extension. An extension is built afresh for each
+        # agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         #
         # @param configurator [Pikuri::Agent::Configurator]
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
@@ -85,9 +86,21 @@ module Puri
         def configure(configurator, _conversation)
           @confirmer = Confirmer.new(@conversation, lock: @lock)
           configurator.add_tools(web_tools)
+          configurator.add_extension(thunderbird) if @config.thunderbird
         end
 
         private
+
+        # Mail, contacts and calendar, read from the local profile, and both hand-offs: a drafted
+        # mail opens in Thunderbird's compose window, an event in its import wizard, and the user
+        # sends or adds it there, so neither asks through {#confirmer}. No profile on the machine
+        # wires nothing; two installs with a mail account fail the boot, naming both.
+        #
+        # @return [Pikuri::Thunderbird::Extension]
+        def thunderbird
+          Pikuri::Thunderbird::Extension.new(profile_dir: @config.thunderbird.profile_dir, allow_compose_mail: true,
+                                             allow_create_calendar_event: true)
+        end
 
         # @return [Array<Pikuri::Tool>] `web_search` with page text, and `web_read_cached`; none
         #   without a keyed `[search]`
