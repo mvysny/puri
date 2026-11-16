@@ -592,15 +592,15 @@ module Puri
       # 
       # _@param_ `store` — where conversations are saved
       # 
-      # _@param_ `system_prompt` — see {.system_prompt}, which states what `tools` reach
+      # _@param_ `system_prompt` — see {.system_prompt}, which states what `configure` reaches; the agent appends its extensions' own fragments
       # 
-      # _@param_ `tools` — takes a conversation's {Confirmer}, returns its agent's `Array<Pikuri::Tool>`; called once per conversation
+      # _@param_ `configure` — takes each agent's `Pikuri::Agent::Configurator` and its conversation's {Confirmer}, and adds its tools and extensions; called once per agent, so it builds every extension afresh, as pikuri asks
       def initialize: (
                         transport: Pikuri::Agent::ChatTransport,
                         titler: Pikuri::Conversations::Titler,
                         store: Pikuri::Conversations::Store,
                         ?system_prompt: String,
-                        ?tools: Proc
+                        ?configure: Proc
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
@@ -859,12 +859,12 @@ module Puri
     end
 
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
-    # opened on the first question, the {Confirmer} its tools ask through, and its folder in the
+    # opened on the first question, the {Confirmer} its tools and extensions ask through, and its folder in the
     # store. It is that conversation's listener, so the gem's hooks reach it through
     # `conversation.listener`:
     # 
     #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:,
-    #                              tools: ->(confirmer) { [] }, lock:, saved: true)
+    #                              configure: ->(c, confirmer) {}, lock:, saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
     #   session.cancel
@@ -893,7 +893,7 @@ module Puri
       # 
       # _@param_ `transport`
       # 
-      # _@param_ `tools` — takes the conversation's {Confirmer}, returns the agent's `Array<Pikuri::Tool>`
+      # _@param_ `configure` — takes the agent's `Pikuri::Agent::Configurator` and the conversation's {Confirmer}, and adds its tools and extensions
       # 
       # _@param_ `lock` — the core's
       # 
@@ -904,7 +904,7 @@ module Puri
                         store: Pikuri::Conversations::Store,
                         conversations: Pikuri::Conversations,
                         transport: Pikuri::Agent::ChatTransport,
-                        tools: Proc,
+                        configure: Proc,
                         lock: Monitor,
                         saved: bool
                       ) -> void
@@ -932,7 +932,8 @@ module Puri
       # own save, still to come, writes nothing.
       def delete: () -> void
 
-      # The gem's `configure:`: the agent's {Confirmer} and tools, on the booting thread.
+      # The gem's `configure:`: the agent's {Confirmer}, then the core's `configure:` with it, on
+      # the booting thread.
       # 
       # _@param_ `config`
       def configure: (Pikuri::Agent::Configurator config) -> void

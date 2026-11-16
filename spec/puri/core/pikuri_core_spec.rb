@@ -248,25 +248,40 @@ RSpec.describe Puri::Core::PikuriCore do
     let(:observations) { [] }
     let(:question) { 'Move “Dentist” (Personal) to Thursday 15:00?' }
     let(:script) { ->(llm) { llm.tool_call('move_event', question:).stream('Done.') } }
-    let(:core) do
-      tools = lambda do |confirmer|
-        [Pikuri::Tool.new(
-          name: 'move_event', description: 'Moves a calendar event.',
-          parameters: Pikuri::Tool::Parameters.build { |params| params.required_string :question, 'what to ask' },
-          wants_context: true,
-          execute: lambda { |question:, context:|
-            request = Pikuri::Workspace::Confirmer::Request.new(question:)
-            result = case decision = confirmer.ask(request:, cancellable: context.cancellable)
-                     in Pikuri::Workspace::Confirmer::Approved then Pikuri::Tool::Result.new(content: 'Moved.',
-                                                                                             summary: 'Moved')
-                     else decision.observation('the move')
-                     end
-            observations << result.content
-            result
-          }
-        )]
+    # A calendar extension in miniature: it builds its tool around the confirmer it is given.
+    let(:calendar) do
+      move_event = method(:move_event)
+      Class.new do
+        include Pikuri::Agent::Extension
+
+        define_method(:initialize) { |confirmer| @confirmer = confirmer }
+        define_method(:configure) { |c| c.add_tool(move_event.call(@confirmer)) }
       end
-      described_class.new(transport:, titler:, store:, tools:) { |event| events << p.round_trip(event) }
+    end
+    let(:core) do
+      calendar = self.calendar
+      configure = ->(c, confirmer) { c.add_extension(calendar.new(confirmer)) }
+      described_class.new(transport:, titler:, store:, configure:) { |event| events << p.round_trip(event) }
+    end
+
+    # @param confirmer [Puri::Core::Confirmer]
+    # @return [Pikuri::Tool]
+    def move_event(confirmer)
+      Pikuri::Tool.new(
+        name: 'move_event', description: 'Moves a calendar event.',
+        parameters: Pikuri::Tool::Parameters.build { |params| params.required_string :question, 'what to ask' },
+        wants_context: true,
+        execute: lambda { |question:, context:|
+          request = Pikuri::Workspace::Confirmer::Request.new(question:)
+          result = case decision = confirmer.ask(request:, cancellable: context.cancellable)
+                   in Pikuri::Workspace::Confirmer::Approved then Pikuri::Tool::Result.new(content: 'Moved.',
+                                                                                           summary: 'Moved')
+                   else decision.observation('the move')
+                   end
+          observations << result.content
+          result
+        }
+      )
     end
 
     # @param id [String]
@@ -356,12 +371,11 @@ RSpec.describe Puri::Core::PikuriCore do
     let(:booting) { Thread::Queue.new }
     let(:boot) { Thread::Queue.new }
     let(:core) do
-      tools = lambda do |_confirmer|
+      configure = lambda do |_c, _confirmer|
         booting << true
         boot.pop(timeout: 5)
-        []
       end
-      described_class.new(transport:, titler:, store:, tools:) { |event| events << p.round_trip(event) }
+      described_class.new(transport:, titler:, store:, configure:) { |event| events << p.round_trip(event) }
     end
 
     it 'goes idle at once, and ends in a notice once the boot is over' do
@@ -550,7 +564,7 @@ RSpec.describe Puri::Core::PikuriCore do
           parameters: Pikuri::Tool::Parameters.build { |params| params.required_string :query, 'what to search' },
           execute: ->(query:) { Pikuri::Tool::Result.new(content: "1. #{query} …", summary: 'Returned 1 search result') }
         )
-        described_class.new(transport:, titler:, store:, tools: ->(_) { [search] }) do |event|
+        described_class.new(transport:, titler:, store:, configure: ->(c, _) { c.add_tool(search) }) do |event|
           events << p.round_trip(event)
         end
       end

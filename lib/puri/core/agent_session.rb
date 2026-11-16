@@ -3,12 +3,12 @@
 module Puri
   module Core
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
-    # opened on the first question, the {Confirmer} its tools ask through, and its folder in the
+    # opened on the first question, the {Confirmer} its tools and extensions ask through, and its folder in the
     # store. It is that conversation's listener, so the gem's hooks reach it through
     # `conversation.listener`:
     #
     #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:,
-    #                              tools: ->(confirmer) { [] }, lock:, saved: true)
+    #                              configure: ->(c, confirmer) {}, lock:, saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
     #   session.cancel
@@ -34,18 +34,18 @@ module Puri
       # @param conversations [Pikuri::Conversations] the live ones, which this one joins on its
       #   first question
       # @param transport [Pikuri::Agent::ChatTransport]
-      # @param tools [Proc] takes the conversation's {Confirmer}, returns the agent's
-      #   `Array<Pikuri::Tool>`
+      # @param configure [Proc] takes the agent's `Pikuri::Agent::Configurator` and the
+      #   conversation's {Confirmer}, and adds its tools and extensions
       # @param lock [Monitor] the core's
       # @param saved [Boolean] whether the store holds this conversation already
-      def initialize(conversation, entry:, store:, conversations:, transport:, tools:, lock:, saved:)
+      def initialize(conversation, entry:, store:, conversations:, transport:, configure:, lock:, saved:)
         super()
         @conversation = conversation
         @entry = entry
         @store = store
         @conversations = conversations
         @transport = transport
-        @tools = tools
+        @configure = configure
         @lock = lock
         @saved = saved
         @untitled = !saved || store.stamp_titled?(entry) || entry.title == Conversation::NEW_TITLE
@@ -115,13 +115,14 @@ module Puri
         @store.delete(@entry)
       end
 
-      # The gem's `configure:`: the agent's {Confirmer} and tools, on the booting thread.
+      # The gem's `configure:`: the agent's {Confirmer}, then the core's `configure:` with it, on
+      # the booting thread.
       #
       # @param config [Pikuri::Agent::Configurator]
       # @return [void]
       def configure(config)
         @confirmer = Confirmer.new(@conversation, lock: @lock)
-        config.add_tools(@tools.call(@confirmer))
+        @configure.call(config, @confirmer)
       end
 
       # The gem's `on_turn_end:`. Any failure, not only a disk's, ends in the error notice: a

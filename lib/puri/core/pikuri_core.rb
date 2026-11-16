@@ -64,9 +64,9 @@ module Puri
         end
         titler = Pikuri::Conversations::Titler.new(transport: config.titler_llm.transport,
                                                    params_declared: !config.titler_llm.params.empty?)
-        tools = web_tools(config.search)
-        new(transport: config.primary_llm.transport, titler:, store:, system_prompt: system_prompt(web: tools.any?),
-            tools: ->(_confirmer) { tools }, &)
+        web = web_tools(config.search)
+        new(transport: config.primary_llm.transport, titler:, store:, system_prompt: system_prompt(web: web.any?),
+            configure: ->(c, _confirmer) { c.add_tools(web) }, &)
       end
 
       # Our system prompt, and the fragment that says what the agent can reach; the date is
@@ -109,18 +109,20 @@ module Puri
       # @param transport [Pikuri::Agent::ChatTransport] where conversations run
       # @param titler [Pikuri::Conversations::Titler] names each new conversation from its first message
       # @param store [Pikuri::Conversations::Store] where conversations are saved
-      # @param system_prompt [String] see {.system_prompt}, which states what `tools` reach
-      # @param tools [Proc] takes a conversation's {Confirmer}, returns its agent's
-      #   `Array<Pikuri::Tool>`; called once per conversation
+      # @param system_prompt [String] see {.system_prompt}, which states what `configure` reaches;
+      #   the agent appends its extensions' own fragments
+      # @param configure [Proc] takes each agent's `Pikuri::Agent::Configurator` and its
+      #   conversation's {Confirmer}, and adds its tools and extensions; called once per agent, so
+      #   it builds every extension afresh, as pikuri asks
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
       def initialize(transport:, titler:, store:, system_prompt: PikuriCore.system_prompt(web: false),
-                     tools: ->(_confirmer) { [] }, &listener)
+                     configure: ->(_c, _confirmer) {}, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @transport = transport
         @store = store
-        @tools = tools
+        @configure = configure
         @listener = listener
         @lock = Monitor.new
         @conversations = {}
@@ -240,7 +242,7 @@ module Puri
       # @return [Puri::Core::AgentSession]
       def agent_session(conversation, entry, saved:)
         AgentSession.new(conversation, entry:, store: @store, conversations: @live, transport: @transport,
-                                       tools: @tools, lock: @lock, saved:)
+                                       configure: @configure, lock: @lock, saved:)
       end
 
       # @return [void]
