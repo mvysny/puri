@@ -1,6 +1,6 @@
 GIT
   remote: https://codeberg.org/mvysny/pikuri.git
-  revision: a14691baf64b98050f036b1ab85a6da94f6f6169
+  revision: a676b5fdcd1ad9e2ec2795661aa9e95336192f99
   branch: master
   specs:
     pikuri-core (0.1.0)
@@ -29,7 +29,7 @@ GIT
 
 GIT
   remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: d4c1f292d826a133fc1db12b73d478092f558a84
+  revision: 39952641dc9886f4a3a3613d502b3bd81d793ab1
   branch: master
   specs:
     pikuri-conversations (0.1.0)
@@ -160,7 +160,7 @@ GEM
     ruby-readability (0.7.3)
       guess_html_encoding (>= 0.0.4)
       nokogiri (>= 1.6.0)
-    ruby_llm (2.2.0)
+    ruby_llm (2.2.2)
       base64
       faraday (>= 1.10.0, != 2.0.0)
       faraday-multipart (>= 1)
@@ -303,7 +303,7 @@ CHECKSUMS
   rubocop-ast (1.51.0) sha256=0ec311e36b191b3872d909078a35274e962ae97dbce64be6812d145ca59acfcb
   ruby-progressbar (1.13.0) sha256=80fc9c47a9b640d6834e0dc7b3c94c9df37f08cb072b7761e4a71e22cff29b33
   ruby-readability (0.7.3) sha256=bd213fab037118cc15d999e167a8ea2cc6b689dc78c033e78fb36a2a37efc241
-  ruby_llm (2.2.0) sha256=ed5163c3aba02c514687e1e2c6b1dfe4e8f4402201ce6d53487cf29c2f3e1a05
+  ruby_llm (2.2.2) sha256=e08da09150bc11e15b294a7628b8295e0813d7f611ca97f74dcb1286ba7cdc79
   schematist (1.1.0) sha256=905d8f0286830926e77e0d631bee325ee741c4b99640bc99735593b40ba73e7b
   simplecov (0.22.0) sha256=fe2622c7834ff23b98066bb0a854284b2729a569ac659f82621fc22ef36213a5
   simplecov-html (0.13.2) sha256=bd0b8e54e7c2d7685927e8d6286466359b6f16b18cb0df47b508e8d73c777246
