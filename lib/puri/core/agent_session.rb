@@ -4,11 +4,11 @@ module Puri
   module Core
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
     # opened on the first question, the {Confirmer} its tools and extensions ask through, and its folder in the
-    # store. It is that conversation's listener, so the gem's hooks reach it through
-    # `conversation.listener`:
+    # store. It opens that conversation as its listener, its initializer and its saver alike:
     #
     #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:,
-    #                              configure: ->(c, confirmer) {}, lock:, saved: true)
+    #                              system_prompt: 'You are Puri.', configure: ->(c, confirmer) {},
+    #                              lock:, saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
     #   session.cancel
@@ -25,51 +25,11 @@ module Puri
     # session's own lock, so a save never carries a title older than the one on disk. A save
     # still ending after {#delete} writes nothing: `Store#delete` is final.
     class AgentSession < Pikuri::Agent::Listener::Base
+      include Pikuri::Conversations::AgentInitializer
+      include Pikuri::Conversations::Saver
+
       # @return [Logger]
       LOGGER = Pikuri.logger_for('AgentSession')
-
-      # The gem's initializer and saver for every conversation: one shared prompt, dated per
-      # agent; the tools and the save are each conversation's {AgentSession}'s.
-      #
-      #   hooks = AgentSession::Hooks.new('You are Puri.')
-      #   Pikuri::Conversations.new(initializer: hooks, saver: hooks)
-      #
-      # == Implementation details
-      #
-      # A conversation's listener is always its {AgentSession}: {AgentSession} opens it with
-      # `listener: self`. The gem takes one initializer for all conversations, built before any
-      # session exists, so the listener is the only per-conversation object it hands back. A lookup
-      # by id in the core would miss a deleted conversation's last save, which still has to reach
-      # its session.
-      class Hooks
-        include Pikuri::Conversations::AgentInitializer
-        include Pikuri::Conversations::Saver
-
-        # @param prompt [String] the agents' system prompt, without the date
-        def initialize(prompt)
-          @prompt = prompt
-        end
-
-        # @param _conversation [Pikuri::Conversations::Conversation]
-        # @return [String] the prompt, then today's date
-        def system_prompt(_conversation) = "#{@prompt}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
-
-        # @param configurator [Pikuri::Agent::Configurator]
-        # @param conversation [Pikuri::Conversations::Conversation]
-        # @return [void]
-        def configure(configurator, conversation) = session(conversation).configure(configurator)
-
-        # @param conversation [Pikuri::Conversations::Conversation]
-        # @param history [Pikuri::Agent::History]
-        # @return [void]
-        def save(conversation, history) = session(conversation).save(history)
-
-        private
-
-        # @param conversation [Pikuri::Conversations::Conversation]
-        # @return [AgentSession] its listener
-        def session(conversation) = conversation.listener
-      end
 
       # @param conversation [Puri::Core::Conversation] where the turns show
       # @param entry [Pikuri::Conversations::Store::Entry] its folder
@@ -77,17 +37,20 @@ module Puri
       # @param conversations [Pikuri::Conversations] the live ones, which this one joins on its
       #   first question
       # @param transport [Pikuri::Agent::ChatTransport]
+      # @param system_prompt [String] the agent's, without the date
       # @param configure [Proc] takes the agent's `Pikuri::Agent::Configurator` and the
       #   conversation's {Confirmer}, and adds its tools and extensions
       # @param lock [Monitor] the core's
       # @param saved [Boolean] whether the store holds this conversation already
-      def initialize(conversation, entry:, store:, conversations:, transport:, configure:, lock:, saved:)
+      def initialize(conversation, entry:, store:, conversations:, transport:, system_prompt:, configure:, lock:,
+                     saved:)
         super()
         @conversation = conversation
         @entry = entry
         @store = store
         @conversations = conversations
         @transport = transport
+        @system_prompt = system_prompt
         @configure = configure
         @lock = lock
         @saved = saved
@@ -158,22 +121,27 @@ module Puri
         @store.delete(@entry)
       end
 
-      # {Hooks#configure}'s: the agent's {Confirmer}, then the core's `configure:` with it, on
-      # the booting thread.
+      # @param _conversation [Pikuri::Conversations::Conversation] this session's
+      # @return [String] the prompt, then today's date
+      def system_prompt(_conversation) = "#{@system_prompt}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
+
+      # The agent's {Confirmer}, then the core's `configure:` with it, on the booting thread.
       #
-      # @param config [Pikuri::Agent::Configurator]
+      # @param configurator [Pikuri::Agent::Configurator]
+      # @param _conversation [Pikuri::Conversations::Conversation] this session's
       # @return [void]
-      def configure(config)
+      def configure(configurator, _conversation)
         @confirmer = Confirmer.new(@conversation, lock: @lock)
-        @configure.call(config, @confirmer)
+        @configure.call(configurator, @confirmer)
       end
 
-      # {Hooks#save}'s. Any failure, not only a disk's, ends in the error notice: a
-      # history that won't serialize is as lost as one that won't write.
+      # Any failure, not only a disk's, ends in the error notice: a history that won't serialize
+      # is as lost as one that won't write.
       #
+      # @param _conversation [Pikuri::Conversations::Conversation] this session's
       # @param history [Pikuri::Agent::History]
       # @return [void]
-      def save(history)
+      def save(_conversation, history)
         @writes.synchronize do
           next if @unreadable
 
@@ -207,8 +175,8 @@ module Puri
 
       # @return [Pikuri::Conversations::Conversation] opened on first use
       def live
-        @live ||= @conversations.open(id: @conversation.id, transport: @transport, listener: self,
-                                      history: @history, boot: false, untitled: @untitled)
+        @live ||= @conversations.open(id: @conversation.id, transport: @transport, listener: self, initializer: self,
+                                      saver: self, history: @history, boot: false, untitled: @untitled)
       end
 
       # @param title [String]

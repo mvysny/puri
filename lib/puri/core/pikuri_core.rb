@@ -122,14 +122,14 @@ module Puri
 
         @transport = transport
         @store = store
+        @system_prompt = system_prompt
         @configure = configure
         @listener = listener
         @lock = Monitor.new
         @conversations = {}
         @entries = {}
         @sessions = {}
-        hooks = AgentSession::Hooks.new(system_prompt)
-        @live = Pikuri::Conversations.new(initializer: hooks, saver: hooks, streaming: true, priority: -3, titler:)
+        @live = Pikuri::Conversations.new(streaming: true, priority: -3, titler:)
         store.list.reverse_each { |entry| saved(entry) }
       end
 
@@ -238,7 +238,7 @@ module Puri
       # @return [Puri::Core::AgentSession]
       def agent_session(conversation, entry, saved:)
         AgentSession.new(conversation, entry:, store: @store, conversations: @live, transport: @transport,
-                                       configure: @configure, lock: @lock, saved:)
+                                       system_prompt: @system_prompt, configure: @configure, lock: @lock, saved:)
       end
 
       # @return [void]

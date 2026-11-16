@@ -860,11 +860,11 @@ module Puri
 
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
     # opened on the first question, the {Confirmer} its tools and extensions ask through, and its folder in the
-    # store. It is that conversation's listener, so the gem's hooks reach it through
-    # `conversation.listener`:
+    # store. It opens that conversation as its listener, its initializer and its saver alike:
     # 
     #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:,
-    #                              configure: ->(c, confirmer) {}, lock:, saved: true)
+    #                              system_prompt: 'You are Puri.', configure: ->(c, confirmer) {},
+    #                              lock:, saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
     #   session.cancel
@@ -881,6 +881,8 @@ module Puri
     # session's own lock, so a save never carries a title older than the one on disk. A save
     # still ending after {#delete} writes nothing: `Store#delete` is final.
     class AgentSession < Pikuri::Agent::Listener::Base
+      include Pikuri::Conversations::AgentInitializer
+      include Pikuri::Conversations::Saver
       LOGGER: Logger
 
       # _@param_ `conversation` — where the turns show
@@ -893,6 +895,8 @@ module Puri
       # 
       # _@param_ `transport`
       # 
+      # _@param_ `system_prompt` — the agent's, without the date
+      # 
       # _@param_ `configure` — takes the agent's `Pikuri::Agent::Configurator` and the conversation's {Confirmer}, and adds its tools and extensions
       # 
       # _@param_ `lock` — the core's
@@ -904,6 +908,7 @@ module Puri
                         store: Pikuri::Conversations::Store,
                         conversations: Pikuri::Conversations,
                         transport: Pikuri::Agent::ChatTransport,
+                        system_prompt: String,
                         configure: Proc,
                         lock: Monitor,
                         saved: bool
@@ -932,17 +937,25 @@ module Puri
       # own save, still to come, writes nothing.
       def delete: () -> void
 
-      # {Hooks#configure}'s: the agent's {Confirmer}, then the core's `configure:` with it, on
-      # the booting thread.
+      # _@param_ `_conversation` — this session's
       # 
-      # _@param_ `config`
-      def configure: (Pikuri::Agent::Configurator config) -> void
+      # _@return_ — the prompt, then today's date
+      def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
-      # {Hooks#save}'s. Any failure, not only a disk's, ends in the error notice: a
-      # history that won't serialize is as lost as one that won't write.
+      # The agent's {Confirmer}, then the core's `configure:` with it, on the booting thread.
+      # 
+      # _@param_ `configurator`
+      # 
+      # _@param_ `_conversation` — this session's
+      def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation _conversation) -> void
+
+      # Any failure, not only a disk's, ends in the error notice: a history that won't serialize
+      # is as lost as one that won't write.
+      # 
+      # _@param_ `_conversation` — this session's
       # 
       # _@param_ `history`
-      def save: (Pikuri::Agent::History history) -> void
+      def save: (Pikuri::Conversations::Conversation _conversation, Pikuri::Agent::History history) -> void
 
       # Shows the event, then goes idle once the gem says no work is under way. `TurnEnded` goes
       # through the limiter too: it flushes a failed turn's tail ahead of the failure notice.
@@ -972,47 +985,6 @@ module Puri
 
       # Takes the messages the agent hasn't read, showing each, so none vanishes unseen.
       def drop_pending: () -> void
-
-      # The gem's initializer and saver for every conversation: one shared prompt, dated per
-      # agent; the tools and the save are each conversation's {AgentSession}'s.
-      # 
-      #   hooks = AgentSession::Hooks.new('You are Puri.')
-      #   Pikuri::Conversations.new(initializer: hooks, saver: hooks)
-      # 
-      # == Implementation details
-      # 
-      # A conversation's listener is always its {AgentSession}: {AgentSession} opens it with
-      # `listener: self`. The gem takes one initializer for all conversations, built before any
-      # session exists, so the listener is the only per-conversation object it hands back. A lookup
-      # by id in the core would miss a deleted conversation's last save, which still has to reach
-      # its session.
-      class Hooks
-        include Pikuri::Conversations::AgentInitializer
-        include Pikuri::Conversations::Saver
-
-        # _@param_ `prompt` — the agents' system prompt, without the date
-        def initialize: (String prompt) -> void
-
-        # _@param_ `_conversation`
-        # 
-        # _@return_ — the prompt, then today's date
-        def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
-
-        # _@param_ `configurator`
-        # 
-        # _@param_ `conversation`
-        def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation conversation) -> void
-
-        # _@param_ `conversation`
-        # 
-        # _@param_ `history`
-        def save: (Pikuri::Conversations::Conversation conversation, Pikuri::Agent::History history) -> void
-
-        # _@param_ `conversation`
-        # 
-        # _@return_ — its listener
-        def session: (Pikuri::Conversations::Conversation conversation) -> AgentSession
-      end
     end
 
     # Turns a pikuri conversation's events into a {Conversation}'s blocks and activity, the one
