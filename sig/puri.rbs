@@ -978,6 +978,14 @@ module Puri
       # 
       #   hooks = AgentSession::Hooks.new('You are Puri.')
       #   Pikuri::Conversations.new(initializer: hooks, saver: hooks)
+      # 
+      # == Implementation details
+      # 
+      # A conversation's listener is always its {AgentSession}: {AgentSession} opens it with
+      # `listener: self`. The gem takes one initializer for all conversations, built before any
+      # session exists, so the listener is the only per-conversation object it hands back. A lookup
+      # by id in the core would miss a deleted conversation's last save, which still has to reach
+      # its session.
       class Hooks
         include Pikuri::Conversations::AgentInitializer
         include Pikuri::Conversations::Saver
@@ -992,13 +1000,18 @@ module Puri
 
         # _@param_ `configurator`
         # 
-        # _@param_ `conversation` — its listener is its {AgentSession}
+        # _@param_ `conversation`
         def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation conversation) -> void
 
-        # _@param_ `conversation` — its listener is its {AgentSession}
+        # _@param_ `conversation`
         # 
         # _@param_ `history`
         def save: (Pikuri::Conversations::Conversation conversation, Pikuri::Agent::History history) -> void
+
+        # _@param_ `conversation`
+        # 
+        # _@return_ — its listener
+        def session: (Pikuri::Conversations::Conversation conversation) -> AgentSession
       end
     end
 

@@ -33,6 +33,14 @@ module Puri
       #
       #   hooks = AgentSession::Hooks.new('You are Puri.')
       #   Pikuri::Conversations.new(initializer: hooks, saver: hooks)
+      #
+      # == Implementation details
+      #
+      # A conversation's listener is always its {AgentSession}: {AgentSession} opens it with
+      # `listener: self`. The gem takes one initializer for all conversations, built before any
+      # session exists, so the listener is the only per-conversation object it hands back. A lookup
+      # by id in the core would miss a deleted conversation's last save, which still has to reach
+      # its session.
       class Hooks
         include Pikuri::Conversations::AgentInitializer
         include Pikuri::Conversations::Saver
@@ -47,14 +55,20 @@ module Puri
         def system_prompt(_conversation) = "#{@prompt}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
 
         # @param configurator [Pikuri::Agent::Configurator]
-        # @param conversation [Pikuri::Conversations::Conversation] its listener is its {AgentSession}
+        # @param conversation [Pikuri::Conversations::Conversation]
         # @return [void]
-        def configure(configurator, conversation) = conversation.listener.configure(configurator)
+        def configure(configurator, conversation) = session(conversation).configure(configurator)
 
-        # @param conversation [Pikuri::Conversations::Conversation] its listener is its {AgentSession}
+        # @param conversation [Pikuri::Conversations::Conversation]
         # @param history [Pikuri::Agent::History]
         # @return [void]
-        def save(conversation, history) = conversation.listener.save(history)
+        def save(conversation, history) = session(conversation).save(history)
+
+        private
+
+        # @param conversation [Pikuri::Conversations::Conversation]
+        # @return [AgentSession] its listener
+        def session(conversation) = conversation.listener
       end
 
       # @param conversation [Puri::Core::Conversation] where the turns show
