@@ -15,6 +15,26 @@ module Puri
   # environment.
   def self.require_gtk: () -> void
 
+  # Appends apt's +name+ gem and its runtime dependencies to the load path, so Bundler, which hides
+  # every gem not in the lockfile, can't hide them.
+  # 
+  # Only the gem layout needs it: Ubuntu 26.10's ruby-cairo installs into
+  # `/usr/lib/*/rubygems-integration/` and is otherwise unreachable, while a package still in
+  # `vendor_ruby` has nothing at its gemspec's paths and adds nothing. Appended, so a bundled gem of
+  # the same name still wins.
+  # 
+  # _@param_ `name` — the gem, e.g. `gtk4`
+  # 
+  # _@param_ `specs` — from {apt_gem_specs}
+  # 
+  # _@param_ `seen` — the gems already visited
+  def self.add_apt_gem: (String name, ::Hash[String, Gem::Specification] specs, ?::Array[String] seen) -> void
+
+  # Under Bundler `Gem.path` is the bundle alone, but `Gem.default_path` still lists apt's folders.
+  # 
+  # _@return_ — apt's newest gemspec of each name
+  def self.apt_gem_specs: () -> ::Hash[String, Gem::Specification]
+
   # The backend. It takes {Protocol} commands and emits {Protocol} events on its own threads.
   # 
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
