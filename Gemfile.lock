@@ -1,6 +1,6 @@
 GIT
   remote: https://codeberg.org/mvysny/pikuri.git
-  revision: a676b5fdcd1ad9e2ec2795661aa9e95336192f99
+  revision: 945bd699e188896eceed404b67bdbc5ea4ba4ef6
   branch: master
   specs:
     pikuri-core (0.1.0)
@@ -14,9 +14,11 @@ GIT
       reverse_markdown (~> 3.0)
       ruby-readability (~> 0.7)
     pikuri-thunderbird (0.1.0)
+      ice_cube (~> 0.17)
       mail (~> 2.9)
       pikuri-core (= 0.1.0)
       sqlite3 (~> 2.9)
+      tzinfo (~> 2.0)
     pikuri-web (0.1.0)
       faraday (~> 2.9)
       nokogiri (~> 1.19)
@@ -42,6 +44,7 @@ GEM
     base64 (0.3.0)
     commander (5.0.0)
       highline (~> 3.0.0)
+    concurrent-ruby (1.3.8)
     date (3.6.0)
     docile (1.4.1)
     drb (2.2.3)
@@ -57,6 +60,7 @@ GEM
       faraday (~> 2.0)
     guess_html_encoding (0.0.11)
     highline (3.0.1)
+    ice_cube (0.17.0)
     io-console (0.9.5)
     json (3.1.0)
     kramdown (2.6.1)
@@ -192,6 +196,8 @@ GEM
     tomlrb (3.0.0)
     tsort (0.2.0)
     typemap (0.1.0)
+    tzinfo (2.0.6)
+      concurrent-ruby (~> 1.0)
     unicode-display_width (3.3.0)
       unicode-emoji (~> 4.3)
     unicode-emoji (4.3.0)
@@ -238,6 +244,7 @@ CHECKSUMS
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bundler (4.0.19) sha256=b48056e4c77fb3853cc47775b5447ede44aaa4f53c32f168014ab4fe86587d47
   commander (5.0.0) sha256=22ca42866ce5ed1a7f3e9a9c831a23d03b75b3743c7ad0302c3cbcd9eb5f257d
+  concurrent-ruby (1.3.8) sha256=b2f1be836e968ccc78ccfce277ea79c72a88633f22306782c16ff23fb415d1e1
   date (3.6.0) sha256=18ac945c4e24ebd93534f8eab8c2fd8c5604b3e977105b3798d62a1e8d27b580
   docile (1.4.1) sha256=96159be799bfa73cdb721b840e9802126e4e03dfc26863db73647204c727f21e
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
@@ -247,6 +254,7 @@ CHECKSUMS
   faraday-retry (2.4.0) sha256=7b79c48fb7e56526faf247b12d94a680071ff40c9fda7cf1ec1549439ad11ebe
   guess_html_encoding (0.0.11) sha256=cab6468b945f38673fc41ad147fbbc89693b3c6c34b03b071e2ed669a603e098
   highline (3.0.1) sha256=ca18b218fd581b1fae832f89bfeaf2b34d3a93429c44fd4411042ffce286f009
+  ice_cube (0.17.0) sha256=32deb45dda4b4acc53505c2f581f6d32b5afc04d29b9004769944a0df5a5fcbe
   io-console (0.9.5) sha256=83dd9bbf4c4680416629245b39cd4212eb5f4d9a4ea91804870c1f6b846414d5
   json (3.1.0) sha256=3ce7ccf8fde58960177a3a756c31f292a4c1e1dedee884547096a5b0604e3bd8
   kramdown (2.6.1) sha256=fbef3479b69c875aacb118dde77a40d6cc3a91e2c1d505a4c3f3f9e92d142641
@@ -317,6 +325,7 @@ CHECKSUMS
   tomlrb (3.0.0) sha256=e7122820cbb9b940d1758eecb6d1d4ee97c582efa37f06e0100a97cb17a566f5
   tsort (0.2.0) sha256=9650a793f6859a43b6641671278f79cfead60ac714148aabe4e3f0060480089f
   typemap (0.1.0) sha256=3a4ce25f6450a283f78a661b8e3c401bc5c8b980a64b832e6fe16f7e61d13231
+  tzinfo (2.0.6) sha256=8daf828cc77bcf7d63b0e3bdb6caa47e2272dcfaf4fbfe46f8c3a9df087a829b
   unicode-display_width (3.3.0) sha256=4b7aa66a4b11db50f6f7e98411215cd0dd10eaecb665d36eec5bcacb3fa0b613
   unicode-emoji (4.3.0) sha256=11c02fa73290378c066bb0562cd4c87d8e1b706fbbe0059ca12746a4244de8ce
   uri (1.1.2) sha256=89292e98eabbef6248b0a0ed5e7e398e152f83f17560023a6d94a7f492b169fb
