@@ -6,7 +6,7 @@
 #
 #   index = FakeIndex.new                     # answers
 #   index = FakeIndex.new(available: false)   # as on a machine with no index
-#   index.search(query: 'lease', limit: 10, folder: '/tmp/docs')   # => [{ path:, snippet: }]
+#   index.search(query: 'lease', limit: 10, folder: '/tmp/docs')   # => [{ path:, snippet:, text_size: }]
 module FakeIndex
   # @param available [Boolean] whether the index answers
   # @return [Module] a file-index backend
@@ -20,7 +20,8 @@ module FakeIndex
       define_singleton_method(:read_text) { |path| File.file?(path) ? File.read(path) : nil }
       define_singleton_method(:search) do |query:, limit:, folder: nil|
         Dir.glob(File.join(folder || Dir.home, '**', '*')).select { File.file?(_1) }
-           .select { File.read(_1).include?(query) }.first(limit).map { { path: _1, snippet: query } }
+           .select { File.read(_1).include?(query) }.first(limit)
+           .map { { path: _1, snippet: query, text_size: File.size(_1) } }
       end
     end
   end

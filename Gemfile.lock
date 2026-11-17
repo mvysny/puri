@@ -31,7 +31,7 @@ GIT
 
 GIT
   remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: d23fa59f9567cbc481b41f32503aea5e9018c4fa
+  revision: d9f670d9e12202f6ee8cd2dad329fdd7bb199021
   branch: master
   specs:
     pikuri-code (0.1.0)
