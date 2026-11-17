@@ -45,6 +45,12 @@ module Puri
       # (see Puri::Protocol::Backend#load_conversation)
       def load_conversation(conversation) = call(:load_conversation, conversation)
 
+      # (see Puri::Protocol::Backend#list_models)
+      def list_models = call(:list_models)
+
+      # (see Puri::Protocol::Backend#select_model)
+      def select_model(conversation, model) = command(:select_model, conversation, model)
+
       # (see Puri::Protocol::Backend#delete_conversation)
       def delete_conversation(conversation) = command(:delete_conversation, conversation)
 

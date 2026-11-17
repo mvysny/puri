@@ -10,10 +10,17 @@ module Puri
     #   session.ask('make it Wednesday')    # a confirmation waits: redirects it
     #   session.cancel
     #
-    # A message sent while a turn runs, but asks nothing, waits for that turn to end.
+    # A message sent while a turn runs, but asks nothing, waits for that turn to end. Each turn
+    # that ends reports made-up token counts, about four characters a token, to the status bar.
     #
     # Thread-safe: every method runs under the backend's monitor.
     class Session
+      # @return [Integer] tokens, what the status bar measures the context against
+      CONTEXT_WINDOW = 32_768
+
+      # @return [Integer] tokens of system prompt and tools every turn sends
+      PROMPT_TOKENS = 1500
+
       # @return [Puri::Core::Conversation]
       attr_reader :conversation
 
@@ -22,7 +29,8 @@ module Puri
       # @param threads [ThreadGroup] the backend's, which takes each turn's thread
       # @param think [Float] see {Turn#initialize}
       # @param pace [Float] see {Turn#initialize}
-      def initialize(conversation, lock:, threads:, think:, pace:)
+      # @param model [String] one of {Backend::MODELS}
+      def initialize(conversation, lock:, threads:, think:, pace:, model:)
         @conversation = conversation
         @lock = lock
         @threads = threads
@@ -30,6 +38,19 @@ module Puri
         @pace = pace
         @turn = nil
         @waiting = []
+        @model = model
+        @readout = Core::ContextReadout.new(cap: CONTEXT_WINDOW)
+        @context = PROMPT_TOKENS
+        publish_status
+      end
+
+      # @param model [String] one of {Backend::MODELS}
+      # @return [void]
+      def select_model(model)
+        @lock.synchronize do
+          @model = model
+          publish_status
+        end
       end
 
       # @param text [String]
@@ -72,6 +93,7 @@ module Puri
           next unless @turn.equal?(turn)
 
           @turn = nil
+          spent(turn)
           if @waiting.empty?
             @conversation.activity = Protocol::Activity::IDLE
           else
@@ -81,6 +103,24 @@ module Puri
       end
 
       private
+
+      # @return [void]
+      def publish_status
+        @conversation.status = @readout.status(@model)
+      end
+
+      # Counts the turn's question and answer, as a server's usage would.
+      #
+      # @param turn [Puri::Dummy::Turn]
+      # @return [void]
+      def spent(turn)
+        input = turn.question.size / 4
+        output = turn.written / 4
+        @readout.on_event(Pikuri::Agent::Event::Tokens.new(input:, output:, cached: @context, cache_creation: nil,
+                                                           thinking: nil, model_id: @model))
+        @context += input + output
+        publish_status
+      end
 
       # @param text [String]
       # @return [void]

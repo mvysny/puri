@@ -35,7 +35,8 @@ RSpec.describe Puri::Core::PikuriCore do
   end
   let(:store) { Pikuri::Conversations::Store.new(root: @root, shell: 'puri') }
   let(:config) { Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil) }
-  let(:core) { described_class.new(config:, transport:, titler:, store:) { |event| events << p.round_trip(event) } }
+  let(:models) { Puri::Core::Models.new([Puri::Core::Models::Choice.new(name: 'Fake', transport:)]) }
+  let(:core) { described_class.new(config:, models:, titler:, store:) { |event| events << p.round_trip(event) } }
 
   # A core whose every agent also gets what the block adds: Puri wires no tool that asks, no slow
   # boot, and no web_search that answers offline, so a spec that needs one brings its own.
@@ -54,12 +55,13 @@ RSpec.describe Puri::Core::PikuriCore do
     session = Class.new(Puri::Core::AgentSession) { const_set(:Initializer, initializer) }
     core = Class.new(described_class) do
       define_method(:agent_session) do |conversation, entry, saved:|
-        session.new(conversation, entry:, store: @store, conversations: @live, transport: @transport, config: @config,
+        session.new(conversation, entry:, store: @store, conversations: @live,
+                                  transport: start_on(entry, saved:).transport, models: @models, config: @config,
                                   lock: @lock, saved:)
       end
       private :agent_session
     end
-    core.new(config:, transport:, titler:, store:) { |event| events << Puri::Protocol.round_trip(event) }
+    core.new(config:, models:, titler:, store:) { |event| events << Puri::Protocol.round_trip(event) }
   end
 
   # The fake states its context window and modalities; sizing its server too leaves the probe
@@ -118,6 +120,50 @@ RSpec.describe Puri::Core::PikuriCore do
     assert_equal ['Keep it <b>cold</b>.'], reply.parts.map(&:markup)
 
     assert_equal %w[working streaming idle], drain.grep(p::ActivityChanged).map { _1.activity.state }.uniq
+  end
+
+  it 'counts the reply’s tokens into the status' do
+    gate.block!
+    id = core.ask(nil, 'hi')
+    assert_equal p::Status.new(model: 'Fake', context: '8.0k token window'), core.load_conversation(id).status
+    gate.release!
+    wait_until('the tokens are counted') { finished(id).status.detail.start_with?('msg #1') }
+    status = core.load_conversation(id).status
+    assert_equal ['Fake', '0.0k of 8.0k tokens', 15.0 / 8192], [status.model, status.context, status.fill]
+    assert_equal 'msg #1  Δ+0.0k  ↑0.0k  ↓0.0k', status.detail
+    assert_equal status, drain.grep(p::StatusChanged).last.status
+  end
+
+  context 'with two models' do
+    let(:other) { Pikuri::Testing.fake_transport(model: 'other', context_window: 4096) { |llm| 2.times { llm.reply('Other.') } } }
+    let(:models) do
+      Puri::Core::Models.new([Puri::Core::Models::Choice.new(name: 'Fake', transport:),
+                              Puri::Core::Models::Choice.new(name: 'Other', transport: other)])
+    end
+
+    it 'runs the next turn on the model picked, and starts new conversations on it' do
+      assert_equal p::Models.new(names: %w[Fake Other], selected: 'Fake'), core.list_models
+      id = core.ask(nil, 'hi')
+      finished(id)
+      core.select_model(id, 'Other')
+      wait_until('the status follows the pick') { core.load_conversation(id).status.model == 'Other' }
+      core.ask(id, 'again')
+      assert_equal ['Other.'], finished(id).blocks.last.parts.map(&:markup)
+
+      assert_equal 'Other', core.list_models.selected
+      fresh = core.ask(nil, 'and you?')
+      assert_equal ['Other.'], finished(fresh).blocks.last.parts.map(&:markup)
+    end
+
+    it 'picks for new conversations alone, given none' do
+      core.select_model(nil, 'Other')
+      id = core.ask(nil, 'hi')
+      assert_equal p::Status.new(model: 'Other', context: '4.0k token window'), core.load_conversation(id).status
+    end
+
+    it 'refuses a model it lacks' do
+      assert_raises(ArgumentError) { core.select_model(nil, 'Nope') }
+    end
   end
 
   # @param id [String]
@@ -444,7 +490,9 @@ RSpec.describe Puri::Core::PikuriCore do
     # @return [Puri::Core::PikuriCore]
     def restart(titles = titler, &script)
       core.close
-      @restarted = described_class.new(config:, transport: Pikuri::Testing.fake_transport(&script), titler: titles,
+      fake = Pikuri::Testing.fake_transport(&script)
+      again = Puri::Core::Models.new([Puri::Core::Models::Choice.new(name: 'Fake', transport: fake)])
+      @restarted = described_class.new(config:, models: again, titler: titles,
                                        store: Pikuri::Conversations::Store.new(root: @root, shell: 'puri')) { nil }
     end
 

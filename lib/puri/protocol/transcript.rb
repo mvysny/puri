@@ -3,7 +3,7 @@
 module Puri
   module Protocol
     # A whole conversation as Desktop draws it, what {Backend#load_conversation} returns. Later
-    # changes arrive as {BlockChanged}, {BlockRemoved} and {ActivityChanged}.
+    # changes arrive as {BlockChanged}, {BlockRemoved}, {ActivityChanged} and {StatusChanged}.
     #
     # @!attribute [r] conversation
     #   @return [String] its id
@@ -13,7 +13,9 @@ module Puri
     #   @return [Array<Puri::Protocol::Block>] in order
     # @!attribute [r] activity
     #   @return [Puri::Protocol::Activity]
-    class Transcript < Data.define(:conversation, :title, :blocks, :activity)
+    # @!attribute [r] status
+    #   @return [Puri::Protocol::Status]
+    class Transcript < Data.define(:conversation, :title, :blocks, :activity, :status)
     end
   end
 end

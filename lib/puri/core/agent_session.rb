@@ -7,20 +7,23 @@ module Puri
     # store. It opens that conversation as its listener and its saver, its agents built by its
     # {Initializer}:
     #
-    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:, config:, lock:,
-    #                              saved: true)
+    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:, models:, config:,
+    #                              lock:, saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
+    #   session.select_model(models.find('Qwen 3.6'))   # for the next turn
     #   session.cancel
     #   session.delete                         # closes it, and removes it from disk
     #
     # Every turn is saved once it ends, a cancelled or failed one too; a save that fails ends in an
     # error notice. The gem titles a conversation opened `untitled:` after its first turn, and the
-    # title is saved too.
+    # title is saved too. The conversation's {Protocol::Status} follows the model picked and the
+    # tokens each reply reports, through a {ContextReadout}.
     #
     # == Threading
     #
-    # {#ask}, {#cancel}, {#answer}, {#restore} and {#delete} come from the core, under its lock.
+    # {#ask}, {#cancel}, {#answer}, {#select_model}, {#restore} and {#delete} come from the core,
+    # under its lock.
     # {#on_event} and {#save} run on the gem's threads; {#save} and a title's write take this
     # session's own lock, so a save never carries a title older than the one on disk. A save
     # still ending after {#delete} writes nothing: `Store#delete` is final.
@@ -192,18 +195,21 @@ module Puri
       # @param store [Pikuri::Conversations::Store]
       # @param conversations [Pikuri::Conversations] the live ones, which this one joins on its
       #   first question
-      # @param transport [Pikuri::Agent::ChatTransport]
+      # @param transport [Pikuri::Agent::ChatTransport] the connection it starts on
+      # @param models [Puri::Core::Models] what names the connection in its status
       # @param config [Puri::Core::Config] what its agents are built from
       # @param lock [Monitor] the core's
       # @param saved [Boolean] whether the store holds this conversation already
       # @param library [Puri::Core::Library, nil] the `[documents]` folder its agents search
-      def initialize(conversation, entry:, store:, conversations:, transport:, config:, lock:, saved:, library: nil)
+      def initialize(conversation, entry:, store:, conversations:, transport:, models:, config:, lock:, saved:,
+                     library: nil)
         super()
         @conversation = conversation
         @entry = entry
         @store = store
         @conversations = conversations
         @transport = transport
+        @models = models
         # self.class's: a spec's subclass brings an Initializer that adds what Puri doesn't wire.
         @initializer = self.class::Initializer.new(config, conversation, lock:, library:)
         @lock = lock
@@ -216,6 +222,8 @@ module Puri
         @history = nil
         @writes = Mutex.new
         @unreadable = false
+        @readout = ContextReadout.new(cap: Pikuri::Conversations::Probe.facts(transport).context_window)
+        publish_status
       end
 
       # Fills a saved conversation's blocks from its history, the first time only; the agent
@@ -258,6 +266,20 @@ module Puri
 
         drop_pending
         @live.cancel
+      end
+
+      # The next turn runs on `choice`; a running one ends on its own model.
+      #
+      # @param choice [Puri::Core::Models::Choice]
+      # @return [void]
+      def select_model(choice)
+        if @live
+          @live.switch_model(choice.transport)
+        else
+          @transport = choice.transport
+          @readout.cap = Pikuri::Conversations::Probe.facts(choice.transport).context_window
+        end
+        publish_status
       end
 
       # @param confirmation [String] the block id the user answered
@@ -305,7 +327,12 @@ module Puri
         when Pikuri::Conversations::Event::Titled then retitle(event.title)
         when Pikuri::Conversations::Event::Ready then cancelled_boot
         when Pikuri::Conversations::Event::BootFailed then failed_boot(event.error)
-        else @display.on_event(event)
+        when Pikuri::Conversations::Event::ModelPending, Pikuri::Agent::Event::ModelSwitched
+          publish_status
+          @display.on_event(event)
+        else
+          publish_status if @readout.on_event(event)
+          @display.on_event(event)
         end
         settle
       end
@@ -317,6 +344,15 @@ module Puri
         @live ||= @conversations.open(id: @conversation.id, transport: @transport, listener: self, saver: self,
                                       initializer: @initializer, history: @history, boot: false,
                                       untitled: @untitled)
+      end
+
+      # Under the core's lock, so two threads' updates land in the order they read the gem.
+      #
+      # @return [void]
+      def publish_status
+        @lock.synchronize do
+          @conversation.status = @readout.status(@models.name_for(@live ? @live.status.next_model : @transport))
+        end
       end
 
       # @param title [String]

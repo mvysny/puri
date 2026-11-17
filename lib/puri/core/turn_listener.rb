@@ -13,6 +13,7 @@ module Puri
     #   ToolCall                  → ActivityChanged(working, "Searching the web…")
     #   ToolResult                → a ToolLine; ActivityChanged(working, "Thinking…")
     #   TurnEnded                 → a Notice when cancelled or failed
+    #   ModelSwitched             → nothing shown; a later failure names the new server
     #
     # It renders every delta it gets, so it sits behind the gem's limiter, which coalesces them:
     #
@@ -56,6 +57,7 @@ module Puri
         when Pikuri::Agent::Event::ToolCall then tool_call(event)
         when Pikuri::Agent::Event::ToolResult then tool_result(event)
         when Pikuri::Conversations::Event::TurnEnded then ended(event)
+        when Pikuri::Agent::Event::ModelSwitched then @server = event.to.api_base
         end
       end
 

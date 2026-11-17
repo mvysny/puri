@@ -562,6 +562,64 @@ module Puri
       end
     end
 
+    # The connections a conversation can run on, by the name `config.toml` gives each `[[llm]]`:
+    # 
+    #   models = Models.from_config(config)
+    #   models.names                          # => ["Ornith 1.5", "Ornith 1.5, no thinking"]
+    #   models.find('Ornith 1.5').transport   # => what conversations.open takes
+    #   models.name_for(live.status.model)    # => "Ornith 1.5", whatever the probe filled in
+    #   models.saved(entry)                   # => the Choice a saved conversation resumes on, or nil
+    # 
+    # Immutable.
+    class Models
+      # _@param_ `config`
+      # 
+      # _@return_ — every `[[llm]]`, in the file's order
+      def self.from_config: (Puri::Core::Config config) -> Puri::Core::Models
+
+      # A connection's identity: two `[[llm]]` on one model and one server differ in `params`
+      # alone, as the titler's thinking-off twin does. The probe fills in the context window,
+      # so a whole transport never `==` the one it started as.
+      # 
+      # _@param_ `transport`
+      def self.key: (Pikuri::Agent::ChatTransport transport) -> [String, String, ::Hash[String, Object]]
+
+      # _@param_ `choices` — the first is the default; never empty
+      def initialize: (::Array[Puri::Core::Models::Choice] choices) -> void
+
+      # _@return_ — the first
+      def default: () -> Puri::Core::Models::Choice
+
+      def names: () -> ::Array[String]
+
+      # _@param_ `name`
+      def find: (String name) -> Puri::Core::Models::Choice
+
+      # _@param_ `transport`
+      # 
+      # _@return_ — its connection's name; the bare model id for one the config lacks
+      def name_for: (Pikuri::Agent::ChatTransport transport) -> String
+
+      # `meta.json` keeps the model and the server, not the params, so of two connections that
+      # differ only in params the first in the file wins.
+      # 
+      # _@param_ `entry`
+      # 
+      # _@return_ — the connection it was saved on; nil when the
+      # config no longer has it, or it was never saved
+      def saved: (Pikuri::Conversations::Store::Entry entry) -> Puri::Core::Models::Choice?
+
+      # @!attribute [r] name
+      #   @return [String]
+      # @!attribute [r] transport
+      #   @return [Pikuri::Agent::ChatTransport]
+      class Choice
+        attr_reader name: String
+
+        attr_reader transport: Pikuri::Agent::ChatTransport
+      end
+    end
+
     # A saved conversation's blocks, rebuilt from its pikuri history:
     # 
     #   Replay.blocks(store.history(id))   # => [UserMessage, ToolLine, Reply, UserMessage, Reply]
@@ -688,8 +746,9 @@ module Puri
     # The backend: each conversation a pikuri agent on the configured model, hosted by
     # `Pikuri::Conversations`, everything reported as {Protocol} events.
     # 
-    #   core = PikuriCore.new(config:, transport: config.primary_llm.transport, titler:, store:) { |event| … }
+    #   core = PikuriCore.new(config:, models: Models.from_config(config), titler:, store:) { |event| … }
     #   id = core.ask(nil, 'how do I keep an avocado?')
+    #   core.select_model(id, 'Qwen 3.6')   # its next turn, and every new conversation's
     #   core.load_conversation(id).blocks   # => [UserMessage, Reply] once it has answered
     #   core.list_conversations.first.title  # => "Keeping An Avocado Fresh", once titled
     #   core.close                           # stops every turn, closes every agent
@@ -698,6 +757,9 @@ module Puri
     # loaded or asked in; each is saved after every turn, and deleting one removes it from disk. A
     # new conversation is "New conversation" until the titler names it, once its first turn has
     # ended; a title that fails is logged, and the name stays until a later turn.
+    # 
+    # A new conversation starts on the model picked last, the first `[[llm]]` until a pick; a
+    # saved one resumes on the connection it was saved on, while the config still has it.
     # 
     # Thread-safe.
     class PikuriCore
@@ -739,7 +801,7 @@ module Puri
 
       # _@param_ `config` — what each conversation's agent is built from
       # 
-      # _@param_ `transport` — where conversations run
+      # _@param_ `models` — where conversations run
       # 
       # _@param_ `titler` — names each new conversation from its first message
       # 
@@ -748,7 +810,7 @@ module Puri
       # _@param_ `library` — the documents folder every agent searches
       def initialize: (
                         config: Puri::Core::Config,
-                        transport: Pikuri::Agent::ChatTransport,
+                        models: Puri::Core::Models,
                         titler: Pikuri::Conversations::Titler,
                         store: Pikuri::Conversations::Store,
                         ?library: Puri::Core::Library?
@@ -784,6 +846,16 @@ module Puri
 
       # _@param_ `conversation`
       def load_conversation: (String conversation) -> Puri::Protocol::Transcript
+
+      def list_models: () -> Puri::Protocol::Models
+
+      # Picks the model for a conversation's next turn, and for every new conversation after; a
+      # running turn ends on its own. A {StatusChanged} follows.
+      # 
+      # _@param_ `conversation` — nil picks for new conversations only
+      # 
+      # _@param_ `model` — one of {Models#names}
+      def select_model: (String? conversation, String model) -> void
 
       # Forgets a conversation, cancelling its turn first.
       # 
@@ -824,10 +896,17 @@ module Puri
       # _@param_ `saved`
       def agent_session: (Puri::Core::Conversation conversation, Pikuri::Conversations::Store::Entry entry, saved: bool) -> Puri::Core::AgentSession
 
+      # _@param_ `entry`
+      # 
+      # _@param_ `saved`
+      # 
+      # _@return_ — the connection a conversation opens on
+      def start_on: (Pikuri::Conversations::Store::Entry entry, saved: bool) -> Puri::Core::Models::Choice
+
       def publish: () -> void
     end
 
-    # One conversation as Desktop sees it: its blocks, its activity, its title and its last
+    # One conversation as Desktop sees it: its blocks, its activity, its status, its title and its last
     # question, each change emitted as a {Protocol} event. Whatever runs its turns reports
     # through {#add}, {#put} and {#activity=}, so {PikuriCore} and the dummy backend in `dev/`
     # share it:
@@ -837,6 +916,7 @@ module Puri
     #   reply = conversation.add(Protocol::Reply.new(id: nil, parts: []))   # => the block, id "b1"
     #   conversation.put(reply.with(parts:))                 # re-sent whole
     #   conversation.activity = Protocol::Activity::IDLE
+    #   conversation.status = Protocol::Status.new(model: 'Ornith 1.5')
     # 
     # == Threading
     # 
@@ -905,6 +985,11 @@ module Puri
 
       # _@param_ `activity`
       def activity=: (Puri::Protocol::Activity activity) -> void
+
+      # Emits nothing when it is the status already: each token count re-reads the whole.
+      # 
+      # _@param_ `status`
+      def status=: (Puri::Protocol::Status status) -> void
 
       attr_reader id: String
 
@@ -1051,20 +1136,23 @@ module Puri
     # store. It opens that conversation as its listener and its saver, its agents built by its
     # {Initializer}:
     # 
-    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:, config:, lock:,
-    #                              saved: true)
+    #   session = AgentSession.new(conversation, entry:, store:, conversations:, transport:, models:, config:,
+    #                              lock:, saved: true)
     #   session.restore                        # a saved one's blocks, once, before anyone reads them
     #   session.ask('how do I keep an avocado?')
+    #   session.select_model(models.find('Qwen 3.6'))   # for the next turn
     #   session.cancel
     #   session.delete                         # closes it, and removes it from disk
     # 
     # Every turn is saved once it ends, a cancelled or failed one too; a save that fails ends in an
     # error notice. The gem titles a conversation opened `untitled:` after its first turn, and the
-    # title is saved too.
+    # title is saved too. The conversation's {Protocol::Status} follows the model picked and the
+    # tokens each reply reports, through a {ContextReadout}.
     # 
     # == Threading
     # 
-    # {#ask}, {#cancel}, {#answer}, {#restore} and {#delete} come from the core, under its lock.
+    # {#ask}, {#cancel}, {#answer}, {#select_model}, {#restore} and {#delete} come from the core,
+    # under its lock.
     # {#on_event} and {#save} run on the gem's threads; {#save} and a title's write take this
     # session's own lock, so a save never carries a title older than the one on disk. A save
     # still ending after {#delete} writes nothing: `Store#delete` is final.
@@ -1080,7 +1168,9 @@ module Puri
       # 
       # _@param_ `conversations` — the live ones, which this one joins on its first question
       # 
-      # _@param_ `transport`
+      # _@param_ `transport` — the connection it starts on
+      # 
+      # _@param_ `models` — what names the connection in its status
       # 
       # _@param_ `config` — what its agents are built from
       # 
@@ -1095,6 +1185,7 @@ module Puri
                         store: Pikuri::Conversations::Store,
                         conversations: Pikuri::Conversations,
                         transport: Pikuri::Agent::ChatTransport,
+                        models: Puri::Core::Models,
                         config: Puri::Core::Config,
                         lock: Monitor,
                         saved: bool,
@@ -1114,6 +1205,11 @@ module Puri
 
       # Stops the running turn; a message it hasn't read yet is shown, and dropped.
       def cancel: () -> void
+
+      # The next turn runs on `choice`; a running one ends on its own model.
+      # 
+      # _@param_ `choice`
+      def select_model: (Puri::Core::Models::Choice choice) -> void
 
       # _@param_ `confirmation` — the block id the user answered
       # 
@@ -1140,6 +1236,9 @@ module Puri
 
       # _@return_ — opened on first use
       def live: () -> Pikuri::Conversations::Conversation
+
+      # Under the core's lock, so two threads' updates land in the order they read the gem.
+      def publish_status: () -> void
 
       # _@param_ `title`
       def retitle: (String title) -> void
@@ -1272,6 +1371,7 @@ module Puri
     #   ToolCall                  → ActivityChanged(working, "Searching the web…")
     #   ToolResult                → a ToolLine; ActivityChanged(working, "Thinking…")
     #   TurnEnded                 → a Notice when cancelled or failed
+    #   ModelSwitched             → nothing shown; a later failure names the new server
     # 
     # It renders every delta it gets, so it sits behind the gem's limiter, which coalesces them:
     # 
@@ -1497,6 +1597,47 @@ module Puri
       # _@return_ — safe inside Pango markup
       def self.escape: (String text) -> String
     end
+
+    # A conversation's context use, worded for its {Protocol::Status}. Fed the agent's and the
+    # gem's events; the counting is pikuri's `TokenLog`, as in pikuri-tui and pikuri-web:
+    # 
+    #   readout = ContextReadout.new
+    #   readout.on_event(event)          # Tokens, HistoryLoaded, ContextCap; Booting zeroes it
+    #   readout.status('Ornith 1.5')
+    #   # => Status(model: "Ornith 1.5", context: "7.4k of 64.0k tokens", fill: 0.116,
+    #   #           detail: "msg #2  Δ+1.6k  ↑1.0k  ↓0.6k")
+    # 
+    # The detail is `TokenLog`'s line without its `ctx=`: Δ the context's growth since the
+    # last reply, ↑ the prompt tokens this reply processed afresh, ↓ the tokens it wrote.
+    # 
+    # Thread-safe.
+    class ContextReadout
+      # _@param_ `cap` — the context window, until a `ContextCap` says otherwise
+      def initialize: (?cap: Integer?) -> void
+
+      # _@param_ `event` — any agent or conversation event; the rest are ignored
+      # 
+      # _@return_ — whether the readout changed
+      def on_event: (Object event) -> bool
+
+      # _@param_ `cap` — the window of a model picked before the agent boots
+      def cap=: (Integer? cap) -> void
+
+      # _@param_ `model` — the connection's name
+      def status: (String model) -> Puri::Protocol::Status
+
+      # _@param_ `measured`
+      # 
+      # _@param_ `used` — tokens
+      def context: (bool measured, Integer used) -> String
+
+      # As `TokenLog` writes a count: 1024-scaled.
+      # 
+      # _@param_ `tokens`
+      # 
+      # _@return_ — `12_453` → `"12.2k"`
+      def k: (Integer tokens) -> String
+    end
   end
 
   # The GTK4 UI: the widgets and {BackendClient}, nothing else. It holds no state beyond view
@@ -1548,6 +1689,43 @@ module Puri
       # 
       # _@param_ `widget`
       def replace: (Integer index, Gtk::Widget widget) -> void
+    end
+
+    # The line under the entry: the model the next turn runs on, a pick away, then how full the
+    # conversation's context is.
+    # 
+    #   [Ornith 1.5 ▾]  ▰▰▱▱▱▱  7.4k of 64.0k tokens          msg #2  Δ+1.6k  ↑1.0k  ↓0.6k
+    #    <model pick>   <fill>  <context>                                         <detail>
+    # 
+    #   bar = StatusBar.new(client)
+    #   bar.show(id, transcript.status)   # a conversation loaded
+    #   bar.show(nil)                     # a new one: the model it will start on
+    #   bar.show(id)                      # the new one just asked in; its StatusChanged follows
+    # 
+    # Picking a model calls `select_model` on the conversation shown, or, in a new one, picks the
+    # model it will start on.
+    class StatusBar < Gtk::Box
+      # _@param_ `client`
+      def initialize: (Puri::Desktop::BackendClient client) -> void
+
+      # _@param_ `conversation` — nil for a new one
+      # 
+      # _@param_ `status` — its status; nil keeps what is shown until the conversation's next {Protocol::StatusChanged}, but for a new one
+      def show: (String? conversation, ?Puri::Protocol::Status? status) -> void
+
+      # _@return_ — the model picked
+      def model_name: () -> String?
+
+      # _@param_ `status`
+      def status=: (Puri::Protocol::Status status) -> void
+
+      def picked: () -> void
+
+      attr_reader model: Gtk::DropDown
+
+      attr_reader context: Gtk::Label
+
+      attr_reader detail: Gtk::Label
     end
 
     # One {Protocol::ConversationSummary} in the history: the title, when it started, and a `●`
@@ -1783,6 +1961,16 @@ module Puri
       # _@param_ `conversation`
       def load_conversation: (String conversation) -> Puri::Protocol::Transcript
 
+      def list_models: () -> Puri::Protocol::Models
+
+      # Picks the model for a conversation's next turn, and for every new conversation after; a
+      # running turn ends on its own. A {StatusChanged} follows.
+      # 
+      # _@param_ `conversation` — nil picks for new conversations only
+      # 
+      # _@param_ `model` — one of {Models#names}
+      def select_model: (String? conversation, String model) -> void
+
       # Forgets a conversation, cancelling its turn first.
       # 
       # _@param_ `conversation`
@@ -1945,7 +2133,8 @@ module Puri
       def block=: (Puri::Protocol::UserMessage block) -> void
     end
 
-    # One conversation, on screen: its transcript over the entry that continues it. It keeps
+    # One conversation, on screen: its transcript over the entry that continues it, and its
+    # {StatusBar} under both once the window is expanded. It keeps
     # which conversation it shows and nothing else; the blocks come from Core, and stay current
     # through Core's events for that conversation.
     # 
@@ -1987,6 +2176,8 @@ module Puri
       attr_reader entry: Puri::Desktop::PromptEntry
 
       attr_reader transcript: Puri::Desktop::TranscriptView
+
+      attr_reader status_bar: Puri::Desktop::StatusBar
     end
   end
 
@@ -2105,6 +2296,22 @@ module Puri
       attr_reader rows: ::Array[::Array[String]]
     end
 
+    # The models a conversation can run on, what {Backend#list_models} returns.
+    # 
+    #   Models.new(names: ['Ornith 1.5', 'Qwen 3.6'], selected: 'Ornith 1.5')
+    # 
+    # @!attribute [r] names
+    #   @return [Array<String>] the config's connections, in its order; never empty
+    # @!attribute [r] selected
+    #   @return [String] the one a new conversation starts on
+    class Models
+      # _@return_ — the config's connections, in its order; never empty
+      attr_reader names: ::Array[String]
+
+      # _@return_ — the one a new conversation starts on
+      attr_reader selected: String
+    end
+
     # Transcript block: a line from Puri itself, not the model: "Cancelled", or why a turn failed.
     # 
     # @!attribute [r] id
@@ -2126,10 +2333,55 @@ module Puri
       attr_reader error: bool
     end
 
+    # What a conversation's status bar shows: the model its next turn runs on, and how full its
+    # context is, each worded by Core.
+    # 
+    #   Status.new(model: 'Ornith 1.5', context: '7.4k of 64.0k tokens', fill: 0.12,
+    #              detail: 'msg #2  Δ+1.6k  ↑1.0k  ↓0.6k')
+    #   Status.new(model: 'Ornith 1.5')   # nothing measured, the window unknown
+    # 
+    # @!attribute [r] model
+    #   @return [String] a {Models#names} entry, the connection the next turn uses
+    # @!attribute [r] context
+    #   @return [String] the context used, against the window when known; empty when neither is
+    # @!attribute [r] fill
+    #   @return [Float, nil] the share of the window used, 0.0 to 1.0; nil while the window or
+    #     the use is unknown
+    # @!attribute [r] detail
+    #   @return [String] the latest reply's tokens; empty before the first
+    class Status
+      # _@param_ `model`
+      # 
+      # _@param_ `context`
+      # 
+      # _@param_ `fill`
+      # 
+      # _@param_ `detail`
+      def initialize: (
+                        model: String,
+                        ?context: String,
+                        ?fill: Float?,
+                        ?detail: String
+                      ) -> void
+
+      # _@return_ — a {Models#names} entry, the connection the next turn uses
+      attr_reader model: String
+
+      # _@return_ — the context used, against the window when known; empty when neither is
+      attr_reader context: String
+
+      # _@return_ — the share of the window used, 0.0 to 1.0; nil while the window or
+      # the use is unknown
+      attr_reader fill: Float?
+
+      # _@return_ — the latest reply's tokens; empty before the first
+      attr_reader detail: String
+    end
+
     # The methods Desktop calls on Core. A backend includes this module and overrides every
     # method; the bodies here only raise. Calls come from the GTK main loop and return at once:
     # a turn runs on Core's own thread and reports through events ({BlockChanged},
-    # {ActivityChanged}, {ConversationsChanged}).
+    # {ActivityChanged}, {StatusChanged}, {ConversationsChanged}).
     # 
     #   id = backend.ask(nil, 'reschedule my dentist in the calendar')   # a new conversation
     #   # … BlockChanged(Confirmation(state: 'pending')) arrives …
@@ -2167,6 +2419,16 @@ module Puri
 
       # _@param_ `conversation`
       def load_conversation: (String conversation) -> Puri::Protocol::Transcript
+
+      def list_models: () -> Puri::Protocol::Models
+
+      # Picks the model for a conversation's next turn, and for every new conversation after; a
+      # running turn ends on its own. A {StatusChanged} follows.
+      # 
+      # _@param_ `conversation` — nil picks for new conversations only
+      # 
+      # _@param_ `model` — one of {Models#names}
+      def select_model: (String? conversation, String model) -> void
 
       # Forgets a conversation, cancelling its turn first.
       # 
@@ -2230,7 +2492,7 @@ module Puri
     end
 
     # A whole conversation as Desktop draws it, what {Backend#load_conversation} returns. Later
-    # changes arrive as {BlockChanged}, {BlockRemoved} and {ActivityChanged}.
+    # changes arrive as {BlockChanged}, {BlockRemoved}, {ActivityChanged} and {StatusChanged}.
     # 
     # @!attribute [r] conversation
     #   @return [String] its id
@@ -2240,6 +2502,8 @@ module Puri
     #   @return [Array<Puri::Protocol::Block>] in order
     # @!attribute [r] activity
     #   @return [Puri::Protocol::Activity]
+    # @!attribute [r] status
+    #   @return [Puri::Protocol::Status]
     class Transcript
       # _@return_ — its id
       attr_reader conversation: String
@@ -2250,6 +2514,8 @@ module Puri
       attr_reader blocks: ::Array[Puri::Protocol::Block]
 
       attr_reader activity: Puri::Protocol::Activity
+
+      attr_reader status: Puri::Protocol::Status
     end
 
     # Transcript block: the agent asks before it acts. While `pending`, Desktop shows Cancel and
@@ -2331,6 +2597,18 @@ module Puri
 
       # _@return_ — the block's id
       attr_reader block: String
+    end
+
+    # Event: a conversation's {Status} changed — a model picked, a reply's tokens counted.
+    # 
+    # @!attribute [r] conversation
+    #   @return [String]
+    # @!attribute [r] status
+    #   @return [Puri::Protocol::Status]
+    class StatusChanged
+      attr_reader conversation: String
+
+      attr_reader status: Puri::Protocol::Status
     end
 
     # Event: a conversation's turn started, moved on, or ended.

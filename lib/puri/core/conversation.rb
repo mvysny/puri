@@ -4,7 +4,7 @@ require 'time'
 
 module Puri
   module Core
-    # One conversation as Desktop sees it: its blocks, its activity, its title and its last
+    # One conversation as Desktop sees it: its blocks, its activity, its status, its title and its last
     # question, each change emitted as a {Protocol} event. Whatever runs its turns reports
     # through {#add}, {#put} and {#activity=}, so {PikuriCore} and the dummy backend in `dev/`
     # share it:
@@ -14,6 +14,7 @@ module Puri
     #   reply = conversation.add(Protocol::Reply.new(id: nil, parts: []))   # => the block, id "b1"
     #   conversation.put(reply.with(parts:))                 # re-sent whole
     #   conversation.activity = Protocol::Activity::IDLE
+    #   conversation.status = Protocol::Status.new(model: 'Ornith 1.5')
     #
     # == Threading
     #
@@ -46,6 +47,7 @@ module Puri
         @blocks = {}
         @next_block = 0
         @activity = Protocol::Activity::IDLE
+        @status = Protocol::Status.new(model: '')
         @last_question = last_question
         @asked_at = asked_at
       end
@@ -104,7 +106,8 @@ module Puri
       # @return [Puri::Protocol::Transcript]
       def transcript
         @lock.synchronize do
-          Protocol::Transcript.new(conversation: id, title: @title, blocks: @blocks.values, activity: @activity)
+          Protocol::Transcript.new(conversation: id, title: @title, blocks: @blocks.values, activity: @activity,
+                                   status: @status)
         end
       end
 
@@ -139,6 +142,19 @@ module Puri
           @activity = activity
           @emit.call(Protocol::ActivityChanged.new(conversation: id, activity:))
           @changed.call if was_running != activity.running?
+        end
+      end
+
+      # Emits nothing when it is the status already: each token count re-reads the whole.
+      #
+      # @param status [Puri::Protocol::Status]
+      # @return [void]
+      def status=(status)
+        @lock.synchronize do
+          next if status == @status
+
+          @status = status
+          @emit.call(Protocol::StatusChanged.new(conversation: id, status:))
         end
       end
     end

@@ -23,6 +23,7 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
   it 'shows a transcript, one row per block, in order' do
     view.transcript = p::Transcript.new(
       conversation: 'c1', title: 'Avocados', activity: p::Activity::IDLE,
+      status: p::Status.new(model: 'Ornith 1.5'),
       blocks: [p::UserMessage.new(id: 'b1', text: 'avocado?'),
                p::ToolLine.new(id: 'b2', text: '🔍 Searched: "avocado"', error: false),
                p::Reply.new(id: 'b3', parts: [p::Prose.new(markup: '<b>cold</b>')]),

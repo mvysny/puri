@@ -4,7 +4,8 @@ require 'time'
 
 module Puri
   module Desktop
-    # One conversation, on screen: its transcript over the entry that continues it. It keeps
+    # One conversation, on screen: its transcript over the entry that continues it, and its
+    # {StatusBar} under both once the window is expanded. It keeps
     # which conversation it shows and nothing else; the blocks come from Core, and stay current
     # through Core's events for that conversation.
     #
@@ -25,6 +26,9 @@ module Puri
       # @return [Puri::Desktop::TranscriptView]
       attr_reader :transcript
 
+      # @return [Puri::Desktop::StatusBar]
+      attr_reader :status_bar
+
       # @param client [Puri::Desktop::BackendClient]
       def initialize(client)
         super(:vertical, 0)
@@ -35,6 +39,10 @@ module Puri
         @entry = PromptEntry.new(recall: -> { recall }) { |text| ask(text) }
         @entry_box = Gtk::Box.new(:vertical, 0)
         @entry_box.append(@entry)
+        @status_bar = StatusBar.new(client)
+        @status_bar.margin_top = 8
+        @status_bar.show(nil)
+        @entry_box.append(@status_bar)
         append(@transcript)
         append(@entry_box)
         self.expanded = false
@@ -45,7 +53,9 @@ module Puri
       # @return [void]
       def conversation=(conversation)
         @conversation = conversation
-        @transcript.transcript = conversation && @client.load_conversation(conversation)
+        transcript = conversation && @client.load_conversation(conversation)
+        @transcript.transcript = transcript
+        @status_bar.show(conversation, transcript&.status)
       end
 
       # Shows the transcript over the entry, or the entry alone, as the popup's pill.
@@ -54,6 +64,7 @@ module Puri
       # @return [void]
       def expanded=(expanded)
         @transcript.visible = expanded
+        @status_bar.visible = expanded
         margin = expanded ? 12 : 6
         %i[top bottom start end].each { @entry_box.send(:"margin_#{_1}=", margin) }
       end
@@ -81,6 +92,7 @@ module Puri
       # @return [void]
       def ask(text)
         @conversation = @client.ask(@conversation, text)
+        @status_bar.show(@conversation)
         @transcript.scroll_to_bottom
         @on_asked&.call(@conversation)
       end
@@ -101,6 +113,7 @@ module Puri
         in Protocol::BlockChanged(block:) then @transcript.upsert(block)
         in Protocol::BlockRemoved(block:) then @transcript.remove(block)
         in Protocol::ActivityChanged(activity:) then @transcript.activity = activity
+        in Protocol::StatusChanged then nil # the status bar's
         end
       end
     end

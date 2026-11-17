@@ -14,11 +14,15 @@ module Puri
     #   core.load_conversation(id).blocks   # => [UserMessage, …] so far
     #   core.close                           # kills the turns and titles still running
     #
-    # `seed: true` starts it with a few earlier conversations, so the history isn't empty.
+    # `seed: true` starts it with a few earlier conversations, so the history isn't empty. Its
+    # {MODELS} change nothing but the status bar.
     #
     # Thread-safe.
     class Backend
       include Protocol::Backend
+
+      # @return [Array<String>] what {#list_models} offers
+      MODELS = ['Dummy', 'Dummy, no thinking'].freeze
 
       # @param think [Float] seconds each thinking step takes
       # @param pace [Float] seconds between streamed words
@@ -34,6 +38,7 @@ module Puri
         @title_delay = title_delay
         @lock = Monitor.new
         @conversations = {}
+        @selected = MODELS.first
         @threads = ThreadGroup.new
         # Silent while seeding: whoever listens may not exist before this returns.
         @listener = ->(_) {}
@@ -63,6 +68,19 @@ module Puri
 
       # (see Puri::Protocol::Backend#load_conversation)
       def load_conversation(conversation) = fetch(conversation).conversation.transcript
+
+      # (see Puri::Protocol::Backend#list_models)
+      def list_models = @lock.synchronize { Protocol::Models.new(names: MODELS, selected: @selected) }
+
+      # (see Puri::Protocol::Backend#select_model)
+      def select_model(conversation, model)
+        raise ArgumentError, "no model named #{model.inspect}" unless MODELS.include?(model)
+
+        @lock.synchronize do
+          fetch(conversation).select_model(model) if conversation
+          @selected = model
+        end
+      end
 
       # (see Puri::Protocol::Backend#delete_conversation)
       def delete_conversation(conversation)
@@ -101,7 +119,8 @@ module Puri
           id: SecureRandom.uuid, lock: @lock, emit: ->(event) { @listener.call(event) },
           changed: -> { publish }, started_at:, last_question: (text if asked), asked_at: (started_at if asked)
         )
-        session = Session.new(conversation, lock: @lock, threads: @threads, think: @think, pace: @pace)
+        session = Session.new(conversation, lock: @lock, threads: @threads, think: @think, pace: @pace,
+                                            model: @selected)
         @conversations[conversation.id] = session
         publish
         @threads.add(Thread.new do

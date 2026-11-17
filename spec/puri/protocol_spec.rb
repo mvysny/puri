@@ -8,6 +8,7 @@ RSpec.describe Puri::Protocol do
                                          p::Table.new(header: %w[A B], rows: [%w[1 2]])])
   [
     p::Transcript.new(conversation: 'c1', title: 'Avocados', activity: p::Activity::IDLE,
+                      status: p::Status.new(model: 'Ornith 1.5'),
                       blocks: [p::UserMessage.new(id: 'b1', text: 'avocado?'), reply,
                                p::ToolLine.new(id: 'b3', text: '🔍 Searched: "x"', error: false),
                                p::Confirmation.new(id: 'b4', question: 'Move?', approve_label: 'Update',
@@ -17,6 +18,9 @@ RSpec.describe Puri::Protocol do
     p::BlockRemoved.new(conversation: 'c1', block: 'b2'),
     p::ActivityChanged.new(conversation: 'c1', activity: p::Activity.new(state: 'working', status: 'Thinking…')),
     p::ConversationsChanged.new(conversations: [summary]),
+    p::StatusChanged.new(conversation: 'c1', status: p::Status.new(model: 'Ornith 1.5', context: '7.4k of 64.0k tokens',
+                                                                   fill: 0.116, detail: 'msg #2  Δ+1.6k')),
+    p::Models.new(names: ['Ornith 1.5', 'Qwen 3.6'], selected: 'Qwen 3.6'),
     [summary, nil, 'c1', 3, 1.5, true]
   ].each do |value|
     it "round-trips #{value.class.name.split('::').last} through JSON" do

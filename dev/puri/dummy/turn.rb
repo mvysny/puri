@@ -35,7 +35,15 @@ module Puri
         @pace = pace
         @control = Thread::Queue.new
         @pending = nil
+        @question = ''
+        @written = 0
       end
+
+      # @return [String] the message {#run} answers
+      attr_reader :question
+
+      # @return [Integer] characters {#stream} has written
+      attr_reader :written
 
       # Plays the script for `text` to the end, a cancel or a failure, then hands the
       # conversation back to idle.
@@ -43,6 +51,7 @@ module Puri
       # @param text [String] the user's message
       # @return [void]
       def run(text)
+        @question = text
         Script.run(self, text)
       rescue Cancelled
         settle('cancelled')
@@ -96,6 +105,7 @@ module Puri
         stream = Core::ReplyStream.new
         markdown.scan(/\s*\S+/).each do |word|
           pause(@pace)
+          @written += word.size
           reply = reply.with(parts: stream.append(word))
           @conversation.put(reply)
         end

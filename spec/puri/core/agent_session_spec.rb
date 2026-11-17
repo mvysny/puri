@@ -18,8 +18,10 @@ RSpec.describe Puri::Core::AgentSession do
   let(:session) do
     store = Pikuri::Conversations::Store.new(root: @root, shell: 'puri')
     config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil)
+    transport = Pikuri::Testing.fake_transport { nil }
+    models = Puri::Core::Models.new([Puri::Core::Models::Choice.new(name: 'Fake', transport:)])
     described_class.new(conversation, entry: store.create, store:, conversations: Pikuri::Conversations.new,
-                                      transport: Pikuri::Testing.fake_transport { nil }, config:, lock:, saved: false)
+                                      transport:, models:, config:, lock:, saved: false)
   end
 
   describe 'Initializer.system_prompt' do

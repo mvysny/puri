@@ -167,4 +167,43 @@ RSpec.describe 'Puri::Desktop::PopupWindow' do
     assert window.expanded?
     assert window.history_visible?
   end
+
+  describe 'the status bar' do
+    let(:bar) { view.status_bar }
+
+    it 'shows once expanded, on the model new conversations start on' do
+      window.present
+      refute bar.visible?
+      assert_equal 'Dummy', bar.model_name
+      ask('hi')
+      assert bar.visible?
+    end
+
+    it 'counts the answer into the context' do
+      ask('how do I keep an avocado?')
+      wait_until('the tokens are counted') { bar.detail.label.start_with?('msg #1') }
+      assert_match(/\A\d+\.\dk of 32\.0k tokens\z/, bar.context.label)
+    end
+
+    it 'switches the conversation shown, and the new ones after it' do
+      ask('hi')
+      wait_for_idle
+      bar.model.selected = 1
+      wait_until('the pick lands') { core.load_conversation(view.conversation).status.model == 'Dummy, no thinking' }
+      window.new_conversation
+      assert_equal 'Dummy, no thinking', bar.model_name
+    end
+
+    it 'shows the model of each conversation opened' do
+      ask('hi')
+      wait_for_idle
+      first = view.conversation
+      core.select_model(first, 'Dummy, no thinking')
+      core.select_model(nil, 'Dummy')
+      window.new_conversation
+      assert_equal 'Dummy', bar.model_name
+      view.conversation = first
+      assert_equal 'Dummy, no thinking', bar.model_name
+    end
+  end
 end

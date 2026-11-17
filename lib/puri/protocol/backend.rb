@@ -5,7 +5,7 @@ module Puri
     # The methods Desktop calls on Core. A backend includes this module and overrides every
     # method; the bodies here only raise. Calls come from the GTK main loop and return at once:
     # a turn runs on Core's own thread and reports through events ({BlockChanged},
-    # {ActivityChanged}, {ConversationsChanged}).
+    # {ActivityChanged}, {StatusChanged}, {ConversationsChanged}).
     #
     #   id = backend.ask(nil, 'reschedule my dentist in the calendar')   # a new conversation
     #   # … BlockChanged(Confirmation(state: 'pending')) arrives …
@@ -51,6 +51,22 @@ module Puri
       # @return [Puri::Protocol::Transcript]
       # @raise [ArgumentError] for an unknown id
       def load_conversation(conversation)
+        raise NotImplementedError, "#{self.class} must implement #{__method__}"
+      end
+
+      # @return [Puri::Protocol::Models]
+      def list_models
+        raise NotImplementedError, "#{self.class} must implement #{__method__}"
+      end
+
+      # Picks the model for a conversation's next turn, and for every new conversation after; a
+      # running turn ends on its own. A {StatusChanged} follows.
+      #
+      # @param conversation [String, nil] nil picks for new conversations only
+      # @param model [String] one of {Models#names}
+      # @return [void]
+      # @raise [ArgumentError] for an unknown conversation or model
+      def select_model(conversation, model)
         raise NotImplementedError, "#{self.class} must implement #{__method__}"
       end
 

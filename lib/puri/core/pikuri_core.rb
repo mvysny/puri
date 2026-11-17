@@ -7,8 +7,9 @@ module Puri
     # The backend: each conversation a pikuri agent on the configured model, hosted by
     # `Pikuri::Conversations`, everything reported as {Protocol} events.
     #
-    #   core = PikuriCore.new(config:, transport: config.primary_llm.transport, titler:, store:) { |event| … }
+    #   core = PikuriCore.new(config:, models: Models.from_config(config), titler:, store:) { |event| … }
     #   id = core.ask(nil, 'how do I keep an avocado?')
+    #   core.select_model(id, 'Qwen 3.6')   # its next turn, and every new conversation's
     #   core.load_conversation(id).blocks   # => [UserMessage, Reply] once it has answered
     #   core.list_conversations.first.title  # => "Keeping An Avocado Fresh", once titled
     #   core.close                           # stops every turn, closes every agent
@@ -17,6 +18,9 @@ module Puri
     # loaded or asked in; each is saved after every turn, and deleting one removes it from disk. A
     # new conversation is "New conversation" until the titler names it, once its first turn has
     # ended; a title that fails is logged, and the name stays until a later turn.
+    #
+    # A new conversation starts on the model picked last, the first `[[llm]]` until a pick; a
+    # saved one resumes on the connection it was saved on, while the config still has it.
     #
     # Thread-safe.
     class PikuriCore
@@ -64,7 +68,7 @@ module Puri
           LOGGER.error('[search] in config.toml sets no Brave or Exa key: the agent has no web tools')
         end
         library = config.documents && Library.new(config.documents)
-        new(config:, transport: config.primary_llm.transport, titler:, store:, library:, &)
+        new(config:, models: Models.from_config(config), titler:, store:, library:, &)
       end
 
       # The saved conversations, in pikuri-web's folder format (`D_port_pikuri_web`).
@@ -87,16 +91,17 @@ module Puri
       end
 
       # @param config [Puri::Core::Config] what each conversation's agent is built from
-      # @param transport [Pikuri::Agent::ChatTransport] where conversations run
+      # @param models [Puri::Core::Models] where conversations run
       # @param titler [Pikuri::Conversations::Titler] names each new conversation from its first message
       # @param store [Pikuri::Conversations::Store] where conversations are saved
       # @param library [Puri::Core::Library, nil] the documents folder every agent searches
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(config:, transport:, titler:, store:, library: nil, &listener)
+      def initialize(config:, models:, titler:, store:, library: nil, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
-        @transport = transport
+        @models = models
+        @selected = models.default
         @store = store
         @config = config
         @library = library
@@ -134,6 +139,20 @@ module Puri
         @lock.synchronize do
           session(conversation)
           @conversations.fetch(conversation).transcript
+        end
+      end
+
+      # (see Puri::Protocol::Backend#list_models)
+      def list_models
+        @lock.synchronize { Protocol::Models.new(names: @models.names, selected: @selected.name) }
+      end
+
+      # (see Puri::Protocol::Backend#select_model)
+      def select_model(conversation, model)
+        @lock.synchronize do
+          choice = @models.find(model)
+          session(conversation).select_model(choice) if conversation
+          @selected = choice
         end
       end
 
@@ -212,8 +231,16 @@ module Puri
       # @param saved [Boolean]
       # @return [Puri::Core::AgentSession]
       def agent_session(conversation, entry, saved:)
-        AgentSession.new(conversation, entry:, store: @store, conversations: @live, transport: @transport,
+        AgentSession.new(conversation, entry:, store: @store, conversations: @live,
+                                       transport: start_on(entry, saved:).transport, models: @models,
                                        config: @config, lock: @lock, saved:, library: @library)
+      end
+
+      # @param entry [Pikuri::Conversations::Store::Entry]
+      # @param saved [Boolean]
+      # @return [Puri::Core::Models::Choice] the connection a conversation opens on
+      def start_on(entry, saved:)
+        (@models.saved(entry) if saved) || @selected
       end
 
       # @return [void]
