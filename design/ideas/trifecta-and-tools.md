@@ -93,7 +93,7 @@ accepted.
 
 | Siri | Here, on Linux | Trifecta legs | Gate |
 |---|---|---|---|
-| Notes, read | built: pikuri-rag and the file tools over `[documents]` (`D_documents`) | private, untrusted | — |
+| Notes, read | built: pikuri-os's `fileindex_search` over the desktop's index, and the file tools over `[documents]` (`D_documents`) | private, untrusted | — |
 | Notes, write | built: `write` / `edit` inside `Notes/` only | (integrity) | none (`D_documents`) |
 | Reminders | `Q_reminders_backend` | private | create: none, as notes? |
 | Calendar, read | built: pikuri-thunderbird `calendar_search` / `calendar_read` | private, untrusted (invites) | — |

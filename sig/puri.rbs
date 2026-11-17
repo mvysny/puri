@@ -51,7 +51,7 @@ module Puri
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
-    #   config.documents     # => Documents(folder:, exclude:, server:, …), or nil without the table
+    #   config.documents     # => Documents(folder:), or nil without the table
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -84,11 +84,7 @@ module Puri
     #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
     # 
     #   [documents]                      # optional; omitted, the agent has no files
-    #   folder       = "~/Documents"     # optional, the default; notes go in its Notes/
-    #   exclude      = ["Books"]         # optional; never indexed, relative to folder
-    #   server       = "local"           # a [[server]] id, for both models below
-    #   embed_model  = "…"
-    #   rerank_model = "…"               # optional; omitted, no reranker
+    #   folder = "~/Documents"           # optional, the default; notes go in its Notes/
     # 
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -203,13 +199,8 @@ module Puri
       # defaults when the table is absent, `profile_dir` expanded
       def self.resolve_thunderbird: (Puri::Core::Config::ThunderbirdTable? table) -> Puri::Core::Config::ThunderbirdTable?
 
-      # Checked here, since a typo'd exclude would otherwise exclude nothing, and the first sign
-      # would be hours of embedding a folder of books.
-      # 
       # _@param_ `table`
-      # 
-      # _@param_ `servers` — every `[[server]]`, by id
-      def self.resolve_documents: (Puri::Core::Config::DocumentsTable table, ::Hash[String, Puri::Core::Config::Server] servers) -> Puri::Core::Config::Documents
+      def self.resolve_documents: (Puri::Core::Config::DocumentsTable table) -> Puri::Core::Config::Documents
 
       # _@param_ `env`
       # 
@@ -486,66 +477,22 @@ module Puri
       # 
       # @!attribute [r] folder
       #   @return [String] see {Documents#folder}, `~` unexpanded
-      # @!attribute [r] exclude
-      #   @return [Array<String>] see {Documents#exclude}, relative to `folder` or absolute
-      # @!attribute [r] server
-      #   @return [String] the {Server#id} both models run on
-      # @!attribute [r] embed_model
-      #   @return [String] see {Documents#embed_model}
-      # @!attribute [r] rerank_model
-      #   @return [String, nil] see {Documents#rerank_model}
       class DocumentsTable
         extend Typemap::Constrain
 
-        # _@param_ `server`
-        # 
-        # _@param_ `embed_model`
-        # 
         # _@param_ `folder`
-        # 
-        # _@param_ `exclude`
-        # 
-        # _@param_ `rerank_model`
-        def initialize: (
-                          server: String,
-                          embed_model: String,
-                          ?folder: String,
-                          ?exclude: ::Array[String],
-                          ?rerank_model: String?
-                        ) -> void
+        def initialize: (?folder: String) -> void
 
         # _@return_ — see {Documents#folder}, `~` unexpanded
         attr_reader folder: String
-
-        # _@return_ — see {Documents#exclude}, relative to `folder` or absolute
-        attr_reader exclude: ::Array[String]
-
-        # _@return_ — the {Server#id} both models run on
-        attr_reader server: String
-
-        # _@return_ — see {Documents#embed_model}
-        attr_reader embed_model: String
-
-        # _@return_ — see {Documents#rerank_model}
-        attr_reader rerank_model: String?
       end
 
-      # The folder the agent searches and reads, and writes only in its {#notes}; its
-      # `[[server]]` resolved in, every path absolute.
+      # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
+      # through the desktop's own file index, which covers whatever the user's desktop indexes;
+      # the agent scopes it to this folder by passing it.
       # 
       # @!attribute [r] folder
-      #   @return [String] an existing directory
-      # @!attribute [r] exclude
-      #   @return [Array<String>] existing paths inside {#folder} that are never indexed, though
-      #     the file tools still read them
-      # @!attribute [r] server
-      #   @return [String] the {Server#url} the embedder and the reranker run on
-      # @!attribute [r] api_key
-      #   @return [String, nil] the {Server#api_key}
-      # @!attribute [r] embed_model
-      #   @return [String] the embedding model id sent to {#server}
-      # @!attribute [r] rerank_model
-      #   @return [String, nil] the reranker's model id, or nil to keep the fused top hits
+      #   @return [String] an existing directory, absolute
       class Documents
         # _@return_ — where the agent writes, and keeps its memory
         def notes: () -> String
@@ -553,24 +500,8 @@ module Puri
         # _@return_ — the memory note, read into each agent's system prompt
         def memory: () -> String
 
-        # _@return_ — an existing directory
+        # _@return_ — an existing directory, absolute
         attr_reader folder: String
-
-        # _@return_ — existing paths inside {#folder} that are never indexed, though
-        # the file tools still read them
-        attr_reader exclude: ::Array[String]
-
-        # _@return_ — the {Server#url} the embedder and the reranker run on
-        attr_reader server: String
-
-        # _@return_ — the {Server#api_key}
-        attr_reader api_key: String?
-
-        # _@return_ — the embedding model id sent to {#server}
-        attr_reader embed_model: String
-
-        # _@return_ — the reranker's model id, or nil to keep the fused top hits
-        attr_reader rerank_model: String?
       end
 
       # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
@@ -645,90 +576,37 @@ module Puri
       def self.blocks: (Pikuri::Agent::History history) -> ::Array[(Puri::Protocol::UserMessage | Puri::Protocol::Reply | Puri::Protocol::ToolLine)]
     end
 
-    # The `[documents]` folder, for every conversation at once: its index in Qdrant beside an
-    # SQLite FTS5 file, the watcher that keeps the index in step with the disk, and the `Notes/`
-    # folder the agent writes in. Each agent gets an extension of its own over the one corpus.
+    # The `[documents]` folder, for every conversation at once: the `Notes/` folder the agent
+    # writes in, its memory note, and the desktop's own file index the agent searches it through.
     # 
-    #   library = Library.new(config.documents, cache_dir: PikuriCore.cache_dir)  # starts at once
-    #   Pikuri::Rag::Extension.new(corpus: library.corpus, reranker: library.reranker)  # waits for it
-    #   library.memory          # => Notes/PURI.md's text, "" when absent
-    #   library.close           # the watcher, the corpus, then the container
+    #   library = Library.new(config.documents)   # creates Notes/, picks the file index
+    #   library.file_index_tools   # => [fileindex_search, fileindex_read], or [] with no index
+    #   library.memory             # => Notes/PURI.md's text, "" when absent
     # 
-    # Starting runs on a thread of its own: Qdrant takes seconds to come up, and the extractors'
-    # container minutes to build the first time, while the popup must come up at once. The first
-    # embed of a real folder takes hours, and the watcher does it in the background, a file at a
-    # time; search meanwhile finds what is indexed so far.
-    # 
-    # The documents are declared private and untrusted, like the secretary's in pikuri: a
-    # documents folder holds downloaded attachments and other people's files.
+    # The index is the desktop's, not ours (`D_documents`): localsearch, else recoll, as
+    # `Pikuri::Os::Extension` picks it. It holds every PDF's and office file's text already, so
+    # `fileindex_read` reads those too. No index on the machine leaves the agent the file tools
+    # alone, and a warning in the log.
     # 
     # Thread-safe.
     class Library
       LOGGER: Logger
-      CLOSE_SECONDS: Integer
 
-      # Creates `Notes/`, and starts the index.
+      # Creates `Notes/`, and asks each backend in turn whether its index answers.
       # 
       # _@param_ `documents`
       # 
-      # _@param_ `cache_dir` — where the FTS5 file goes
-      # 
-      # _@param_ `server` — the vector server: `Pikuri::VectorDb::Server::Qdrant`, or a spec's `InMemory`
-      # 
-      # _@param_ `embedder` — nil for the one `documents` names
-      # 
-      # _@param_ `extractors` — whether to register the office-format extractors and build their image; specs leave the registry alone
-      def initialize: (
-                        Puri::Core::Config::Documents documents,
-                        cache_dir: String,
-                        ?server: Class,
-                        ?embedder: untyped?,
-                        ?extractors: bool
-                      ) -> void
-
-      # _@return_ — once started; waits until it is
-      def corpus: () -> Pikuri::VectorDb::Corpus
+      # _@param_ `backends` — file-index backends, most preferred first; a spec passes its own
+      def initialize: (Puri::Core::Config::Documents documents, ?backends: ::Array[Module]) -> void
 
       # _@return_ — the memory note's text, stripped; "" when it doesn't exist yet
       def memory: () -> String
 
-      # Stops the watcher, its file in progress finished first, then closes the corpus and the
-      # container. A start still in progress gets {CLOSE_SECONDS}, and whatever it opened later
-      # closes as it does.
-      def close: () -> void
-
-      # _@param_ `server_class`
-      # 
-      # _@param_ `cache_dir`
-      # 
-      # _@param_ `extractors`
-      def start: (Class server_class, String cache_dir, bool extractors) -> Pikuri::VectorDb::Corpus
-
-      # The office formats and PDFs, converted in a networkless container; the image is built
-      # here, the first time, rather than on the first document. A machine without docker falls
-      # back to the host's pandoc and markitdown, or reads those formats not at all.
-      def register_extractors: () -> void
-
-      # _@param_ `vectors` — the vector server's client
-      # 
-      # _@param_ `store` — the FTS5 file
-      def corpus_on: (Object vectors, String store) -> Pikuri::VectorDb::Corpus
-
-      # _@param_ `cache_dir`
-      # 
-      # _@param_ `collection`
-      # 
-      # _@return_ — the FTS5 file, named as the Qdrant collection
-      def store: (String cache_dir, String collection) -> String
-
-      # Closes what the start opened, each once.
-      def teardown: () -> void
-
       attr_reader documents: Puri::Core::Config::Documents
 
-      # _@return_ — nil when the config names no
-      # reranker
-      attr_reader reranker: Pikuri::VectorDb::Reranker::LlamaServer?
+      # _@return_ — `fileindex_search` and `fileindex_read`, stateless, so every
+      # agent shares them; empty when no index answers
+      attr_reader file_index_tools: ::Array[Pikuri::Tool]
     end
 
     # Asks the user in the transcript: a tool's `ask` shows a {Protocol::Confirmation} and waits
@@ -832,7 +710,7 @@ module Puri
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
       # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
-      # starts that folder's {Library}, which the core closes. Also sets each
+      # builds that folder's {Library}. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -867,7 +745,7 @@ module Puri
       # 
       # _@param_ `store` — where conversations are saved
       # 
-      # _@param_ `library` — the documents folder every agent searches; the core closes it
+      # _@param_ `library` — the documents folder every agent searches
       def initialize: (
                         config: Puri::Core::Config,
                         transport: Pikuri::Agent::ChatTransport,
@@ -913,8 +791,7 @@ module Puri
       def delete_conversation: (String conversation) -> void
 
       # Closes every conversation, cancelling its turn, and waits for each turn to be saved and
-      # its agent closed; then the library, whose index no agent searches any more. Not under the
-      # core's lock: a turn's save takes it.
+      # its agent closed. Not under the core's lock: a turn's save takes it.
       def close: () -> void
 
       # _@param_ `id`
@@ -1339,7 +1216,7 @@ module Puri
         # _@param_ `_conversation` — this session's
         # 
         # _@return_ — {.system_prompt} for the tools the config gives, then today's date, the
-        # time zone, and with documents the memory and what isn't indexed; the agent appends its
+        # time zone, and with documents their folder and the memory; the agent appends its
         # extensions' own fragments
         def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
@@ -1360,9 +1237,8 @@ module Puri
         def library_prompt: () -> String
 
         # Reads the whole documents folder, and writes only its `Notes/`, unasked (owner,
-        # 2026-11-17): the folder is the gate, and each write's line names its file. Rooted where
-        # the index is, so a path one tool cites is the same file to the other. No `grep`: it
-        # can't see inside a PDF, and would answer "no match" where `rag_search_keywords` finds it.
+        # 2026-11-17): the folder is the gate, and each write's line names its file. No `grep`: it
+        # can't see inside a PDF, and would answer "no match" where `fileindex_search` finds it.
         def workspace: () -> Pikuri::Workspace::Extension
 
         # Mail, contacts and calendar, read from the local profile, and both hand-offs: a drafted

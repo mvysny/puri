@@ -16,7 +16,7 @@ module Puri
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
-    #   config.documents     # => Documents(folder:, exclude:, server:, …), or nil without the table
+    #   config.documents     # => Documents(folder:), or nil without the table
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -49,11 +49,7 @@ module Puri
     #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
     #
     #   [documents]                      # optional; omitted, the agent has no files
-    #   folder       = "~/Documents"     # optional, the default; notes go in its Notes/
-    #   exclude      = ["Books"]         # optional; never indexed, relative to folder
-    #   server       = "local"           # a [[server]] id, for both models below
-    #   embed_model  = "…"
-    #   rerank_model = "…"               # optional; omitted, no reranker
+    #   folder = "~/Documents"           # optional, the default; notes go in its Notes/
     #
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -234,44 +230,22 @@ module Puri
       #
       # @!attribute [r] folder
       #   @return [String] see {Documents#folder}, `~` unexpanded
-      # @!attribute [r] exclude
-      #   @return [Array<String>] see {Documents#exclude}, relative to `folder` or absolute
-      # @!attribute [r] server
-      #   @return [String] the {Server#id} both models run on
-      # @!attribute [r] embed_model
-      #   @return [String] see {Documents#embed_model}
-      # @!attribute [r] rerank_model
-      #   @return [String, nil] see {Documents#rerank_model}
-      class DocumentsTable < Data.define(:folder, :exclude, :server, :embed_model, :rerank_model)
+      class DocumentsTable < Data.define(:folder)
         extend Typemap::Constrain
 
-        constrain :folder, :server, :embed_model, :rerank_model, not_blank: true
+        constrain :folder, not_blank: true
 
-        # @param server [String]
-        # @param embed_model [String]
         # @param folder [String]
-        # @param exclude [Array<String>]
-        # @param rerank_model [String, nil]
-        def initialize(server:, embed_model:, folder: '~/Documents', exclude: [], rerank_model: nil) = super
+        def initialize(folder: '~/Documents') = super
       end
 
-      # The folder the agent searches and reads, and writes only in its {#notes}; its
-      # `[[server]]` resolved in, every path absolute.
+      # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
+      # through the desktop's own file index, which covers whatever the user's desktop indexes;
+      # the agent scopes it to this folder by passing it.
       #
       # @!attribute [r] folder
-      #   @return [String] an existing directory
-      # @!attribute [r] exclude
-      #   @return [Array<String>] existing paths inside {#folder} that are never indexed, though
-      #     the file tools still read them
-      # @!attribute [r] server
-      #   @return [String] the {Server#url} the embedder and the reranker run on
-      # @!attribute [r] api_key
-      #   @return [String, nil] the {Server#api_key}
-      # @!attribute [r] embed_model
-      #   @return [String] the embedding model id sent to {#server}
-      # @!attribute [r] rerank_model
-      #   @return [String, nil] the reranker's model id, or nil to keep the fused top hits
-      class Documents < Data.define(:folder, :exclude, :server, :api_key, :embed_model, :rerank_model)
+      #   @return [String] an existing directory, absolute
+      class Documents < Data.define(:folder)
         # @return [String] where the agent writes, and keeps its memory
         def notes = File.join(folder, 'Notes')
 
@@ -375,7 +349,7 @@ module Puri
         llms = root.llm.map { |table| resolve_llm(table, servers) }
         new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
             search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird),
-            documents: root.documents && resolve_documents(root.documents, servers))
+            documents: root.documents && resolve_documents(root.documents))
       end
 
       # @param llms [Array<Puri::Core::Config::Llm>] never empty
@@ -539,28 +513,14 @@ module Puri
         table.profile_dir ? table.with(profile_dir: File.expand_path(table.profile_dir)) : table
       end
 
-      # Checked here, since a typo'd exclude would otherwise exclude nothing, and the first sign
-      # would be hours of embedding a folder of books.
-      #
       # @param table [Puri::Core::Config::DocumentsTable]
-      # @param servers [Hash{String => Puri::Core::Config::Server}] every `[[server]]`, by id
       # @return [Puri::Core::Config::Documents]
-      # @raise [Error] when `folder` is no directory, an `exclude` no path inside it, or `server`
-      #   names no `[[server]]`
-      def self.resolve_documents(table, servers)
+      # @raise [Error] when `folder` is no directory
+      def self.resolve_documents(table)
         folder = File.expand_path(table.folder)
         raise Error, "documents.folder: #{folder} is not a directory" unless File.directory?(folder)
 
-        exclude = table.exclude.map { |entry| File.expand_path(entry, folder) }
-        exclude.each do |path|
-          next if path.start_with?("#{folder}/") && File.exist?(path)
-
-          raise Error, "documents.exclude: #{path} is not an existing path inside #{folder}"
-        end
-        server = servers[table.server] or
-          raise Error, "documents.server: no [[server]] has id #{table.server.inspect}"
-        Documents.new(folder:, exclude:, server: server.url, api_key: server.api_key,
-                      embed_model: table.embed_model, rerank_model: table.rerank_model)
+        Documents.new(folder:)
       end
 
       # @param env [#[]]

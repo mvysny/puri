@@ -93,22 +93,19 @@ profile_dir = "~/snap/thunderbird/common/.thunderbird/abcd1234.default"
 # enabled = false
 ```
 
-To let Puri search and read your documents, name the folder and the models that index it:
+To let Puri search and read your documents, add the table:
 
 ```toml
 [documents]
-# folder     = "~/Documents"   # the default
-exclude      = ["Books"]       # never indexed; a folder of books would take days
-server       = "local"         # a [[server]] id
-embed_model  = "nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0"
-rerank_model = "gpustack/bge-reranker-v2-m3-GGUF:Q8_0"   # optional
+# folder = "~/Documents"   # the default
 ```
 
-The index lives in [Qdrant](https://qdrant.tech), which Puri runs in podman or docker, so a
-folder is embedded once rather than on every start; the first embed of a real `~/Documents`
-takes hours, and answers come slower meanwhile. Office files (DOCX, ODT, XLSX, PPTX, EPUB, RTF)
-and PDFs are converted in a networkless docker container that Puri builds on first use. Puri
-writes only in the folder's `Notes/`, without asking, and keeps what you ask it to remember in
+Puri searches through your desktop's own file index, GNOME's localsearch (`localsearch` and its
+`tinysparql` CLI, installed with GNOME), or recoll when localsearch isn't there; it keeps no
+index of its own. The index already holds the text of your PDFs and office files, so Puri reads
+those too. Make sure the index covers the folder: GNOME Settings → Search → Search Locations.
+Without an index Puri still reads the folder's files by path, and logs a warning. Puri writes
+only in the folder's `Notes/`, without asking, and keeps what you ask it to remember in
 `Notes/PURI.md`.
 
 To open Puri from a global shortcut, install it for your user:

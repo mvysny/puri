@@ -124,35 +124,38 @@ RSpec.describe Puri::Core::AgentSession do
     describe 'with [documents]' do
       around do |example|
         Dir.mktmpdir('puri-documents') do |folder|
-          FileUtils.mkdir_p(File.join(folder, 'Books'))
-          documents = Puri::Core::Config::Documents.new(
-            folder:, exclude: [File.join(folder, 'Books')], server: 'http://fake.invalid', api_key: nil,
-            embed_model: 'nomic', rerank_model: nil
-          )
-          embedder = Object.new.tap { |fake| def fake.embed(texts) = texts.map { [1.0, 0.0] } }
           @folder = folder
-          @library = Puri::Core::Library.new(documents, cache_dir: @cache, embedder:, extractors: false,
-                                                        server: Pikuri::VectorDb::Server::InMemory)
+          @library = Puri::Core::Library.new(Puri::Core::Config::Documents.new(folder:), backends: [FakeIndex.new])
           example.run
-        ensure
-          @library&.close
         end
       end
 
-      it 'searches and reads the folder, and has no grep' do
+      it 'searches the desktop index, reads the folder, and has no grep' do
         built = agent(nil, library: @library)
-        assert_equal %w[calculator rag_search rag_search_keywords rag_read rag_reindex read glob file_list edit write],
+        assert_equal %w[calculator fileindex_search fileindex_read read glob file_list edit write],
                      built.tools.map(&:name)
       ensure
         built&.close
       end
 
-      it 'tells the model its memory, and what search cannot find' do
+      it 'finds a document under the folder the prompt names' do
+        File.write(File.join(@folder, 'lease.txt'), "The rent is 900 a month.\n")
+        built = agent(nil, library: @library) do |llm|
+          llm.tool_call('fileindex_search', query: 'rent', folder: @folder)
+          llm.reply('900 a month.')
+        end
+        assert_includes built.system_prompt, "The user's documents folder is #{@folder}."
+        built.run_loop(user_message: 'What is my rent?')
+        result = built.export_history.messages.find { _1.role == 'tool' }
+        assert_includes result.content, File.join(@folder, 'lease.txt')
+      ensure
+        built&.close
+      end
+
+      it 'tells the model its memory' do
         File.write(File.join(@folder, 'Notes', 'PURI.md'), "- signs as Alex\n")
         prompt = agent(nil, library: @library).system_prompt
         assert_includes prompt, %(<memory path="Notes/PURI.md">\n- signs as Alex\n</memory>)
-        assert_includes prompt, 'Not indexed, so search can\'t find them, though a file there can be read by its ' \
-                                'path: Books.'
       end
 
       it 'says the memory is yet to be written' do

@@ -10,6 +10,7 @@ end
 $LOAD_PATH.unshift File.expand_path('../lib', __dir__), File.expand_path('../dev', __dir__)
 require 'puri'
 require 'puri/dummy'
+require_relative 'support/fake_index'
 
 # GTK stays unloaded here: Core and Protocol specs run without it, and a spec that needs it
 # requires gtk_helper.

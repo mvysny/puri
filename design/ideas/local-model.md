@@ -58,9 +58,7 @@ definitions + memory). That last number is what a smaller model will pay for eve
 ## Open questions
 
 - `Q_target_hardware`: the app runs on the owner's desktop, the Ryzen AI 9 HX 370 host (the VM has
-  7 GB RAM and a virtio GPU)? How much RAM does the host have for model + embedder + daemon?
-- `Q_embedder`: which embedding model for pikuri-rag, and does it share the llama-server with the
-  chat model or get its own (on the NPU)?
+  7 GB RAM and a virtio GPU)? How much RAM does the host have for model + daemon?
 - `Q_eval_suite`: where does the task suite live — here, or in pikuri as a general tool-calling
   benchmark?
 - `Q_hosted_tier`: is there an opt-in hosted tier at all, and is a query that quotes a note allowed

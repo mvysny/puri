@@ -96,7 +96,7 @@ module Puri
 
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
         # @return [String] {.system_prompt} for the tools the config gives, then today's date, the
-        #   time zone, and with documents the memory and what isn't indexed; the agent appends its
+        #   time zone, and with documents their folder and the memory; the agent appends its
         #   extensions' own fragments
         def system_prompt(_conversation)
           now = Time.now
@@ -112,7 +112,6 @@ module Puri
         # @param configurator [Pikuri::Agent::Configurator]
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
         # @return [void]
-        # @raise [StandardError] when the documents' index failed to start
         def configure(configurator, _conversation)
           @confirmer = Confirmer.new(@conversation, lock: @lock)
           configurator.add_tool(Pikuri::Tool::CALCULATOR)
@@ -120,7 +119,7 @@ module Puri
           configurator.add_extension(thunderbird(configurator)) if @config.thunderbird
           return unless @library
 
-          configurator.add_extension(Pikuri::Rag::Extension.new(corpus: @library.corpus, reranker: @library.reranker))
+          configurator.add_tools(@library.file_index_tools)
           configurator.add_extension(workspace)
         end
 
@@ -134,27 +133,21 @@ module Puri
         def library_prompt
           return '' unless @library
 
+          documents = @library.documents
           memory = @library.memory
-          path = Pathname.new(@library.documents.memory).relative_path_from(@library.documents.folder)
+          path = Pathname.new(documents.memory).relative_path_from(documents.folder)
           block = if memory.empty?
                     "#{path} does not exist yet or is empty; create it the first time the user asks you to " \
                       'remember something.'
                   else
                     "<memory path=\"#{path}\">\n#{memory}\n</memory>"
                   end
-          excluded = @library.documents.exclude.map { Pathname.new(_1).relative_path_from(@library.documents.folder) }
-          # Else the model reads "search found nothing" as "the user has nothing".
-          unless excluded.empty?
-            block += "\n\nNot indexed, so search can't find them, though a file there can be read by its path: " \
-                     "#{excluded.join(', ')}."
-          end
-          "\n\n#{block}"
+          "\n\nThe user's documents folder is #{documents.folder}.\n\n#{block}"
         end
 
         # Reads the whole documents folder, and writes only its `Notes/`, unasked (owner,
-        # 2026-11-17): the folder is the gate, and each write's line names its file. Rooted where
-        # the index is, so a path one tool cites is the same file to the other. No `grep`: it
-        # can't see inside a PDF, and would answer "no match" where `rag_search_keywords` finds it.
+        # 2026-11-17): the folder is the gate, and each write's line names its file. No `grep`: it
+        # can't see inside a PDF, and would answer "no match" where `fileindex_search` finds it.
         #
         # @return [Pikuri::Workspace::Extension]
         def workspace

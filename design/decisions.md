@@ -15,19 +15,18 @@ above, open the doc comments it touches and cut what they already say, then cut 
 
 ## D_one_process — Why one Ruby process holding both Core and the GTK4 UI, rather than a backend daemon and a UI client?
 
-Something is resident anyway: the agents, the saved conversations, the notes index and the
-reminder timers (the model itself runs in llama-server). And no Ruby UI starts fast enough on the
-hotkey — ~1.2 s (`R_gtk4_binding_cost`) — so the UI stays resident too, hidden rather than
-closed, and a second process would save only a hidden window's memory. The costs we carry: a
-crash in GTK or its binding takes a running turn and the reminder timers down with it; pikuri's
-threads reach GTK only through the main loop; trying a UI change restarts pikuri too. So it is
-drawn as two, and Protocol is kept as the divider meticulously: Core and Desktop share no
-constants, and every value crosses as JSON, so a split swaps only the connection. Only trouble
-with `ruby-gtk4` reopens the split (`D_ruby_gtk4`); Protocol then rides the D-Bus session bus,
-never a TCP port, not even on loopback, since *Local first* means no network listener. Why not
-separate gems to hold the line: `gtk4` comes from apt, on the default load path whatever a
-gemspec says, so gems enforce nothing; a grep spec and a GTK-free load spec do. Packwerk would
-do the grep statically, but apt doesn't ship it.
+Something is resident anyway: the agents, the saved conversations and the reminder timers (the
+model itself runs in llama-server). And no Ruby UI starts fast enough on the hotkey — ~1.2 s
+(`R_gtk4_binding_cost`) — so the UI stays resident too, hidden rather than closed, and a second
+process would save only a hidden window's memory. The costs we carry: a crash in GTK or its binding
+takes a running turn and the reminder timers down with it; pikuri's threads reach GTK only through
+the main loop; trying a UI change restarts pikuri too. So it is drawn as two, and Protocol is kept
+as the divider meticulously: Core and Desktop share no constants, and every value crosses as JSON,
+so a split swaps only the connection. Only trouble with `ruby-gtk4` reopens the split
+(`D_ruby_gtk4`); Protocol then rides the D-Bus session bus, never a TCP port, not even on loopback,
+since *Local first* means no network listener. Why not separate gems to hold the line: `gtk4` comes
+from apt, on the default load path whatever a gemspec says, so gems enforce nothing; a grep spec
+and a GTK-free load spec do. Packwerk would do the grep statically, but apt doesn't ship it.
 
 ## D_ruby_gtk4 — Why Ruby + GTK4 for the UI, with Vala as the fallback, rather than Python, the JVM or Flutter?
 
@@ -133,15 +132,19 @@ now quote the user's mail, but it lands in Brave's or Exa's logs, where no attac
 (egress `:tool_vouched`), and that privacy cost is accepted. `Web::Search.build(confirmer:)` is
 there if it isn't any more.
 
-## D_documents — Why does Puri write notes unasked, index into Qdrant, and read office files in a container?
+## D_documents — Why does Puri write notes unasked, and search through the desktop's file index rather than an index of its own?
 
 The documents are pikuri's secretary's (`book/secretary.md` there), with one cut undone: the
 secretary confirms each write with its diff, and Puri doesn't (owner, 2026-11-17). The folder is
 the gate: writes land only in `Notes/`, and each write's line names its file for the user to open.
 That leaves the secretary's stored injection open, a mail planting a note a later conversation
 trusts; the prompt still says to quote a stranger, never to write as the user, and a confirmation
-with a readable diff waits for v2. Qdrant over pikuri's in-memory store, as a real `~/Documents`
-takes hours to embed, and a resident process would still pay it at every login. Office files go
-through the workshop's extractors, since a converter's parser chews attacker-controlled bytes and
-belongs where it can reach neither the network nor the disk. Opt-in, so no hours of embedding
-start unasked.
+with a readable diff waits for v2.
+
+Search is pikuri-os's `fileindex_search` over GNOME's localsearch, or recoll (owner, 2026-11-17),
+as Siri searches through the OS's index rather than one of its own. It costs no embedder, no
+reranker, no Qdrant, no extractors' container and no hours of first indexing, and the index has
+already extracted every PDF's and office file's text, under the desktop's own sandbox. The price
+is keyword recall: no synonyms, no other language, so the prompt has the model search again in
+other words. The index often covers the whole home; the prompt names the documents folder to
+scope to, and the tool's legs are private and hard untrusted either way.

@@ -151,11 +151,11 @@ RSpec.describe Puri::Core::TurnListener do
       assert_equal '📝 Wrote: Notes/kettle-co.md — Created, 12 lines', blocks.last.text
     end
 
-    it 'words a document search by its query' do
-      call('rag_search', 'dentist referral', display_name: 'Rag Search')
-      assert_equal 'Searching your documents…', activity.status
-      result('1. Notes/dentist.md …', 'Found 5 matches')
-      assert_equal '🗂 Searched documents: dentist referral', blocks.last.text
+    it 'words a file search by its query' do
+      call('fileindex_search', 'dentist referral', display_name: 'Fileindex Search')
+      assert_equal 'Searching your files…', activity.status
+      result('/home/u/Documents/Notes/dentist.md …', 'Found 5 files')
+      assert_equal '🗂 Searched files: dentist referral', blocks.last.text
     end
 
     it 'words a Thunderbird search by its query, and a read without the id it took' do
