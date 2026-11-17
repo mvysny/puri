@@ -25,7 +25,7 @@ walk the paths the tools will take. The plan lives in `design/ideas/`.
 Linux and GNOME only. GTK4 and libadwaita come from apt, never from gems:
 
 ```sh
-sudo apt install ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw-1 libgtk-4-bin
+sudo apt install ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw-1 libgtk-4-bin ripgrep
 bundle config set --local path vendor/bundle
 bundle install
 exe/puri
