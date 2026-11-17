@@ -15,6 +15,7 @@ module Puri
     #   conversation.put(reply.with(parts:))                 # re-sent whole
     #   conversation.activity = Protocol::Activity::IDLE
     #   conversation.status = Protocol::Status.new(model: 'Ornith 1.5')
+    #   conversation.pending = ['and bananas?']             # typed during the turn, not yet read
     #
     # == Threading
     #
@@ -48,6 +49,7 @@ module Puri
         @next_block = 0
         @activity = Protocol::Activity::IDLE
         @status = Protocol::Status.new(model: '')
+        @pending = []
         @last_question = last_question
         @asked_at = asked_at
       end
@@ -107,7 +109,7 @@ module Puri
       def transcript
         @lock.synchronize do
           Protocol::Transcript.new(conversation: id, title: @title, blocks: @blocks.values, activity: @activity,
-                                   status: @status)
+                                   status: @status, pending: @pending)
         end
       end
 
@@ -155,6 +157,19 @@ module Puri
 
           @status = status
           @emit.call(Protocol::StatusChanged.new(conversation: id, status:))
+        end
+      end
+
+      # Emits nothing when they are the texts already.
+      #
+      # @param texts [Array<String>] the messages the agent hasn't read yet, in its order
+      # @return [void]
+      def pending=(texts)
+        @lock.synchronize do
+          next if texts == @pending
+
+          @pending = texts.dup.freeze
+          @emit.call(Protocol::PendingChanged.new(conversation: id, texts: @pending))
         end
       end
     end

@@ -204,7 +204,7 @@ RSpec.describe Puri::Core::AgentSession do
   end
 
   it 'holds a delta past a conversation event, in the one reply' do
-    session.on_event(c::PendingChanged.new(count: 1))
+    session.on_event(c::CancelRequested.new)
     assert_equal ['', 'Keep'], shown
     session.on_event(e::Assistant.new(content: 'Keep it cold.'))
     assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::Reply], blocks.map(&:class)

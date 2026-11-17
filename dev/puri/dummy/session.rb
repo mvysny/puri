@@ -10,8 +10,9 @@ module Puri
     #   session.ask('make it Wednesday')    # a confirmation waits: redirects it
     #   session.cancel
     #
-    # A message sent while a turn runs, but asks nothing, waits for that turn to end. Each turn
-    # that ends reports made-up token counts, about four characters a token, to the status bar.
+    # A message sent while a turn runs, but asks nothing, waits for that turn to end, shown as
+    # queued meanwhile. Each turn that ends reports made-up token counts, about four characters a
+    # token, to the status bar.
     #
     # Thread-safe: every method runs under the backend's monitor.
     class Session
@@ -63,16 +64,19 @@ module Puri
             @turn.redirect(text)
           elsif @turn
             @waiting << text
+            @conversation.pending = @waiting
           else
             start(text)
           end
         end
       end
 
+      # Stops the turn; the messages that waited for it show, and are dropped, as Core's do.
+      #
       # @return [void]
       def cancel
         @lock.synchronize do
-          @waiting.clear
+          drop_waiting
           @turn&.cancel
         end
       end
@@ -97,7 +101,9 @@ module Puri
           if @waiting.empty?
             @conversation.activity = Protocol::Activity::IDLE
           else
-            start(@waiting.shift)
+            text = @waiting.shift
+            @conversation.pending = @waiting
+            start(text)
           end
         end
       end
@@ -107,6 +113,13 @@ module Puri
       # @return [void]
       def publish_status
         @conversation.status = @readout.status(@model)
+      end
+
+      # @return [void]
+      def drop_waiting
+        @waiting.each { @conversation.add(Protocol::UserMessage.new(id: nil, text: _1)) }
+        @waiting.clear
+        @conversation.pending = []
       end
 
       # Counts the turn's question and answer, as a server's usage would.

@@ -3,7 +3,8 @@
 module Puri
   module Protocol
     # A whole conversation as Desktop draws it, what {Backend#load_conversation} returns. Later
-    # changes arrive as {BlockChanged}, {BlockRemoved}, {ActivityChanged} and {StatusChanged}.
+    # changes arrive as {BlockChanged}, {BlockRemoved}, {ActivityChanged}, {StatusChanged} and
+    # {PendingChanged}.
     #
     # @!attribute [r] conversation
     #   @return [String] its id
@@ -15,7 +16,16 @@ module Puri
     #   @return [Puri::Protocol::Activity]
     # @!attribute [r] status
     #   @return [Puri::Protocol::Status]
-    class Transcript < Data.define(:conversation, :title, :blocks, :activity, :status)
+    # @!attribute [r] pending
+    #   @return [Array<String>] the messages the agent hasn't read yet, as {PendingChanged#texts}
+    class Transcript < Data.define(:conversation, :title, :blocks, :activity, :status, :pending)
+      # @param conversation [String]
+      # @param title [String]
+      # @param blocks [Array<Puri::Protocol::Block>]
+      # @param activity [Puri::Protocol::Activity]
+      # @param status [Puri::Protocol::Status]
+      # @param pending [Array<String>]
+      def initialize(conversation:, title:, blocks:, activity:, status:, pending: []) = super
     end
   end
 end

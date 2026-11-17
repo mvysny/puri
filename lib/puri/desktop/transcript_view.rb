@@ -2,14 +2,16 @@
 
 module Puri
   module Desktop
-    # One conversation's blocks, top to bottom, and the progress row under them while its turn
-    # works. Pure view: told what to show, it reaches nothing itself.
+    # One conversation's blocks, top to bottom, the progress row under them while its turn
+    # works, and last the messages the agent hasn't read yet. Pure view: told what to show, it
+    # reaches nothing itself.
     #
     #   view = TranscriptView.new { |id, approved| client.answer(conversation, id, approved) }
     #   view.transcript = client.load_conversation(id)   # or nil to empty it
     #   view.upsert(event.block)                         # BlockChanged
     #   view.remove(event.block)                         # BlockRemoved
     #   view.activity = event.activity                   # ActivityChanged
+    #   view.pending = event.texts                       # PendingChanged
     #
     # It follows the newest block only while scrolled to the bottom, so scrolling up to re-read
     # survives a streaming reply.
@@ -41,6 +43,8 @@ module Puri
         @progress = ProgressRow.new
         @progress.visible = false
         @column.append(@progress)
+        @queued = QueuedMessages.new
+        @column.append(@queued)
         @rows = {}
         @blocks = {}
         @activity = Protocol::Activity::IDLE
@@ -55,6 +59,7 @@ module Puri
         @blocks = {}
         transcript&.blocks&.each { upsert(_1) }
         self.activity = transcript&.activity || Protocol::Activity::IDLE
+        self.pending = transcript&.pending || []
         scroll_to_bottom
       end
 
@@ -91,6 +96,15 @@ module Puri
         @progress.visible = activity.state == 'working'
         @progress.status = activity.status
       end
+
+      # @param texts [Array<String>] the messages the agent hasn't read yet
+      # @return [void]
+      def pending=(texts)
+        @queued.texts = texts
+      end
+
+      # @return [Array<String>] the messages shown as queued
+      def pending = @queued.texts
 
       # @return [String, nil] the user's latest message here, for Up in the entry
       def last_question

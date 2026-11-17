@@ -258,7 +258,8 @@ module Puri
         end
       end
 
-      # Stops the running turn; a message it hasn't read yet is shown, and dropped.
+      # Stops the running turn; a message it hasn't read yet moves from the queue into the
+      # transcript, and is dropped.
       #
       # @return [void]
       def cancel
@@ -327,6 +328,7 @@ module Puri
         when Pikuri::Conversations::Event::Titled then retitle(event.title)
         when Pikuri::Conversations::Event::Ready then cancelled_boot
         when Pikuri::Conversations::Event::BootFailed then failed_boot(event.error)
+        when Pikuri::Conversations::Event::PendingChanged then pending(event.items)
         when Pikuri::Conversations::Event::ModelPending, Pikuri::Agent::Event::ModelSwitched
           publish_status
           @display.on_event(event)
@@ -381,6 +383,20 @@ module Puri
       def failed_boot(error)
         drop_pending
         @conversation.add(Protocol::Notice.new(id: nil, text: "Can't start the agent: #{error.message}", error: true))
+      end
+
+      # Shows what the user sent that the agent hasn't read; the system items the gem queues are
+      # the agent's own. An event can arrive stale: a mid-turn submit emits its queue once the
+      # gem's lock drops, and the turn's drain, on its own thread, may get there first. So an
+      # empty queue, by the gem's count, wins over the event's items.
+      #
+      # @param items [Array<Pikuri::Agent::Control::Interloper::Item>]
+      # @return [void]
+      def pending(items)
+        @lock.synchronize do
+          drained = @live.nil? || @live.status.pending.zero?
+          @conversation.pending = drained ? [] : items.select { _1.kind == :user }.map(&:content)
+        end
       end
 
       # Idle once `Status#busy?` says so, re-read on every event rather than inferred from which

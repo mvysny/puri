@@ -8,7 +8,7 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
   let(:answers) { [] }
   let(:view) { Puri::Desktop::TranscriptView.new { |id, approved| answers << [id, approved] } }
 
-  # @return [Array<Gtk::Widget>] the column's rows, the progress row last
+  # @return [Array<Gtk::Widget>] the column's rows, the progress row and the queued messages last
   def rows
     column = view.child.child.child # the viewport ScrolledWindow adds, the clamp, the column
     child = column.first_child
@@ -29,7 +29,7 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
                p::Reply.new(id: 'b3', parts: [p::Prose.new(markup: '<b>cold</b>')]),
                p::Notice.new(id: 'b4', text: 'Cancelled', error: false)]
     )
-    assert_equal(%w[UserMessageRow ToolLineRow ReplyView NoticeRow ProgressRow],
+    assert_equal(%w[UserMessageRow ToolLineRow ReplyView NoticeRow ProgressRow QueuedMessages],
                  rows.map { _1.class.name.split('::').last })
     assert_equal 'avocado?', view.last_question
   end
@@ -43,7 +43,7 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
 
     view.upsert(p::Notice.new(id: 'b2', text: 'Cancelled', error: false))
     assert_equal [view.row('b1'), view.row('b2')], rows.first(2)
-    assert_kind_of Puri::Desktop::ProgressRow, rows.last
+    assert_kind_of Puri::Desktop::ProgressRow, rows[-2]
   end
 
   it 'draws code and tables as widgets of their own' do
@@ -64,12 +64,38 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
   end
 
   it 'shows the progress and its status only while the turn works' do
-    progress = rows.last
+    progress = rows[-2]
     view.activity = p::Activity.new(state: 'working', status: 'Searching the web…')
     assert progress.visible?
     assert_equal 'Searching the web…', progress.status
     view.activity = p::Activity.new(state: 'streaming')
     refute progress.visible?
+  end
+
+  it 'shows the messages the agent has not read yet at the bottom, dimmed, until it reads them' do
+    queued = rows.last
+    refute queued.visible?
+    view.pending = ['and bananas?', 'and limes?']
+    assert queued.visible?
+    bubbles = queued.first_child
+    texts = [bubbles.first_child, bubbles.last_child].map { _1.first_child.text }
+    assert_equal ['and bananas?', 'and limes?'], texts
+    assert queued.has_css_class?('puri-queued')
+
+    view.upsert(p::UserMessage.new(id: 'b1', text: 'and bananas?'))
+    view.pending = ['and limes?']
+    assert_equal [view.row('b1'), queued], [rows.first, rows.last]
+    view.pending = []
+    refute queued.visible?
+  end
+
+  it 'takes the queued messages from a transcript loaded' do
+    view.transcript = p::Transcript.new(conversation: 'c1', title: 'Avocados', activity: p::Activity::IDLE,
+                                        status: p::Status.new(model: 'Ornith 1.5'), blocks: [],
+                                        pending: ['and bananas?'])
+    assert_equal ['and bananas?'], view.pending
+    view.transcript = nil
+    assert_empty view.pending
   end
 
   it 'answers a confirmation through its buttons, then shows the outcome' do

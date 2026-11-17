@@ -136,12 +136,25 @@ RSpec.describe Puri::Dummy::Backend do
       assert_equal 'Cancelled', blocks.last.text
     end
 
-    it 'holds a message sent while it works until the turn ends' do
+    it 'holds a message sent while it works until the turn ends, queued meanwhile' do
       id = core.ask(nil, 'hi')
       core.ask(id, 'and then?')
       assert_equal 1, core.load_conversation(id).blocks.grep(p::UserMessage).size
+      assert_equal ['and then?'], core.load_conversation(id).pending
       wait_until('the second turn ends') { finished(id).blocks.grep(p::UserMessage).size == 2 }
       assert_kind_of p::Reply, finished(id).blocks.last
+      assert_empty core.load_conversation(id).pending
+      assert_equal [['and then?'], []], drain.grep(p::PendingChanged).map(&:texts)
+    end
+
+    it 'shows the queued messages on a cancel, and drops them' do
+      id = core.ask(nil, 'something long')
+      core.ask(id, 'and then?')
+      core.cancel(id)
+      blocks = finished(id).blocks
+      assert_equal [p::UserMessage, p::UserMessage, p::Notice], blocks.map(&:class)
+      assert_equal 'and then?', blocks[1].text
+      assert_empty core.load_conversation(id).pending
     end
   end
 

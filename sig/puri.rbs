@@ -829,8 +829,8 @@ module Puri
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
-      # redirect: the model follows the words and proposes again. With a turn running, it waits
-      # for that turn to end.
+      # redirect: the model follows the words and proposes again. With a turn running, it waits,
+      # in {PendingChanged}, until the turn reads it.
       # 
       # _@param_ `conversation` — the conversation to continue; nil starts a new one
       # 
@@ -929,6 +929,7 @@ module Puri
     #   conversation.put(reply.with(parts:))                 # re-sent whole
     #   conversation.activity = Protocol::Activity::IDLE
     #   conversation.status = Protocol::Status.new(model: 'Ornith 1.5')
+    #   conversation.pending = ['and bananas?']             # typed during the turn, not yet read
     # 
     # == Threading
     # 
@@ -1002,6 +1003,11 @@ module Puri
       # 
       # _@param_ `status`
       def status=: (Puri::Protocol::Status status) -> void
+
+      # Emits nothing when they are the texts already.
+      # 
+      # _@param_ `texts` — the messages the agent hasn't read yet, in its order
+      def pending=: (::Array[String] texts) -> void
 
       attr_reader id: String
 
@@ -1215,7 +1221,8 @@ module Puri
       # _@param_ `text`
       def ask: (String text) -> void
 
-      # Stops the running turn; a message it hasn't read yet is shown, and dropped.
+      # Stops the running turn; a message it hasn't read yet moves from the queue into the
+      # transcript, and is dropped.
       def cancel: () -> void
 
       # The next turn runs on `choice`; a running one ends on its own model.
@@ -1263,6 +1270,14 @@ module Puri
       # 
       # _@param_ `error`
       def failed_boot: (StandardError error) -> void
+
+      # Shows what the user sent that the agent hasn't read; the system items the gem queues are
+      # the agent's own. An event can arrive stale: a mid-turn submit emits its queue once the
+      # gem's lock drops, and the turn's drain, on its own thread, may get there first. So an
+      # empty queue, by the gem's count, wins over the event's items.
+      # 
+      # _@param_ `items`
+      def pending: (::Array[Pikuri::Agent::Control::Interloper::Item] items) -> void
 
       # Idle once `Status#busy?` says so, re-read on every event rather than inferred from which
       # events came: a boot cancelled before its turn ends in `Ready` alone. Under the core's lock,
@@ -1943,8 +1958,8 @@ module Puri
       def initialize: (Puri::Protocol::Backend backend) -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
-      # redirect: the model follows the words and proposes again. With a turn running, it waits
-      # for that turn to end.
+      # redirect: the model follows the words and proposes again. With a turn running, it waits,
+      # in {PendingChanged}, until the turn reads it.
       # 
       # _@param_ `conversation` — the conversation to continue; nil starts a new one
       # 
@@ -2058,14 +2073,29 @@ module Puri
       attr_reader list: Gtk::ListBox
     end
 
-    # One conversation's blocks, top to bottom, and the progress row under them while its turn
-    # works. Pure view: told what to show, it reaches nothing itself.
+    # The messages the agent hasn't read yet, under the transcript: each a dimmed
+    # {UserMessageRow}, "Queued" under the last; hidden while none waits.
+    # 
+    #   queued = QueuedMessages.new
+    #   queued.texts = ['and bananas?']   # PendingChanged
+    #   queued.texts = []                 # the turn read it
+    class QueuedMessages < Gtk::Box
+      def initialize: () -> void
+
+      # _@return_ — the texts shown
+      attr_accessor texts: ::Array[String]
+    end
+
+    # One conversation's blocks, top to bottom, the progress row under them while its turn
+    # works, and last the messages the agent hasn't read yet. Pure view: told what to show, it
+    # reaches nothing itself.
     # 
     #   view = TranscriptView.new { |id, approved| client.answer(conversation, id, approved) }
     #   view.transcript = client.load_conversation(id)   # or nil to empty it
     #   view.upsert(event.block)                         # BlockChanged
     #   view.remove(event.block)                         # BlockRemoved
     #   view.activity = event.activity                   # ActivityChanged
+    #   view.pending = event.texts                       # PendingChanged
     # 
     # It follows the newest block only while scrolled to the bottom, so scrolling up to re-read
     # survives a streaming reply.
@@ -2085,6 +2115,12 @@ module Puri
 
       # _@param_ `id` — a block's id; one never shown is ignored
       def remove: (String id) -> void
+
+      # _@param_ `texts` — the messages the agent hasn't read yet
+      def pending=: (::Array[String] texts) -> void
+
+      # _@return_ — the messages shown as queued
+      def pending: () -> ::Array[String]
 
       # _@return_ — the user's latest message here, for Up in the entry
       def last_question: () -> String?
@@ -2393,7 +2429,7 @@ module Puri
     # The methods Desktop calls on Core. A backend includes this module and overrides every
     # method; the bodies here only raise. Calls come from the GTK main loop and return at once:
     # a turn runs on Core's own thread and reports through events ({BlockChanged},
-    # {ActivityChanged}, {StatusChanged}, {ConversationsChanged}).
+    # {ActivityChanged}, {StatusChanged}, {PendingChanged}, {ConversationsChanged}).
     # 
     #   id = backend.ask(nil, 'reschedule my dentist in the calendar')   # a new conversation
     #   # … BlockChanged(Confirmation(state: 'pending')) arrives …
@@ -2402,8 +2438,8 @@ module Puri
     #   backend.cancel(id)                        # Escape
     module Backend
       # Sends the user's message. With a confirmation pending, the message answers it as a
-      # redirect: the model follows the words and proposes again. With a turn running, it waits
-      # for that turn to end.
+      # redirect: the model follows the words and proposes again. With a turn running, it waits,
+      # in {PendingChanged}, until the turn reads it.
       # 
       # _@param_ `conversation` — the conversation to continue; nil starts a new one
       # 
@@ -2504,7 +2540,8 @@ module Puri
     end
 
     # A whole conversation as Desktop draws it, what {Backend#load_conversation} returns. Later
-    # changes arrive as {BlockChanged}, {BlockRemoved}, {ActivityChanged} and {StatusChanged}.
+    # changes arrive as {BlockChanged}, {BlockRemoved}, {ActivityChanged}, {StatusChanged} and
+    # {PendingChanged}.
     # 
     # @!attribute [r] conversation
     #   @return [String] its id
@@ -2516,7 +2553,29 @@ module Puri
     #   @return [Puri::Protocol::Activity]
     # @!attribute [r] status
     #   @return [Puri::Protocol::Status]
+    # @!attribute [r] pending
+    #   @return [Array<String>] the messages the agent hasn't read yet, as {PendingChanged#texts}
     class Transcript
+      # _@param_ `conversation`
+      # 
+      # _@param_ `title`
+      # 
+      # _@param_ `blocks`
+      # 
+      # _@param_ `activity`
+      # 
+      # _@param_ `status`
+      # 
+      # _@param_ `pending`
+      def initialize: (
+                        conversation: String,
+                        title: String,
+                        blocks: ::Array[Puri::Protocol::Block],
+                        activity: Puri::Protocol::Activity,
+                        status: Puri::Protocol::Status,
+                        ?pending: ::Array[String]
+                      ) -> void
+
       # _@return_ — its id
       attr_reader conversation: String
 
@@ -2528,6 +2587,9 @@ module Puri
       attr_reader activity: Puri::Protocol::Activity
 
       attr_reader status: Puri::Protocol::Status
+
+      # _@return_ — the messages the agent hasn't read yet, as {PendingChanged#texts}
+      attr_reader pending: ::Array[String]
     end
 
     # Transcript block: the agent asks before it acts. While `pending`, Desktop shows Cancel and
@@ -2621,6 +2683,21 @@ module Puri
       attr_reader conversation: String
 
       attr_reader status: Puri::Protocol::Status
+    end
+
+    # Event: the messages the user sent that the agent hasn't read yet changed — one typed during
+    # a turn, or the first one while the agent boots. It carries all of them, so the last one
+    # alone says what waits; `[]` once the agent read them or a cancel dropped them.
+    # 
+    # @!attribute [r] conversation
+    #   @return [String]
+    # @!attribute [r] texts
+    #   @return [Array<String>] plain text, in the order the agent will read them
+    class PendingChanged
+      attr_reader conversation: String
+
+      # _@return_ — plain text, in the order the agent will read them
+      attr_reader texts: ::Array[String]
     end
 
     # Event: a conversation's turn started, moved on, or ended.

@@ -227,6 +227,21 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_equal "what's my name?", finished(id).blocks[2].text
     end
 
+    it 'shows a message sent during a turn as queued until the model reads it' do
+      gate.block!
+      id = core.ask(nil, "I'm Bob")
+      gate.wait_arrived
+      wait_until('the first message is read') { core.load_conversation(id).pending.empty? }
+      drain
+      core.ask(id, "what's my name?")
+      assert_equal ["what's my name?"], core.load_conversation(id).pending
+
+      gate.release!
+      wait_until('both answers are in') { core.load_conversation(id).blocks.size == 4 }
+      assert_empty finished(id).pending
+      assert_equal [["what's my name?"], []], drain.grep(p::PendingChanged).map(&:texts)
+    end
+
     it 'shows a message a cancel dropped before the model read it' do
       gate.block!
       id = core.ask(nil, "I'm Bob")
@@ -235,6 +250,7 @@ RSpec.describe Puri::Core::PikuriCore do
       core.cancel(id)
       gate.release!
       assert_equal [p::UserMessage, p::UserMessage, p::Notice], finished(id).blocks.map(&:class)
+      assert_empty core.load_conversation(id).pending
       assert_equal %w[user], store.history(store.find(id)).messages.map(&:role)
     end
 

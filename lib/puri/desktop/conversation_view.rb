@@ -113,6 +113,7 @@ module Puri
         in Protocol::BlockChanged(block:) then @transcript.upsert(block)
         in Protocol::BlockRemoved(block:) then @transcript.remove(block)
         in Protocol::ActivityChanged(activity:) then @transcript.activity = activity
+        in Protocol::PendingChanged(texts:) then @transcript.pending = texts
         in Protocol::StatusChanged then nil # the status bar's
         end
       end

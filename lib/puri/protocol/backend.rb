@@ -5,7 +5,7 @@ module Puri
     # The methods Desktop calls on Core. A backend includes this module and overrides every
     # method; the bodies here only raise. Calls come from the GTK main loop and return at once:
     # a turn runs on Core's own thread and reports through events ({BlockChanged},
-    # {ActivityChanged}, {StatusChanged}, {ConversationsChanged}).
+    # {ActivityChanged}, {StatusChanged}, {PendingChanged}, {ConversationsChanged}).
     #
     #   id = backend.ask(nil, 'reschedule my dentist in the calendar')   # a new conversation
     #   # … BlockChanged(Confirmation(state: 'pending')) arrives …
@@ -14,8 +14,8 @@ module Puri
     #   backend.cancel(id)                        # Escape
     module Backend
       # Sends the user's message. With a confirmation pending, the message answers it as a
-      # redirect: the model follows the words and proposes again. With a turn running, it waits
-      # for that turn to end.
+      # redirect: the model follows the words and proposes again. With a turn running, it waits,
+      # in {PendingChanged}, until the turn reads it.
       #
       # @param conversation [String, nil] the conversation to continue; nil starts a new one
       # @param text [String] what the user typed

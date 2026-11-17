@@ -71,7 +71,7 @@ RSpec.describe Puri::Core::TurnListener do
 
   it 'leaves the reply alone on any other conversation event' do
     delta('Keep ')
-    [c::PendingChanged.new(count: 1), c::CancelRequested.new, c::Cleared.new].each { listener.on_event(_1) }
+    [c::PendingChanged.new(items: []), c::CancelRequested.new, c::Cleared.new].each { listener.on_event(_1) }
     delta('it cold.')
     assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::Reply], blocks.map(&:class)
     assert_equal ['', 'Keep', 'Keep it cold.'], shown

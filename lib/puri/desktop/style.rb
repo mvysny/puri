@@ -15,6 +15,8 @@ module Puri
         .puri-user {
           background: alpha(currentColor, 0.08); border-radius: 18px; padding: 8px 14px;
         }
+        .puri-queued .puri-user { opacity: 0.55; }
+        .puri-queued-caption { font-size: 0.8em; opacity: 0.55; margin-right: 6px; }
         .puri-reply { line-height: 1.35; }
         .puri-code {
           font-family: monospace; font-size: 0.92em; padding: 10px 12px; border-radius: 10px;
