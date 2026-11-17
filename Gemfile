@@ -25,9 +25,12 @@ gem 'streaming-markdown-parser', '~> 0.1'
 # `web_read_cached`, and with them nokogiri; pikuri-html registers the HTML → Markdown extractor.
 # pikuri-thunderbird reads the local Thunderbird profile's mail, contacts and calendar, and hands a
 # drafted mail or event to Thunderbird's own UI; it brings sqlite3 and mail (parse-only).
+# pikuri-pdf is the PDF extractor for a machine with no container runtime (`D_extractors`); it
+# brings pdf-reader, pure Ruby.
 git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-core'
   gem 'pikuri-html'
+  gem 'pikuri-pdf'
   gem 'pikuri-thunderbird'
   gem 'pikuri-web'
   gem 'pikuri-workspace'
@@ -38,9 +41,11 @@ end
 # `bundle update pikuri-conversations` moves the pin. pikuri-os brings `fileindex_search` and
 # `fileindex_read` over the desktop's own file index (GNOME's localsearch, or recoll), which
 # already holds the PDFs' and office files' text; it drags in pikuri-code, whose bash Puri
-# doesn't wire.
+# doesn't wire. pikuri-extractors converts office files and PDFs in a networkless container, the
+# extractor wired when podman or docker is installed (`D_extractors`); it brings no gem.
 git 'https://github.com/mvysny/pikuri-workshop.git', branch: 'master' do
   gem 'pikuri-conversations'
+  gem 'pikuri-extractors'
   gem 'pikuri-os'
 end
 

@@ -275,6 +275,50 @@ RSpec.describe Puri::Core::PikuriCore do
     end
   end
 
+  describe '.register_extractors' do
+    around do |example|
+      registry = Pikuri::Extractor.registry
+      saved = registry.dup
+      path = ENV.fetch('PATH')
+      Dir.mktmpdir do |bin|
+        @bin = bin
+        example.run
+      end
+    ensure
+      registry.replace(saved)
+      ENV['PATH'] = path
+    end
+
+    # @param name [String] an executable to put in the scratch PATH
+    def install(name)
+      path = File.join(@bin, name)
+      File.write(path, "#!/bin/sh\n")
+      File.chmod(0o755, path)
+    end
+
+    it 'registers the container extractor when podman is on PATH' do
+      install('podman')
+      ENV['PATH'] = @bin
+      assert_same Pikuri::Extractors::DOCUMENTS, described_class.register_extractors
+      assert_includes Pikuri::Extractor.registry, Pikuri::Extractors::DOCUMENTS
+      refute_includes Pikuri::Extractor.registry, Pikuri::Extractors::PDF
+    end
+
+    it 'registers the container extractor when docker is on PATH' do
+      install('docker')
+      ENV['PATH'] = "/nonexistent:#{@bin}"
+      assert_same Pikuri::Extractors::DOCUMENTS, described_class.register_extractors
+    end
+
+    it 'registers the in-process PDF extractor with neither on PATH' do
+      File.write(File.join(@bin, 'docker'), '') # not executable
+      ENV['PATH'] = @bin
+      assert_same Pikuri::Extractors::PDF, described_class.register_extractors
+      assert_includes Pikuri::Extractor.registry, Pikuri::Extractors::PDF
+      refute_includes Pikuri::Extractor.registry, Pikuri::Extractors::DOCUMENTS
+    end
+  end
+
   describe '.from_config' do
     c = Puri::Core::Config
     let(:config) do

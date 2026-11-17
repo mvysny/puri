@@ -104,7 +104,10 @@ Puri searches through your desktop's own file index, GNOME's localsearch (`local
 `tinysparql` CLI, installed with GNOME), or recoll when localsearch isn't there; it keeps no
 index of its own. The index already holds the text of your PDFs and office files, so Puri reads
 those too. Make sure the index covers the folder: GNOME Settings → Search → Search Locations.
-Without an index Puri still reads the folder's files by path, and logs a warning. Puri writes
+Without an index Puri still reads the folder's files by path, and logs a warning. A file the
+index doesn't hold, such as a mail attachment or a search result, is converted in a networkless
+container when podman or docker is installed: office files, EPUB, RTF and PDF. With neither, Puri
+reads only PDFs, in-process. Puri writes
 only in the folder's `Notes/`, without asking, and keeps what you ask it to remember in
 `Notes/PURI.md`.
 

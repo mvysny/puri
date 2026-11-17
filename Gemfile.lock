@@ -13,6 +13,9 @@ GIT
       pikuri-core (= 0.1.0)
       reverse_markdown (~> 3.0)
       ruby-readability (~> 0.7)
+    pikuri-pdf (0.1.0)
+      pdf-reader (~> 2.15)
+      pikuri-core (= 0.1.0)
     pikuri-thunderbird (0.1.0)
       ice_cube (~> 0.17)
       mail (~> 2.9)
@@ -31,13 +34,15 @@ GIT
 
 GIT
   remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: d9f670d9e12202f6ee8cd2dad329fdd7bb199021
+  revision: 6752291c06543f65ee50821f7e4ca85e306a7b67
   branch: master
   specs:
     pikuri-code (0.1.0)
       pikuri-core (~> 0.1)
       pikuri-workspace (~> 0.1)
     pikuri-conversations (0.1.0)
+      pikuri-core (~> 0.1)
+    pikuri-extractors (0.1.0)
       pikuri-core (~> 0.1)
     pikuri-os (0.1.0)
       pikuri-code (= 0.1.0)
@@ -47,8 +52,11 @@ GIT
 GEM
   remote: https://rubygems.org/
   specs:
+    Ascii85 (2.0.1)
+    afm (1.0.1)
     ast (2.4.3)
     base64 (0.3.0)
+    bigdecimal (3.3.1)
     commander (5.0.0)
       highline (~> 3.0.0)
     concurrent-ruby (1.3.8)
@@ -66,6 +74,7 @@ GEM
     faraday-retry (2.4.0)
       faraday (~> 2.0)
     guess_html_encoding (0.0.11)
+    hashery (2.2.0)
     highline (3.0.1)
     ice_cube (0.17.0)
     io-console (0.9.5)
@@ -126,6 +135,11 @@ GEM
     parser (3.3.13.0)
       ast (~> 2.4.1)
       racc
+    pdf-reader (2.16.0)
+      Ascii85 (>= 1.0, < 3.0, != 2.0.0)
+      afm (>= 0.2.1, < 2)
+      hashery (~> 2.0)
+      ttfunk
     prism (1.9.0)
     racc (1.8.1)
     rainbow (3.1.1)
@@ -202,6 +216,8 @@ GEM
     timeout (0.6.1)
     tomlrb (3.0.0)
     tsort (0.2.0)
+    ttfunk (1.8.0)
+      bigdecimal (~> 3.1)
     typemap (0.1.0)
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
@@ -228,8 +244,10 @@ DEPENDENCIES
   minitest (~> 6.0)
   pikuri-conversations!
   pikuri-core!
+  pikuri-extractors!
   pikuri-html!
   pikuri-os!
+  pikuri-pdf!
   pikuri-thunderbird!
   pikuri-web!
   pikuri-workspace!
@@ -248,8 +266,11 @@ DEPENDENCIES
   zeitwerk (~> 2.8)
 
 CHECKSUMS
+  Ascii85 (2.0.1) sha256=15cb5d941808543cbb9e7e6aea3c8ec3877f154c3461e8b3673e97f7ecedbe5a
+  afm (1.0.1) sha256=4fc98c6ea9cad60c25ae12bad517513b0d6fdbedc099e25be88bf47977b7d879
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
+  bigdecimal (3.3.1) sha256=eaa01e228be54c4f9f53bf3cc34fe3d5e845c31963e7fcc5bedb05a4e7d52218
   bundler (4.0.19) sha256=b48056e4c77fb3853cc47775b5447ede44aaa4f53c32f168014ab4fe86587d47
   commander (5.0.0) sha256=22ca42866ce5ed1a7f3e9a9c831a23d03b75b3743c7ad0302c3cbcd9eb5f257d
   concurrent-ruby (1.3.8) sha256=b2f1be836e968ccc78ccfce277ea79c72a88633f22306782c16ff23fb415d1e1
@@ -261,6 +282,7 @@ CHECKSUMS
   faraday-net_http (3.5.0) sha256=2e7094c34e38754ee048cc3df47376f8657005d9375f8473bce1c3b526a22e36
   faraday-retry (2.4.0) sha256=7b79c48fb7e56526faf247b12d94a680071ff40c9fda7cf1ec1549439ad11ebe
   guess_html_encoding (0.0.11) sha256=cab6468b945f38673fc41ad147fbbc89693b3c6c34b03b071e2ed669a603e098
+  hashery (2.2.0) sha256=3f3dbea3b16ef4133dba8d0fdbd8bde3316a877940d93dbe0bd709d79a218ca9
   highline (3.0.1) sha256=ca18b218fd581b1fae832f89bfeaf2b34d3a93429c44fd4411042ffce286f009
   ice_cube (0.17.0) sha256=32deb45dda4b4acc53505c2f581f6d32b5afc04d29b9004769944a0df5a5fcbe
   io-console (0.9.5) sha256=83dd9bbf4c4680416629245b39cd4212eb5f4d9a4ea91804870c1f6b846414d5
@@ -291,11 +313,14 @@ CHECKSUMS
   parallel (2.3.0) sha256=f75a3e904101ce6a1ccb6b8dc800cbafd42166d83330192438dcf29395167a6f
   parlour (9.1.2) sha256=446ce24243e125f0e8c4f9b5722c3b86063d42d8b106c847a7d73a8cc693c382
   parser (3.3.13.0) sha256=e02f9b63c2fe05b0c68f692ba4df89b3cb113b663964f75d988fbebfd6c3deca
+  pdf-reader (2.16.0) sha256=bf1b5564c085264d8279bde3cf1467778b75841494d20c0fe7da3dad475f3732
   pikuri-code (0.1.0)
   pikuri-conversations (0.1.0)
   pikuri-core (0.1.0)
+  pikuri-extractors (0.1.0)
   pikuri-html (0.1.0)
   pikuri-os (0.1.0)
+  pikuri-pdf (0.1.0)
   pikuri-thunderbird (0.1.0)
   pikuri-web (0.1.0)
   pikuri-workspace (0.1.0)
@@ -334,6 +359,7 @@ CHECKSUMS
   timeout (0.6.1) sha256=78f57368a7e7bbadec56971f78a3f5ecbcfb59b7fcbb0a3ed6ddc08a5094accb
   tomlrb (3.0.0) sha256=e7122820cbb9b940d1758eecb6d1d4ee97c582efa37f06e0100a97cb17a566f5
   tsort (0.2.0) sha256=9650a793f6859a43b6641671278f79cfead60ac714148aabe4e3f0060480089f
+  ttfunk (1.8.0) sha256=a7cbc7e489cc46e979dde04d34b5b9e4f5c8f1ee5fc6b1a7be39b829919d20ca
   typemap (0.1.0) sha256=3a4ce25f6450a283f78a661b8e3c401bc5c8b980a64b832e6fe16f7e61d13231
   tzinfo (2.0.6) sha256=8daf828cc77bcf7d63b0e3bdb6caa47e2272dcfaf4fbfe46f8c3a9df087a829b
   unicode-display_width (3.3.0) sha256=4b7aa66a4b11db50f6f7e98411215cd0dd10eaecb665d36eec5bcacb3fa0b613

@@ -148,3 +148,16 @@ already extracted every PDF's and office file's text, under the desktop's own sa
 is keyword recall: no synonyms, no other language, so the prompt has the model search again in
 other words. The index often covers the whole home; the prompt names the documents folder to
 scope to, and the tool's legs are private and hard untrusted either way.
+
+## D_extractors — Why convert office files and PDFs in a container where podman or docker is, and read only PDFs, in-process, where neither is?
+
+Files outside the index reach the agent too: a mail's attachment, a page the search engine
+returned, a file read by path. Their bytes are a stranger's, and pandoc, markitdown and poppler
+are native parsers, so pikuri-extractors runs them in a one-shot container with no network, no
+mounts (owner, 2026-11-17). Without a runtime it would fall back to the same parsers unsandboxed on
+the host; we register pikuri-pdf instead: pure Ruby, so a hostile PDF only burns CPU, and an
+office file stays unread, its text still in the desktop index for the documents folder
+(`D_documents`). Never both: pikuri-pdf goes first in the registry and would take every PDF out of
+the sandbox. The price: a docker whose daemon doesn't answer still takes the container's place, and
+pikuri-extractors then falls back to the host's parsers after all; podman, picked first, has no
+daemon to be down.

@@ -784,6 +784,18 @@ module Puri
       # _@param_ `store`
       def self.from_config: (Puri::Core::Config config, store: Pikuri::Conversations::Store) ?{ (Data event) -> void } -> Puri::Core::PikuriCore
 
+      # Plugs the document extractors into pikuri's registry, process-wide, so `read`,
+      # `web_read_cached` and `mail_attachment_read` turn a PDF or an office file into text.
+      # 
+      #   PikuriCore.register_extractors   # => Pikuri::Extractors::DOCUMENTS where podman or docker is
+      # 
+      # With podman or docker on `PATH`, pikuri-extractors' office files and PDFs, converted in a
+      # networkless container; without, pikuri-pdf's PDFs alone (`D_extractors`). Registering twice
+      # is harmless.
+      # 
+      # _@return_ — the extractor registered
+      def self.register_extractors: () -> (Pikuri::Extractors::Documents | Module)
+
       # The saved conversations, in pikuri-web's folder format (`D_port_pikuri_web`).
       # 
       # _@param_ `env` — where `XDG_STATE_HOME` comes from
