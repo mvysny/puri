@@ -70,11 +70,31 @@ module Puri
           @confirmer = nil
         end
 
+        # The machine's time zone, for the prompt:
+        #
+        #   Initializer.time_zone(Time.now)   # => "Europe/Helsinki (UTC+02:00)"
+        #
+        # Just "UTC+02:00" when neither `TZ` nor the `/etc/localtime` link names a zone.
+        #
+        # @param now [Time] local
+        # @param tz_env [String, nil] the `TZ` variable
+        # @param localtime [String] the zoneinfo link
+        # @return [String]
+        def self.time_zone(now, tz_env: ENV.fetch('TZ', nil), localtime: '/etc/localtime')
+          name = tz_env.to_s.delete_prefix(':')
+          name = File.readlink(localtime) if name.empty? && File.symlink?(localtime)
+          name = name[%r{zoneinfo/(.+)\z}, 1] || name
+          offset = "UTC#{now.strftime('%:z')}"
+          name.empty? ? offset : "#{name} (#{offset})"
+        end
+
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
-        # @return [String] {.system_prompt} for the tools the config gives, then today's date; the
-        #   agent appends its extensions' own fragments
+        # @return [String] {.system_prompt} for the tools the config gives, then today's date and
+        #   the time zone; the agent appends its extensions' own fragments
         def system_prompt(_conversation)
-          "#{Initializer.system_prompt(web: !@config.search.nil?)}\n\nToday is #{Time.now.strftime('%A, %-d %B %Y')}."
+          now = Time.now
+          "#{Initializer.system_prompt(web: !@config.search.nil?)}\n\n" \
+            "Today is #{now.strftime('%A, %-d %B %Y')}; the time zone is #{Initializer.time_zone(now)}."
         end
 
         # Adds the web tools and the Thunderbird extension. An extension is built afresh for each

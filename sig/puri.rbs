@@ -1086,10 +1086,23 @@ module Puri
         # _@param_ `lock` — the core's
         def initialize: (Puri::Core::Config config, Puri::Core::Conversation conversation, lock: Monitor) -> void
 
+        # The machine's time zone, for the prompt:
+        # 
+        #   Initializer.time_zone(Time.now)   # => "Europe/Helsinki (UTC+02:00)"
+        # 
+        # Just "UTC+02:00" when neither `TZ` nor the `/etc/localtime` link names a zone.
+        # 
+        # _@param_ `now` — local
+        # 
+        # _@param_ `tz_env` — the `TZ` variable
+        # 
+        # _@param_ `localtime` — the zoneinfo link
+        def self.time_zone: (Time now, ?tz_env: String?, ?localtime: String) -> String
+
         # _@param_ `_conversation` — this session's
         # 
-        # _@return_ — {.system_prompt} for the tools the config gives, then today's date; the
-        # agent appends its extensions' own fragments
+        # _@return_ — {.system_prompt} for the tools the config gives, then today's date and
+        # the time zone; the agent appends its extensions' own fragments
         def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
         # Adds the web tools and the Thunderbird extension. An extension is built afresh for each

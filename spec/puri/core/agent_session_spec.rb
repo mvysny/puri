@@ -30,6 +30,27 @@ RSpec.describe Puri::Core::AgentSession do
     end
   end
 
+  describe 'Initializer.time_zone' do
+    let(:now) { Time.new(2026, 11, 17, 9, 0, 0, '+02:00') }
+
+    it 'names the zone TZ gives, with its offset' do
+      assert_equal 'Europe/Helsinki (UTC+02:00)',
+                   described_class::Initializer.time_zone(now, tz_env: ':Europe/Helsinki')
+    end
+
+    it 'reads the zone off the /etc/localtime link when TZ is unset' do
+      Dir.mktmpdir('puri-tz') do |dir|
+        File.symlink('/usr/share/zoneinfo/Europe/Helsinki', link = File.join(dir, 'localtime'))
+        assert_equal 'Europe/Helsinki (UTC+02:00)',
+                     described_class::Initializer.time_zone(now, tz_env: nil, localtime: link)
+      end
+    end
+
+    it 'falls back to the offset alone when nothing names the zone' do
+      assert_equal 'UTC+02:00', described_class::Initializer.time_zone(now, tz_env: nil, localtime: '/nonexistent')
+    end
+  end
+
   describe 'Initializer#configure' do
     # @param thunderbird [Puri::Core::Config::ThunderbirdTable, nil]
     # @return [Pikuri::Agent] built as a session's, its tools wired
