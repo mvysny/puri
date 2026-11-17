@@ -13,8 +13,7 @@ module FakeIndex
   def self.new(available: true)
     Module.new do
       const_set(:CommandError, Class.new(StandardError))
-      define_singleton_method(:available?) { available }
-      define_singleton_method(:check_binaries!) { raise 'no index' unless available }
+      define_singleton_method(:unavailable_reason) { available ? nil : 'not installed' }
       define_singleton_method(:label) { 'fake' }
       define_singleton_method(:limitations) { '' }
       define_singleton_method(:read_text) { |path| File.file?(path) ? File.read(path) : nil }

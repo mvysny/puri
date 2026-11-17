@@ -142,6 +142,10 @@ module Puri
         block.is_a?(Protocol::Confirmation) ? ConfirmationRow.new(block, &@on_answer) : row_class(block).new(block)
       end
 
+      # `upper` changes while GTK allocates the viewport, and a value set right then is applied only
+      # at the next layout: a queued message shown while the model thinks stayed below the fold
+      # until the reply streamed in. So the scroll waits for an idle, once per batch of changes.
+      #
       # @return [void]
       def follow_the_bottom
         @stick = true
@@ -150,7 +154,14 @@ module Puri
           @stick = adjustment.value >= adjustment.upper - adjustment.page_size - STICKY
         end
         adjustment.signal_connect('notify::upper') do
-          adjustment.value = adjustment.upper - adjustment.page_size if @stick
+          next if !@stick || @following
+
+          @following = true
+          GLib::Idle.add do
+            @following = false
+            adjustment.value = adjustment.upper - adjustment.page_size if @stick
+            false
+          end
         end
       end
     end

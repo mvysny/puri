@@ -12,7 +12,7 @@ module Puri
     #   library.memory             # => Notes/PURI.md's text, "" when absent
     #
     # The index is the desktop's, not ours (`D_documents`): localsearch, else recoll, as
-    # `Pikuri::Os::Extension` picks it. It holds every PDF's and office file's text already, so
+    # `Pikuri::Os::FileIndex.pick` picks it. It holds every PDF's and office file's text already, so
     # `fileindex_read` reads those too. No index on the machine leaves the agent the file tools
     # alone, and a warning in the log.
     #
@@ -33,13 +33,15 @@ module Puri
       # @param documents [Puri::Core::Config::Documents]
       # @param backends [Array<Module>] file-index backends, most preferred first; a spec passes
       #   its own
-      def initialize(documents, backends: Pikuri::Os::Extension::FILE_INDEX_BACKENDS)
+      def initialize(documents, backends: Pikuri::Os::FileIndex::BACKENDS)
         @documents = documents
         FileUtils.mkdir_p(documents.notes)
-        backend = backends.find(&:available?)
-        unless backend
+        backend = begin
+          Pikuri::Os::FileIndex.pick(backends)
+        rescue Pikuri::Os::FileIndex::Unavailable => e
           LOGGER.warn("no desktop file index answers (tried #{backends.map(&:label).join(', ')}): " \
-                      'the agent reads the documents only by their paths')
+                      "the agent reads the documents only by their paths; #{e.message}")
+          nil
         end
         @file_index_tools =
           (backend ? [Pikuri::Os::FileindexSearch.new(backend:), Pikuri::Os::FileindexRead.new(backend:)] : []).freeze
