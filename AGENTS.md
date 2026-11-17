@@ -5,8 +5,9 @@
 A Siri-style desktop assistant for Linux and GNOME, on top of [pikuri](https://codeberg.org/mvysny/pikuri).
 A global shortcut pops up a search bar; you type, and the bar grows into a streamed conversation,
 with every earlier conversation one click away in the same window.
-It reads your Thunderbird mail and calendar, drafts a mail or an event for you to send, and can
-search the web, but never opens a URL, and the model runs on your own machine whenever it can.
+It reads your Thunderbird mail and calendar and your documents, keeps notes, drafts a mail or an
+event for you to send, and can search the web, but never opens a URL, and the model runs on your
+own machine whenever it can.
 
 Pikuri owns the agent loop, the tools, the prompts and the LLM transport. This project owns the
 popup window, the conversation history beside it, and the resident process that keeps the agent

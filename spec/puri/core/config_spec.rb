@@ -172,6 +172,59 @@ RSpec.describe Puri::Core::Config do
     end
   end
 
+  describe '[documents]' do
+    around do |example|
+      Dir.mktmpdir('puri-docs') do |folder|
+        @folder = folder
+        FileUtils.mkdir_p(File.join(folder, 'Books'))
+        example.run
+      end
+    end
+
+    # @param body [String] the table's lines
+    # @return [void]
+    def with_documents(body) = write(@home, %(#{minimal}[documents]\nserver = "local"\n#{body}\n))
+
+    it 'is off without the table' do
+      write(@home, minimal)
+      assert_nil load.documents
+    end
+
+    it "resolves the folder, its excludes and the server's URL" do
+      with_documents(%(folder = "#{@folder}"\nexclude = ["Books"]\nembed_model = "nomic"\nrerank_model = "bge"))
+      documents = load.documents
+      assert_equal described_class::Documents.new(folder: @folder, exclude: [File.join(@folder, 'Books')],
+                                                  server: 'http://localhost:8080', api_key: nil,
+                                                  embed_model: 'nomic', rerank_model: 'bge'), documents
+      assert_equal File.join(@folder, 'Notes', 'PURI.md'), documents.memory
+    end
+
+    it 'defaults to ~/Documents and no reranker' do
+      table = described_class::DocumentsTable.new(server: 'local', embed_model: 'nomic')
+      assert_equal ['~/Documents', [], nil], [table.folder, table.exclude, table.rerank_model]
+    end
+
+    it 'rejects an exclude that names nothing inside the folder' do
+      with_documents(%(folder = "#{@folder}"\nexclude = ["Bokos"]\nembed_model = "nomic"))
+      assert_rejected('documents.exclude: .*Bokos')
+    end
+
+    it 'rejects a folder that is not a directory' do
+      with_documents(%(folder = "#{@folder}/nope"\nembed_model = "nomic"))
+      assert_rejected('documents.folder')
+    end
+
+    it 'rejects an unknown server' do
+      write(@home, %(#{minimal}[documents]\nfolder = "#{@folder}"\nserver = "gpu"\nembed_model = "nomic"\n))
+      assert_rejected('documents.server.*"gpu"')
+    end
+
+    it 'requires the embedding model' do
+      with_documents(%(folder = "#{@folder}"))
+      assert_rejected('embed_model')
+    end
+  end
+
   describe 'connections' do
     it "resolves an [[llm]]'s server id into that [[server]]'s URL and key" do
       write(@home, <<~TOML)

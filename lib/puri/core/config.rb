@@ -6,7 +6,7 @@ require 'typemap'
 module Puri
   module Core
     # Puri's `config.toml`: the model connections, which one writes the titles, the search
-    # engines' keys, and the Thunderbird profile. Loaded once
+    # engines' keys, the Thunderbird profile and the documents folder. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
     # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
     #
@@ -16,6 +16,7 @@ module Puri
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
+    #   config.documents     # => Documents(folder:, exclude:, server:, …), or nil without the table
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -46,6 +47,13 @@ module Puri
     #   [thunderbird]                    # optional; omitted, the profile is discovered
     #   enabled     = false              # optional; false, the agent has no mail or calendar
     #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
+    #
+    #   [documents]                      # optional; omitted, the agent has no files
+    #   folder       = "~/Documents"     # optional, the default; notes go in its Notes/
+    #   exclude      = ["Books"]         # optional; never indexed, relative to folder
+    #   server       = "local"           # a [[server]] id, for both models below
+    #   embed_model  = "…"
+    #   rerank_model = "…"               # optional; omitted, no reranker
     #
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -221,6 +229,56 @@ module Puri
         def initialize(enabled: true, profile_dir: nil) = super
       end
 
+      # The `[documents]` table as the file writes it; {Config.load} resolves it into a
+      # {Documents}.
+      #
+      # @!attribute [r] folder
+      #   @return [String] see {Documents#folder}, `~` unexpanded
+      # @!attribute [r] exclude
+      #   @return [Array<String>] see {Documents#exclude}, relative to `folder` or absolute
+      # @!attribute [r] server
+      #   @return [String] the {Server#id} both models run on
+      # @!attribute [r] embed_model
+      #   @return [String] see {Documents#embed_model}
+      # @!attribute [r] rerank_model
+      #   @return [String, nil] see {Documents#rerank_model}
+      class DocumentsTable < Data.define(:folder, :exclude, :server, :embed_model, :rerank_model)
+        extend Typemap::Constrain
+
+        constrain :folder, :server, :embed_model, :rerank_model, not_blank: true
+
+        # @param server [String]
+        # @param embed_model [String]
+        # @param folder [String]
+        # @param exclude [Array<String>]
+        # @param rerank_model [String, nil]
+        def initialize(server:, embed_model:, folder: '~/Documents', exclude: [], rerank_model: nil) = super
+      end
+
+      # The folder the agent searches and reads, and writes only in its {#notes}; its
+      # `[[server]]` resolved in, every path absolute.
+      #
+      # @!attribute [r] folder
+      #   @return [String] an existing directory
+      # @!attribute [r] exclude
+      #   @return [Array<String>] existing paths inside {#folder} that are never indexed, though
+      #     the file tools still read them
+      # @!attribute [r] server
+      #   @return [String] the {Server#url} the embedder and the reranker run on
+      # @!attribute [r] api_key
+      #   @return [String, nil] the {Server#api_key}
+      # @!attribute [r] embed_model
+      #   @return [String] the embedding model id sent to {#server}
+      # @!attribute [r] rerank_model
+      #   @return [String, nil] the reranker's model id, or nil to keep the fused top hits
+      class Documents < Data.define(:folder, :exclude, :server, :api_key, :embed_model, :rerank_model)
+        # @return [String] where the agent writes, and keeps its memory
+        def notes = File.join(folder, 'Notes')
+
+        # @return [String] the memory note, read into each agent's system prompt
+        def memory = File.join(notes, 'PURI.md')
+      end
+
       # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
       # what is missing, with the example to paste.
       #
@@ -234,7 +292,9 @@ module Puri
       #   @return [SearchTable, nil] the `[search]` table
       # @!attribute [r] thunderbird
       #   @return [ThunderbirdTable, nil] the `[thunderbird]` table
-      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird)
+      # @!attribute [r] documents
+      #   @return [DocumentsTable, nil] the `[documents]` table
+      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird, :documents)
         extend Typemap::Constrain
 
         constrain :server, unique_by: :id
@@ -245,7 +305,8 @@ module Puri
         # @param titler [TitlerTable, nil]
         # @param search [SearchTable, nil]
         # @param thunderbird [ThunderbirdTable, nil]
-        def initialize(server: [], llm: [], titler: nil, search: nil, thunderbird: nil) = super
+        # @param documents [DocumentsTable, nil]
+        def initialize(server: [], llm: [], titler: nil, search: nil, thunderbird: nil, documents: nil) = super
       end
 
       # A file that loads: Ornith 1.5 on a local llama-server, and the same model with its
@@ -313,7 +374,8 @@ module Puri
         servers = root.server.to_h { |server| [server.id, server] }
         llms = root.llm.map { |table| resolve_llm(table, servers) }
         new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
-            search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird))
+            search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird),
+            documents: root.documents && resolve_documents(root.documents, servers))
       end
 
       # @param llms [Array<Puri::Core::Config::Llm>] never empty
@@ -323,12 +385,14 @@ module Puri
       # @param search [Puri::Core::Config::SearchTable, nil] a keyed `[search]`, or nil
       # @param thunderbird [Puri::Core::Config::ThunderbirdTable, nil] an enabled `[thunderbird]`,
       #   or nil; nil by default, so a config built in code reads no profile unless it says which
-      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil)
+      # @param documents [Puri::Core::Config::Documents, nil] the `[documents]` folder, or nil
+      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil, documents: nil)
         @llms = llms.freeze
         @servers = servers.freeze
         @titler_llm = titler_llm
         @search = search
         @thunderbird = thunderbird
+        @documents = documents
         freeze
       end
 
@@ -349,6 +413,10 @@ module Puri
       # @return [Puri::Core::Config::ThunderbirdTable, nil] the profile the agent reads mail and
       #   calendar from; nil when `[thunderbird]` says `enabled = false`
       attr_reader :thunderbird
+
+      # @return [Puri::Core::Config::Documents, nil] the folder the agent searches, reads and keeps
+      #   its notes in; nil without a `[documents]` table, and the agent has no files
+      attr_reader :documents
 
       # @return [Puri::Core::Config::Llm] where conversations run: the first `[[llm]]`
       def primary_llm = @llms.first
@@ -471,6 +539,30 @@ module Puri
         table.profile_dir ? table.with(profile_dir: File.expand_path(table.profile_dir)) : table
       end
 
+      # Checked here, since a typo'd exclude would otherwise exclude nothing, and the first sign
+      # would be hours of embedding a folder of books.
+      #
+      # @param table [Puri::Core::Config::DocumentsTable]
+      # @param servers [Hash{String => Puri::Core::Config::Server}] every `[[server]]`, by id
+      # @return [Puri::Core::Config::Documents]
+      # @raise [Error] when `folder` is no directory, an `exclude` no path inside it, or `server`
+      #   names no `[[server]]`
+      def self.resolve_documents(table, servers)
+        folder = File.expand_path(table.folder)
+        raise Error, "documents.folder: #{folder} is not a directory" unless File.directory?(folder)
+
+        exclude = table.exclude.map { |entry| File.expand_path(entry, folder) }
+        exclude.each do |path|
+          next if path.start_with?("#{folder}/") && File.exist?(path)
+
+          raise Error, "documents.exclude: #{path} is not an existing path inside #{folder}"
+        end
+        server = servers[table.server] or
+          raise Error, "documents.server: no [[server]] has id #{table.server.inspect}"
+        Documents.new(folder:, exclude:, server: server.url, api_key: server.api_key,
+                      embed_model: table.embed_model, rerank_model: table.rerank_model)
+      end
+
       # @param env [#[]]
       # @return [String] where to write the config, and what
       def self.write_example(env)
@@ -479,7 +571,7 @@ module Puri
 
       private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
                            :resolve_llm, :resolve_titler, :resolve_search, :resolve_thunderbird,
-                           :write_example
+                           :resolve_documents, :write_example
     end
   end
 end

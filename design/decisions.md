@@ -132,3 +132,16 @@ Revisited when Thunderbird's mail and calendar joined (owner, 2026-11-16), and k
 now quote the user's mail, but it lands in Brave's or Exa's logs, where no attacker reads it back
 (egress `:tool_vouched`), and that privacy cost is accepted. `Web::Search.build(confirmer:)` is
 there if it isn't any more.
+
+## D_documents — Why does Puri write notes unasked, index into Qdrant, and read office files in a container?
+
+The documents are pikuri's secretary's (`book/secretary.md` there), with one cut undone: the
+secretary confirms each write with its diff, and Puri doesn't (owner, 2026-11-17). The folder is
+the gate: writes land only in `Notes/`, and each write's line names its file for the user to open.
+That leaves the secretary's stored injection open, a mail planting a note a later conversation
+trusts; the prompt still says to quote a stranger, never to write as the user, and a confirmation
+with a readable diff waits for v2. Qdrant over pikuri's in-memory store, as a real `~/Documents`
+takes hours to embed, and a resident process would still pay it at every login. Office files go
+through the workshop's extractors, since a converter's parser chews attacker-controlled bytes and
+belongs where it can reach neither the network nor the disk. Opt-in, so no hours of embedding
+start unasked.

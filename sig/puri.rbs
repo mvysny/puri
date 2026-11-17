@@ -41,7 +41,7 @@ module Puri
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
     # Puri's `config.toml`: the model connections, which one writes the titles, the search
-    # engines' keys, and the Thunderbird profile. Loaded once
+    # engines' keys, the Thunderbird profile and the documents folder. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
     # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
     # 
@@ -51,6 +51,7 @@ module Puri
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
+    #   config.documents     # => Documents(folder:, exclude:, server:, …), or nil without the table
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -81,6 +82,13 @@ module Puri
     #   [thunderbird]                    # optional; omitted, the profile is discovered
     #   enabled     = false              # optional; false, the agent has no mail or calendar
     #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
+    # 
+    #   [documents]                      # optional; omitted, the agent has no files
+    #   folder       = "~/Documents"     # optional, the default; notes go in its Notes/
+    #   exclude      = ["Books"]         # optional; never indexed, relative to folder
+    #   server       = "local"           # a [[server]] id, for both models below
+    #   embed_model  = "…"
+    #   rerank_model = "…"               # optional; omitted, no reranker
     # 
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -120,12 +128,15 @@ module Puri
       # _@param_ `search` — a keyed `[search]`, or nil
       # 
       # _@param_ `thunderbird` — an enabled `[thunderbird]`, or nil; nil by default, so a config built in code reads no profile unless it says which
+      # 
+      # _@param_ `documents` — the `[documents]` folder, or nil
       def initialize: (
                         llms: ::Array[Puri::Core::Config::Llm],
                         servers: ::Array[Puri::Core::Config::Server],
                         titler_llm: Puri::Core::Config::Llm,
                         ?search: Puri::Core::Config::SearchTable?,
-                        ?thunderbird: Puri::Core::Config::ThunderbirdTable?
+                        ?thunderbird: Puri::Core::Config::ThunderbirdTable?,
+                        ?documents: Puri::Core::Config::Documents?
                       ) -> void
 
       # _@return_ — where conversations run: the first `[[llm]]`
@@ -192,6 +203,14 @@ module Puri
       # defaults when the table is absent, `profile_dir` expanded
       def self.resolve_thunderbird: (Puri::Core::Config::ThunderbirdTable? table) -> Puri::Core::Config::ThunderbirdTable?
 
+      # Checked here, since a typo'd exclude would otherwise exclude nothing, and the first sign
+      # would be hours of embedding a folder of books.
+      # 
+      # _@param_ `table`
+      # 
+      # _@param_ `servers` — every `[[server]]`, by id
+      def self.resolve_documents: (Puri::Core::Config::DocumentsTable table, ::Hash[String, Puri::Core::Config::Server] servers) -> Puri::Core::Config::Documents
+
       # _@param_ `env`
       # 
       # _@return_ — where to write the config, and what
@@ -214,6 +233,10 @@ module Puri
       # _@return_ — the profile the agent reads mail and
       # calendar from; nil when `[thunderbird]` says `enabled = false`
       attr_reader thunderbird: Puri::Core::Config::ThunderbirdTable?
+
+      # _@return_ — the folder the agent searches, reads and keeps
+      # its notes in; nil without a `[documents]` table, and the agent has no files
+      attr_reader documents: Puri::Core::Config::Documents?
 
       # Raised for a missing, unreadable, malformed or incomplete config; the message names the
       # file or the offending key, and says what to write.
@@ -458,6 +481,98 @@ module Puri
         attr_reader profile_dir: String?
       end
 
+      # The `[documents]` table as the file writes it; {Config.load} resolves it into a
+      # {Documents}.
+      # 
+      # @!attribute [r] folder
+      #   @return [String] see {Documents#folder}, `~` unexpanded
+      # @!attribute [r] exclude
+      #   @return [Array<String>] see {Documents#exclude}, relative to `folder` or absolute
+      # @!attribute [r] server
+      #   @return [String] the {Server#id} both models run on
+      # @!attribute [r] embed_model
+      #   @return [String] see {Documents#embed_model}
+      # @!attribute [r] rerank_model
+      #   @return [String, nil] see {Documents#rerank_model}
+      class DocumentsTable
+        extend Typemap::Constrain
+
+        # _@param_ `server`
+        # 
+        # _@param_ `embed_model`
+        # 
+        # _@param_ `folder`
+        # 
+        # _@param_ `exclude`
+        # 
+        # _@param_ `rerank_model`
+        def initialize: (
+                          server: String,
+                          embed_model: String,
+                          ?folder: String,
+                          ?exclude: ::Array[String],
+                          ?rerank_model: String?
+                        ) -> void
+
+        # _@return_ — see {Documents#folder}, `~` unexpanded
+        attr_reader folder: String
+
+        # _@return_ — see {Documents#exclude}, relative to `folder` or absolute
+        attr_reader exclude: ::Array[String]
+
+        # _@return_ — the {Server#id} both models run on
+        attr_reader server: String
+
+        # _@return_ — see {Documents#embed_model}
+        attr_reader embed_model: String
+
+        # _@return_ — see {Documents#rerank_model}
+        attr_reader rerank_model: String?
+      end
+
+      # The folder the agent searches and reads, and writes only in its {#notes}; its
+      # `[[server]]` resolved in, every path absolute.
+      # 
+      # @!attribute [r] folder
+      #   @return [String] an existing directory
+      # @!attribute [r] exclude
+      #   @return [Array<String>] existing paths inside {#folder} that are never indexed, though
+      #     the file tools still read them
+      # @!attribute [r] server
+      #   @return [String] the {Server#url} the embedder and the reranker run on
+      # @!attribute [r] api_key
+      #   @return [String, nil] the {Server#api_key}
+      # @!attribute [r] embed_model
+      #   @return [String] the embedding model id sent to {#server}
+      # @!attribute [r] rerank_model
+      #   @return [String, nil] the reranker's model id, or nil to keep the fused top hits
+      class Documents
+        # _@return_ — where the agent writes, and keeps its memory
+        def notes: () -> String
+
+        # _@return_ — the memory note, read into each agent's system prompt
+        def memory: () -> String
+
+        # _@return_ — an existing directory
+        attr_reader folder: String
+
+        # _@return_ — existing paths inside {#folder} that are never indexed, though
+        # the file tools still read them
+        attr_reader exclude: ::Array[String]
+
+        # _@return_ — the {Server#url} the embedder and the reranker run on
+        attr_reader server: String
+
+        # _@return_ — the {Server#api_key}
+        attr_reader api_key: String?
+
+        # _@return_ — the embedding model id sent to {#server}
+        attr_reader embed_model: String
+
+        # _@return_ — the reranker's model id, or nil to keep the fused top hits
+        attr_reader rerank_model: String?
+      end
+
       # The whole file. Every key defaults to empty, so {Config.load} rather than Typemap says
       # what is missing, with the example to paste.
       # 
@@ -471,6 +586,8 @@ module Puri
       #   @return [SearchTable, nil] the `[search]` table
       # @!attribute [r] thunderbird
       #   @return [ThunderbirdTable, nil] the `[thunderbird]` table
+      # @!attribute [r] documents
+      #   @return [DocumentsTable, nil] the `[documents]` table
       class Root
         extend Typemap::Constrain
 
@@ -483,12 +600,15 @@ module Puri
         # _@param_ `search`
         # 
         # _@param_ `thunderbird`
+        # 
+        # _@param_ `documents`
         def initialize: (
                           ?server: ::Array[Server],
                           ?llm: ::Array[LlmTable],
                           ?titler: TitlerTable?,
                           ?search: SearchTable?,
-                          ?thunderbird: ThunderbirdTable?
+                          ?thunderbird: ThunderbirdTable?,
+                          ?documents: DocumentsTable?
                         ) -> void
 
         # _@return_ — the `[[server]]` entries, ids unique
@@ -505,6 +625,9 @@ module Puri
 
         # _@return_ — the `[thunderbird]` table
         attr_reader thunderbird: ThunderbirdTable?
+
+        # _@return_ — the `[documents]` table
+        attr_reader documents: DocumentsTable?
       end
     end
 
@@ -520,6 +643,92 @@ module Puri
     module Replay
       # _@param_ `history`
       def self.blocks: (Pikuri::Agent::History history) -> ::Array[(Puri::Protocol::UserMessage | Puri::Protocol::Reply | Puri::Protocol::ToolLine)]
+    end
+
+    # The `[documents]` folder, for every conversation at once: its index in Qdrant beside an
+    # SQLite FTS5 file, the watcher that keeps the index in step with the disk, and the `Notes/`
+    # folder the agent writes in. Each agent gets an extension of its own over the one corpus.
+    # 
+    #   library = Library.new(config.documents, cache_dir: PikuriCore.cache_dir)  # starts at once
+    #   Pikuri::Rag::Extension.new(corpus: library.corpus, reranker: library.reranker)  # waits for it
+    #   library.memory          # => Notes/PURI.md's text, "" when absent
+    #   library.close           # the watcher, the corpus, then the container
+    # 
+    # Starting runs on a thread of its own: Qdrant takes seconds to come up, and the extractors'
+    # container minutes to build the first time, while the popup must come up at once. The first
+    # embed of a real folder takes hours, and the watcher does it in the background, a file at a
+    # time; search meanwhile finds what is indexed so far.
+    # 
+    # The documents are declared private and untrusted, like the secretary's in pikuri: a
+    # documents folder holds downloaded attachments and other people's files.
+    # 
+    # Thread-safe.
+    class Library
+      LOGGER: Logger
+      CLOSE_SECONDS: Integer
+
+      # Creates `Notes/`, and starts the index.
+      # 
+      # _@param_ `documents`
+      # 
+      # _@param_ `cache_dir` — where the FTS5 file goes
+      # 
+      # _@param_ `server` — the vector server: `Pikuri::VectorDb::Server::Qdrant`, or a spec's `InMemory`
+      # 
+      # _@param_ `embedder` — nil for the one `documents` names
+      # 
+      # _@param_ `extractors` — whether to register the office-format extractors and build their image; specs leave the registry alone
+      def initialize: (
+                        Puri::Core::Config::Documents documents,
+                        cache_dir: String,
+                        ?server: Class,
+                        ?embedder: untyped?,
+                        ?extractors: bool
+                      ) -> void
+
+      # _@return_ — once started; waits until it is
+      def corpus: () -> Pikuri::VectorDb::Corpus
+
+      # _@return_ — the memory note's text, stripped; "" when it doesn't exist yet
+      def memory: () -> String
+
+      # Stops the watcher, its file in progress finished first, then closes the corpus and the
+      # container. A start still in progress gets {CLOSE_SECONDS}, and whatever it opened later
+      # closes as it does.
+      def close: () -> void
+
+      # _@param_ `server_class`
+      # 
+      # _@param_ `cache_dir`
+      # 
+      # _@param_ `extractors`
+      def start: (Class server_class, String cache_dir, bool extractors) -> Pikuri::VectorDb::Corpus
+
+      # The office formats and PDFs, converted in a networkless container; the image is built
+      # here, the first time, rather than on the first document. A machine without docker falls
+      # back to the host's pandoc and markitdown, or reads those formats not at all.
+      def register_extractors: () -> void
+
+      # _@param_ `vectors` — the vector server's client
+      # 
+      # _@param_ `store` — the FTS5 file
+      def corpus_on: (Object vectors, String store) -> Pikuri::VectorDb::Corpus
+
+      # _@param_ `cache_dir`
+      # 
+      # _@param_ `collection`
+      # 
+      # _@return_ — the FTS5 file, named as the Qdrant collection
+      def store: (String cache_dir, String collection) -> String
+
+      # Closes what the start opened, each once.
+      def teardown: () -> void
+
+      attr_reader documents: Puri::Core::Config::Documents
+
+      # _@return_ — nil when the config names no
+      # reranker
+      attr_reader reranker: Pikuri::VectorDb::Reranker::LlamaServer?
     end
 
     # Asks the user in the transcript: a tool's `ask` shows a {Protocol::Confirmation} and waits
@@ -622,7 +831,8 @@ module Puri
       # The core `config` describes: conversations on its first `[[llm]]`, titles on its
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
-      # logs an error and wires no web tools, and the system prompt says so. Also sets each
+      # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
+      # starts that folder's {Library}, which the core closes. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -656,11 +866,14 @@ module Puri
       # _@param_ `titler` — names each new conversation from its first message
       # 
       # _@param_ `store` — where conversations are saved
+      # 
+      # _@param_ `library` — the documents folder every agent searches; the core closes it
       def initialize: (
                         config: Puri::Core::Config,
                         transport: Pikuri::Agent::ChatTransport,
                         titler: Pikuri::Conversations::Titler,
-                        store: Pikuri::Conversations::Store
+                        store: Pikuri::Conversations::Store,
+                        ?library: Puri::Core::Library?
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
@@ -700,7 +913,8 @@ module Puri
       def delete_conversation: (String conversation) -> void
 
       # Closes every conversation, cancelling its turn, and waits for each turn to be saved and
-      # its agent closed. Not under the core's lock: a turn's save takes it.
+      # its agent closed; then the library, whose index no agent searches any more. Not under the
+      # core's lock: a turn's save takes it.
       def close: () -> void
 
       # _@param_ `id`
@@ -879,6 +1093,7 @@ module Puri
     module ToolWording
       WORDINGS: ::Hash[String, Wording]
       BARE: ::Array[String]
+      SUMMED: ::Array[String]
 
       # _@param_ `call`
       # 
@@ -912,12 +1127,12 @@ module Puri
 
       # _@param_ `call`
       # 
-      # _@param_ `outcome` — the tool's summary of a call that failed or was cut short; nil when it answered
+      # _@param_ `outcome` — the tool's summary of a call that failed or was cut short, or of a {SUMMED} one; nil for any other that answered
       def text: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, String? outcome) -> String
 
       # _@param_ `call`
       # 
-      # _@param_ `outcome` — the tool's summary of a call that failed or was cut short; nil when it answered
+      # _@param_ `outcome` — the tool's summary of a call that failed or was cut short, or of a {SUMMED} one; nil for any other that answered
       def self.text: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, String? outcome) -> String
 
       # _@param_ `call`
@@ -995,6 +1210,8 @@ module Puri
       # _@param_ `lock` — the core's
       # 
       # _@param_ `saved` — whether the store holds this conversation already
+      # 
+      # _@param_ `library` — the `[documents]` folder its agents search
       def initialize: (
                         Puri::Core::Conversation conversation,
                         entry: Pikuri::Conversations::Store::Entry,
@@ -1003,7 +1220,8 @@ module Puri
                         transport: Pikuri::Agent::ChatTransport,
                         config: Puri::Core::Config,
                         lock: Monitor,
-                        saved: bool
+                        saved: bool,
+                        ?library: Puri::Core::Library?
                       ) -> void
 
       # Fills a saved conversation's blocks from its history, the first time only; the agent
@@ -1080,11 +1298,13 @@ module Puri
         include Pikuri::Conversations::AgentInitializer
         PROMPTS: String
 
-        # Our system prompt, and the fragment that says what the agent can reach; {#system_prompt}
-        # appends the date.
+        # Our system prompt, and the fragments that say what the agent can reach; {#system_prompt}
+        # appends the date, and the memory.
         # 
         # _@param_ `web` — whether the agent has the web tools
-        def self.system_prompt: (web: bool) -> String
+        # 
+        # _@param_ `documents` — whether it has the documents folder
+        def self.system_prompt: (web: bool, documents: bool) -> String
 
         # _@param_ `config`
         # 
@@ -1092,11 +1312,14 @@ module Puri
         # 
         # _@param_ `lock` — the core's
         # 
+        # _@param_ `library` — the `[documents]` folder; nil without one
+        # 
         # _@param_ `cache_dir` — where each agent's Thunderbird snapshots go, in a folder of their own
         def initialize: (
                           Puri::Core::Config config,
                           Puri::Core::Conversation conversation,
                           lock: Monitor,
+                          ?library: Puri::Core::Library?,
                           ?cache_dir: String
                         ) -> void
 
@@ -1115,17 +1338,32 @@ module Puri
 
         # _@param_ `_conversation` — this session's
         # 
-        # _@return_ — {.system_prompt} for the tools the config gives, then today's date and
-        # the time zone; the agent appends its extensions' own fragments
+        # _@return_ — {.system_prompt} for the tools the config gives, then today's date, the
+        # time zone, and with documents the memory and what isn't indexed; the agent appends its
+        # extensions' own fragments
         def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
-        # Adds the web tools and the Thunderbird extension. An extension is built afresh for each
-        # agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
+        # Adds the calculator, the web tools, the Thunderbird extension, and the documents' search
+        # and file tools. An extension is built afresh for each agent as pikuri asks, and one that
+        # asks before it acts takes {#confirmer}.
         # 
         # _@param_ `configurator`
         # 
         # _@param_ `_conversation` — this session's
         def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation _conversation) -> void
+
+        # The memory is read once per agent, so a change the agent makes reaches the prompt in
+        # the next conversation: rewriting this one's would cost the server's cache of it, for a
+        # fact the write already told the model.
+        # 
+        # _@return_ — "" without documents
+        def library_prompt: () -> String
+
+        # Reads the whole documents folder, and writes only its `Notes/`, unasked (owner,
+        # 2026-11-17): the folder is the gate, and each write's line names its file. Rooted where
+        # the index is, so a path one tool cites is the same file to the other. No `grep`: it
+        # can't see inside a PDF, and would answer "no match" where `rag_search_keywords` finds it.
+        def workspace: () -> Pikuri::Workspace::Extension
 
         # Mail, contacts and calendar, read from the local profile, and both hand-offs: a drafted
         # mail opens in Thunderbird's compose window, an event in its import wizard, and the user

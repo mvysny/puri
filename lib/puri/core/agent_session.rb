@@ -48,13 +48,15 @@ module Puri
         # @return [String]
         PROMPTS = File.expand_path('../../../prompts', __dir__)
 
-        # Our system prompt, and the fragment that says what the agent can reach; {#system_prompt}
-        # appends the date.
+        # Our system prompt, and the fragments that say what the agent can reach; {#system_prompt}
+        # appends the date, and the memory.
         #
         # @param web [Boolean] whether the agent has the web tools
+        # @param documents [Boolean] whether it has the documents folder
         # @return [String]
-        def self.system_prompt(web:)
-          %W[puri.txt #{web ? 'web.txt' : 'offline.txt'}].map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
+        def self.system_prompt(web:, documents:)
+          %W[puri.txt #{web ? 'web.txt' : 'offline.txt'} #{documents ? 'documents.txt' : 'no-documents.txt'}]
+            .map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
         end
 
         # @return [Confirmer, nil] the latest agent's; nil until one has booted
@@ -63,11 +65,13 @@ module Puri
         # @param config [Puri::Core::Config]
         # @param conversation [Puri::Core::Conversation] where a confirmation shows
         # @param lock [Monitor] the core's
+        # @param library [Puri::Core::Library, nil] the `[documents]` folder; nil without one
         # @param cache_dir [String] where each agent's Thunderbird snapshots go, in a folder of their own
-        def initialize(config, conversation, lock:, cache_dir: PikuriCore.cache_dir)
+        def initialize(config, conversation, lock:, library: nil, cache_dir: PikuriCore.cache_dir)
           @config = config
           @conversation = conversation
           @lock = lock
+          @library = library
           @cache_dir = cache_dir
           @confirmer = nil
         end
@@ -91,27 +95,75 @@ module Puri
         end
 
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
-        # @return [String] {.system_prompt} for the tools the config gives, then today's date and
-        #   the time zone; the agent appends its extensions' own fragments
+        # @return [String] {.system_prompt} for the tools the config gives, then today's date, the
+        #   time zone, and with documents the memory and what isn't indexed; the agent appends its
+        #   extensions' own fragments
         def system_prompt(_conversation)
           now = Time.now
-          "#{Initializer.system_prompt(web: !@config.search.nil?)}\n\n" \
-            "Today is #{now.strftime('%A, %-d %B %Y')}; the time zone is #{Initializer.time_zone(now)}."
+          "#{Initializer.system_prompt(web: !@config.search.nil?, documents: !@library.nil?)}\n\n" \
+            "Today is #{now.strftime('%A, %-d %B %Y')}; the time zone is #{Initializer.time_zone(now)}." \
+            "#{library_prompt}"
         end
 
-        # Adds the web tools and the Thunderbird extension. An extension is built afresh for each
-        # agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
+        # Adds the calculator, the web tools, the Thunderbird extension, and the documents' search
+        # and file tools. An extension is built afresh for each agent as pikuri asks, and one that
+        # asks before it acts takes {#confirmer}.
         #
         # @param configurator [Pikuri::Agent::Configurator]
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
         # @return [void]
+        # @raise [StandardError] when the documents' index failed to start
         def configure(configurator, _conversation)
           @confirmer = Confirmer.new(@conversation, lock: @lock)
+          configurator.add_tool(Pikuri::Tool::CALCULATOR)
           configurator.add_tools(web_tools)
           configurator.add_extension(thunderbird(configurator)) if @config.thunderbird
+          return unless @library
+
+          configurator.add_extension(Pikuri::Rag::Extension.new(corpus: @library.corpus, reranker: @library.reranker))
+          configurator.add_extension(workspace)
         end
 
         private
+
+        # The memory is read once per agent, so a change the agent makes reaches the prompt in
+        # the next conversation: rewriting this one's would cost the server's cache of it, for a
+        # fact the write already told the model.
+        #
+        # @return [String] "" without documents
+        def library_prompt
+          return '' unless @library
+
+          memory = @library.memory
+          path = Pathname.new(@library.documents.memory).relative_path_from(@library.documents.folder)
+          block = if memory.empty?
+                    "#{path} does not exist yet or is empty; create it the first time the user asks you to " \
+                      'remember something.'
+                  else
+                    "<memory path=\"#{path}\">\n#{memory}\n</memory>"
+                  end
+          excluded = @library.documents.exclude.map { Pathname.new(_1).relative_path_from(@library.documents.folder) }
+          # Else the model reads "search found nothing" as "the user has nothing".
+          unless excluded.empty?
+            block += "\n\nNot indexed, so search can't find them, though a file there can be read by its path: " \
+                     "#{excluded.join(', ')}."
+          end
+          "\n\n#{block}"
+        end
+
+        # Reads the whole documents folder, and writes only its `Notes/`, unasked (owner,
+        # 2026-11-17): the folder is the gate, and each write's line names its file. Rooted where
+        # the index is, so a path one tool cites is the same file to the other. No `grep`: it
+        # can't see inside a PDF, and would answer "no match" where `rag_search_keywords` finds it.
+        #
+        # @return [Pikuri::Workspace::Extension]
+        def workspace
+          documents = @library.documents
+          filesystem = Pikuri::Workspace::Filesystem.new(project_root: documents.folder, root_writable: false,
+                                                         writable: [documents.notes], private: true, trusted: false)
+          Pikuri::Workspace::Extension.new(filesystem:, confirmer: Pikuri::Workspace::Confirmer::AutoApprove.new,
+                                           grep: false)
+        end
 
         # Mail, contacts and calendar, read from the local profile, and both hand-offs: a drafted
         # mail opens in Thunderbird's compose window, an event in its import wizard, and the user
@@ -151,7 +203,8 @@ module Puri
       # @param config [Puri::Core::Config] what its agents are built from
       # @param lock [Monitor] the core's
       # @param saved [Boolean] whether the store holds this conversation already
-      def initialize(conversation, entry:, store:, conversations:, transport:, config:, lock:, saved:)
+      # @param library [Puri::Core::Library, nil] the `[documents]` folder its agents search
+      def initialize(conversation, entry:, store:, conversations:, transport:, config:, lock:, saved:, library: nil)
         super()
         @conversation = conversation
         @entry = entry
@@ -159,7 +212,7 @@ module Puri
         @conversations = conversations
         @transport = transport
         # self.class's: a spec's subclass brings an Initializer that adds what Puri doesn't wire.
-        @initializer = self.class::Initializer.new(config, conversation, lock:)
+        @initializer = self.class::Initializer.new(config, conversation, lock:, library:)
         @lock = lock
         @saved = saved
         @untitled = !saved || store.stamp_titled?(entry) || entry.title == Conversation::NEW_TITLE

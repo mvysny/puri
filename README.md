@@ -3,8 +3,9 @@
 A Siri-style desktop assistant for Linux and GNOME, on top of [pikuri](https://codeberg.org/mvysny/pikuri).
 A global shortcut pops up a search bar; you type, and the bar grows into a streamed conversation,
 with every earlier conversation one click away in the same window.
-It reads your Thunderbird mail and calendar, drafts a mail or an event for you to send, and can
-search the web, but never opens a URL, and the model runs on your own machine whenever it can.
+It reads your Thunderbird mail and calendar and your documents, keeps notes, drafts a mail or an
+event for you to send, and can search the web, but never opens a URL, and the model runs on your
+own machine whenever it can.
 
 Pikuri owns the agent loop, the tools, the prompts and the LLM transport. This project owns the
 popup window, the conversation history beside it, and the resident process that keeps the agent
@@ -14,7 +15,8 @@ The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri,
 mascot. "Ask Puri."
 
 **Status:** the UI is done, and the model answers through pikuri. It can search the web and
-read your Thunderbird mail, contacts and calendar, with no notes yet. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
+read your Thunderbird mail, contacts and calendar, and search, read and take notes in your
+documents. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
 `search`, `note`, `table`, `long`, `fail`, `mail`, or `calendar` plus `reschedule` in a question
 walk the paths the tools will take. The plan lives in `design/ideas/`.
 
@@ -90,6 +92,24 @@ To point it elsewhere, or switch it off:
 profile_dir = "~/snap/thunderbird/common/.thunderbird/abcd1234.default"
 # enabled = false
 ```
+
+To let Puri search and read your documents, name the folder and the models that index it:
+
+```toml
+[documents]
+# folder     = "~/Documents"   # the default
+exclude      = ["Books"]       # never indexed; a folder of books would take days
+server       = "local"         # a [[server]] id
+embed_model  = "nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0"
+rerank_model = "gpustack/bge-reranker-v2-m3-GGUF:Q8_0"   # optional
+```
+
+The index lives in [Qdrant](https://qdrant.tech), which Puri runs in podman or docker, so a
+folder is embedded once rather than on every start; the first embed of a real `~/Documents`
+takes hours, and answers come slower meanwhile. Office files (DOCX, ODT, XLSX, PPTX, EPUB, RTF)
+and PDFs are converted in a networkless docker container that Puri builds on first use. Puri
+writes only in the folder's `Notes/`, without asking, and keeps what you ask it to remember in
+`Notes/PURI.md`.
 
 To open Puri from a global shortcut, install it for your user:
 

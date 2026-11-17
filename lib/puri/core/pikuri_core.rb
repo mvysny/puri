@@ -39,7 +39,8 @@ module Puri
       # The core `config` describes: conversations on its first `[[llm]]`, titles on its
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
-      # logs an error and wires no web tools, and the system prompt says so. Also sets each
+      # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
+      # starts that folder's {Library}, which the core closes. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -62,7 +63,8 @@ module Puri
         unless config.search
           LOGGER.error('[search] in config.toml sets no Brave or Exa key: the agent has no web tools')
         end
-        new(config:, transport: config.primary_llm.transport, titler:, store:, &)
+        library = config.documents && Library.new(config.documents, cache_dir: cache_dir)
+        new(config:, transport: config.primary_llm.transport, titler:, store:, library:, &)
       end
 
       # The saved conversations, in pikuri-web's folder format (`D_port_pikuri_web`).
@@ -88,14 +90,17 @@ module Puri
       # @param transport [Pikuri::Agent::ChatTransport] where conversations run
       # @param titler [Pikuri::Conversations::Titler] names each new conversation from its first message
       # @param store [Pikuri::Conversations::Store] where conversations are saved
+      # @param library [Puri::Core::Library, nil] the documents folder every agent searches; the
+      #   core closes it
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(config:, transport:, titler:, store:, &listener)
+      def initialize(config:, transport:, titler:, store:, library: nil, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @transport = transport
         @store = store
         @config = config
+        @library = library
         @listener = listener
         @lock = Monitor.new
         @conversations = {}
@@ -144,13 +149,14 @@ module Puri
       end
 
       # Closes every conversation, cancelling its turn, and waits for each turn to be saved and
-      # its agent closed. Not under the core's lock: a turn's save takes it.
+      # its agent closed; then the library, whose index no agent searches any more. Not under the
+      # core's lock: a turn's save takes it.
       #
       # @return [void]
       def close
-        return if @live.shutdown(timeout: CLOSE_SECONDS)
-
-        LOGGER.warn("a turn still saving after #{CLOSE_SECONDS} s of closing")
+        saved = @live.shutdown(timeout: CLOSE_SECONDS)
+        LOGGER.warn("a turn still saving after #{CLOSE_SECONDS} s of closing") unless saved
+        @library&.close
       end
 
       private
@@ -210,7 +216,7 @@ module Puri
       # @return [Puri::Core::AgentSession]
       def agent_session(conversation, entry, saved:)
         AgentSession.new(conversation, entry:, store: @store, conversations: @live, transport: @transport,
-                                       config: @config, lock: @lock, saved:)
+                                       config: @config, lock: @lock, saved:, library: @library)
       end
 
       # @return [void]

@@ -41,13 +41,29 @@ module Puri
         'thunderbird_calendar_search' => Wording.new('Searching your calendar…', '📅 Searched the calendar'),
         'thunderbird_calendar_read' => Wording.new('Reading an event…', '📅 Read an event'),
         'thunderbird_mail_compose' => Wording.new('Drafting a mail…', '✉ Draft opened in Thunderbird'),
-        'thunderbird_calendar_create' => Wording.new('Drafting an event…', '📅 Event opened in Thunderbird')
+        'thunderbird_calendar_create' => Wording.new('Drafting an event…', '📅 Event opened in Thunderbird'),
+        'rag_search' => Wording.new('Searching your documents…', '🗂 Searched documents'),
+        'rag_search_keywords' => Wording.new('Searching your documents…', '🗂 Searched documents for'),
+        'rag_read' => Wording.new('Reading a document…', '📄 Read'),
+        'rag_reindex' => Wording.new('Reindexing your documents…', '🗂 Reindexed documents'),
+        'read' => Wording.new('Reading a file…', '📄 Read'),
+        'glob' => Wording.new('Looking for files…', '🗂 Looked for files'),
+        'file_list' => Wording.new('Listing a folder…', '🗂 Listed'),
+        'write' => Wording.new('Writing a note…', '📝 Wrote'),
+        'edit' => Wording.new('Editing a note…', '📝 Edited'),
+        'calculator' => Wording.new('Calculating…', '🧮 Calculated')
       }.freeze
 
       # Whose argument a line leaves out.
       #
       # @return [Array<String>]
       BARE = %w[thunderbird_mail_read thunderbird_mail_attachment_read thunderbird_calendar_read].freeze
+
+      # Whose line ends in the tool's summary even when it answered: a note written unasked is
+      # what the user checks, so its line says what changed.
+      #
+      # @return [Array<String>]
+      SUMMED = %w[write edit].freeze
 
       # @param call [Pikuri::Agent::Event::ToolCall, Pikuri::Agent::History::ToolCall]
       # @return [String] what the turn is doing while the call runs
@@ -66,14 +82,15 @@ module Puri
       #   {Conversation#restore} to assign
       def line(call, content:, summary:)
         error = content.start_with?('Error:')
-        outcome = summary.to_s if error || summary == Pikuri::Agent::INTERRUPTED_SUMMARY
+        outcome = summary.to_s if error || summary == Pikuri::Agent::INTERRUPTED_SUMMARY ||
+                                  (SUMMED.include?(call.name) && !summary.to_s.empty?)
         text = Pikuri::Sanitizer.sanitize(Pikuri::Tool.one_line(text(call, outcome))).text
         Protocol::ToolLine.new(id: nil, text:, error:)
       end
 
       # @param call [Pikuri::Agent::Event::ToolCall, Pikuri::Agent::History::ToolCall]
-      # @param outcome [String, nil] the tool's summary of a call that failed or was cut short;
-      #   nil when it answered
+      # @param outcome [String, nil] the tool's summary of a call that failed or was cut short, or
+      #   of a {SUMMED} one; nil for any other that answered
       # @return [String]
       def text(call, outcome)
         line = case call.name

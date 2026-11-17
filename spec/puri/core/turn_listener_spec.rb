@@ -138,10 +138,24 @@ RSpec.describe Puri::Core::TurnListener do
     end
 
     it 'words a tool it doesn’t know by the tool’s own display strings' do
-      call('calculator', '2 + 2', display_name: 'Calculator')
-      assert_equal 'Calculator…', activity.status
-      result('4', 'Computed 4')
-      assert_equal '⚙ Calculator: 2 + 2', blocks.last.text
+      call('dice', '2d6', display_name: 'Dice')
+      assert_equal 'Dice…', activity.status
+      result('7', 'Rolled 7')
+      assert_equal '⚙ Dice: 2d6', blocks.last.text
+    end
+
+    it 'words a note it wrote by its path and what changed, which the user checks' do
+      call('write', 'Notes/kettle-co.md', display_name: 'Write')
+      assert_equal 'Writing a note…', activity.status
+      result('Created Notes/kettle-co.md', 'Created, 12 lines')
+      assert_equal '📝 Wrote: Notes/kettle-co.md — Created, 12 lines', blocks.last.text
+    end
+
+    it 'words a document search by its query' do
+      call('rag_search', 'dentist referral', display_name: 'Rag Search')
+      assert_equal 'Searching your documents…', activity.status
+      result('1. Notes/dentist.md …', 'Found 5 matches')
+      assert_equal '🗂 Searched documents: dentist referral', blocks.last.text
     end
 
     it 'words a Thunderbird search by its query, and a read without the id it took' do

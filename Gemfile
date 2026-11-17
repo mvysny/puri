@@ -25,19 +25,25 @@ gem 'streaming-markdown-parser', '~> 0.1'
 # `web_read_cached`, and with them nokogiri; pikuri-html registers the HTML → Markdown extractor.
 # pikuri-thunderbird reads the local Thunderbird profile's mail, contacts and calendar, and hands a
 # drafted mail or event to Thunderbird's own UI; it brings sqlite3 and mail (parse-only).
+# pikuri-rag searches the `[documents]` folder, vectors in Qdrant beside an SQLite FTS5 index;
+# pikuri-vectordb under it brings the Qdrant server, the embedder and listen's folder watcher.
 git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-core'
   gem 'pikuri-html'
+  gem 'pikuri-rag'
   gem 'pikuri-thunderbird'
+  gem 'pikuri-vectordb'
   gem 'pikuri-web'
   gem 'pikuri-workspace'
 end
 
 # The conversations Core hosts: their agents and turns, the folder they are saved in, the titler
 # and the per-server request throttle. A workshop gem, on its git master like pikuri;
-# `bundle update pikuri-conversations` moves the pin.
+# `bundle update pikuri-conversations` moves the pin. pikuri-extractors reads the documents'
+# office formats and PDFs, converting each in a networkless container it builds on first use.
 git 'https://github.com/mvysny/pikuri-workshop.git', branch: 'master' do
   gem 'pikuri-conversations'
+  gem 'pikuri-extractors'
 end
 
 # Core::Config, ported from pikuri-web with its gems: tomlrb parses the TOML (pure Ruby, MIT, no

@@ -23,10 +23,15 @@ RSpec.describe Puri::Core::AgentSession do
   end
 
   describe 'Initializer.system_prompt' do
+    # @return [String]
+    def prompt(web: true, documents: true) = described_class::Initializer.system_prompt(web:, documents:)
+
     it 'says what the agent can reach' do
-      assert_includes described_class::Initializer.system_prompt(web: true), 'You can search the web'
-      assert_includes described_class::Initializer.system_prompt(web: false), "You can't search the web"
-      assert described_class::Initializer.system_prompt(web: true).start_with?('You are Puri')
+      assert_includes prompt, 'You can search the web'
+      assert_includes prompt(web: false), "You can't search the web"
+      assert_includes prompt, 'Notes/PURI.md is your memory'
+      assert_includes prompt(documents: false), "You can't read the user's files or notes"
+      assert prompt.start_with?('You are Puri')
     end
   end
 
@@ -53,11 +58,14 @@ RSpec.describe Puri::Core::AgentSession do
 
   describe 'Initializer#configure' do
     # @param thunderbird [Puri::Core::Config::ThunderbirdTable, nil]
-    # @return [Pikuri::Agent] built as a session's, its tools wired
-    def agent(thunderbird)
+    # @param library [Puri::Core::Library, nil]
+    # @yieldparam script [Pikuri::Testing::Script] what the model answers, if it is asked
+    # @return [Pikuri::Agent] built as a session's, its tools wired and its prompt Puri's
+    def agent(thunderbird, library: nil, &script)
       config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil, thunderbird:)
-      initializer = described_class::Initializer.new(config, conversation, lock:, cache_dir: @cache)
-      Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport { nil }, system_prompt: '') do |c|
+      initializer = described_class::Initializer.new(config, conversation, lock:, library:, cache_dir: @cache)
+      Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport(&script),
+                        system_prompt: initializer.system_prompt(nil)) do |c|
         initializer.configure(c, nil)
       end
     end
@@ -90,7 +98,7 @@ RSpec.describe Puri::Core::AgentSession do
       Dir.mktmpdir('puri-thunderbird') do |profile_dir|
         built = agent(Puri::Core::Config::ThunderbirdTable.new(profile_dir:))
         # No Gloda index in an empty profile, so no mail tools; the calendar says it is empty.
-        assert_equal %w[thunderbird_calendar_search thunderbird_calendar_read thunderbird_mail_compose
+        assert_equal %w[calculator thunderbird_calendar_search thunderbird_calendar_read thunderbird_mail_compose
                         thunderbird_calendar_create], built.tools.map(&:name)
         assert_includes built.system_prompt, '<thunderbird_usage>'
       ensure
@@ -103,6 +111,67 @@ RSpec.describe Puri::Core::AgentSession do
       assert_empty built.tools.map(&:name).grep(/thunderbird/)
     ensure
       built&.close
+    end
+
+    it 'wires only the calculator without [documents]' do
+      built = agent(nil)
+      assert_equal %w[calculator], built.tools.map(&:name)
+      assert_includes built.system_prompt, "You can't read the user's files or notes"
+    ensure
+      built&.close
+    end
+
+    describe 'with [documents]' do
+      around do |example|
+        Dir.mktmpdir('puri-documents') do |folder|
+          FileUtils.mkdir_p(File.join(folder, 'Books'))
+          documents = Puri::Core::Config::Documents.new(
+            folder:, exclude: [File.join(folder, 'Books')], server: 'http://fake.invalid', api_key: nil,
+            embed_model: 'nomic', rerank_model: nil
+          )
+          embedder = Object.new.tap { |fake| def fake.embed(texts) = texts.map { [1.0, 0.0] } }
+          @folder = folder
+          @library = Puri::Core::Library.new(documents, cache_dir: @cache, embedder:, extractors: false,
+                                                        server: Pikuri::VectorDb::Server::InMemory)
+          example.run
+        ensure
+          @library&.close
+        end
+      end
+
+      it 'searches and reads the folder, and has no grep' do
+        built = agent(nil, library: @library)
+        assert_equal %w[calculator rag_search rag_search_keywords rag_read rag_reindex read glob file_list edit write],
+                     built.tools.map(&:name)
+      ensure
+        built&.close
+      end
+
+      it 'tells the model its memory, and what search cannot find' do
+        File.write(File.join(@folder, 'Notes', 'PURI.md'), "- signs as Alex\n")
+        prompt = agent(nil, library: @library).system_prompt
+        assert_includes prompt, %(<memory path="Notes/PURI.md">\n- signs as Alex\n</memory>)
+        assert_includes prompt, 'Not indexed, so search can\'t find them, though a file there can be read by its ' \
+                                'path: Books.'
+      end
+
+      it 'says the memory is yet to be written' do
+        assert_includes agent(nil, library: @library).system_prompt,
+                        'Notes/PURI.md does not exist yet or is empty'
+      end
+
+      it 'writes a note unasked, and nothing outside Notes/' do
+        built = agent(nil, library: @library) do |llm|
+          llm.tool_batch(['write', { path: 'Notes/PURI.md', content: "- signs as Alex\n" }],
+                         ['write', { path: 'budget.csv', content: "rent,900\n" }])
+          llm.reply('Noted.')
+        end
+        built.run_loop(user_message: 'Remember that I sign as Alex.')
+        assert_equal "- signs as Alex\n", File.read(File.join(@folder, 'Notes', 'PURI.md'))
+        refute File.exist?(File.join(@folder, 'budget.csv'))
+      ensure
+        built&.close
+      end
     end
   end
 

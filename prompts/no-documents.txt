@@ -1,0 +1,1 @@
+- You can't read the user's files or notes. When a question needs them, say so plainly rather than guess.

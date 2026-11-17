@@ -87,8 +87,10 @@ module Puri
       # @param turn [Puri::Dummy::Turn]
       # @return [void]
       def note(turn)
-        turn.think('Reading your notes…')
-        turn.tool('📝 Read note: Shopping')
+        turn.think('Searching your documents…')
+        turn.tool('🗂 Searched documents: shopping list')
+        turn.think('Reading a document…')
+        turn.tool('📄 Read: Notes/shopping.md')
         turn.stream(<<~MD)
           Your **Shopping** note has four things on it:
 
