@@ -63,10 +63,12 @@ module Puri
         # @param config [Puri::Core::Config]
         # @param conversation [Puri::Core::Conversation] where a confirmation shows
         # @param lock [Monitor] the core's
-        def initialize(config, conversation, lock:)
+        # @param cache_dir [String] where each agent's Thunderbird snapshots go, in a folder of their own
+        def initialize(config, conversation, lock:, cache_dir: PikuriCore.cache_dir)
           @config = config
           @conversation = conversation
           @lock = lock
+          @cache_dir = cache_dir
           @confirmer = nil
         end
 
@@ -106,7 +108,7 @@ module Puri
         def configure(configurator, _conversation)
           @confirmer = Confirmer.new(@conversation, lock: @lock)
           configurator.add_tools(web_tools)
-          configurator.add_extension(thunderbird) if @config.thunderbird
+          configurator.add_extension(thunderbird(configurator)) if @config.thunderbird
         end
 
         private
@@ -116,10 +118,18 @@ module Puri
         # sends or adds it there, so neither asks through {#confirmer}. No profile on the machine
         # wires nothing; two installs with a mail account fail the boot, naming both.
         #
+        # Its snapshots go in a fresh folder under {#initialize}'s `cache_dir`, removed when the
+        # agent closes: two extensions sharing one copy each other's under an open database.
+        #
+        # @param configurator [Pikuri::Agent::Configurator]
         # @return [Pikuri::Thunderbird::Extension]
-        def thunderbird
-          Pikuri::Thunderbird::Extension.new(profile_dir: @config.thunderbird.profile_dir, allow_compose_mail: true,
-                                             allow_create_calendar_event: true)
+        def thunderbird(configurator)
+          FileUtils.mkdir_p(@cache_dir, mode: 0o700)
+          snapshots = Dir.mktmpdir('thunderbird-', @cache_dir)
+          # Registered before the extension's own, so it runs after they close the copies.
+          configurator.on_close { FileUtils.rm_rf(snapshots) }
+          Pikuri::Thunderbird::Extension.new(profile_dir: @config.thunderbird.profile_dir, cache_dir: snapshots,
+                                             allow_compose_mail: true, allow_create_calendar_event: true)
         end
 
         # @return [Array<Pikuri::Tool>] `web_search` with page text, and `web_read_cached`; none

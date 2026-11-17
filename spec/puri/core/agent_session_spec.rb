@@ -56,7 +56,7 @@ RSpec.describe Puri::Core::AgentSession do
     # @return [Pikuri::Agent] built as a session's, its tools wired
     def agent(thunderbird)
       config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil, thunderbird:)
-      initializer = described_class::Initializer.new(config, conversation, lock:)
+      initializer = described_class::Initializer.new(config, conversation, lock:, cache_dir: @cache)
       Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport { nil }, system_prompt: '') do |c|
         initializer.configure(c, nil)
       end
@@ -65,9 +65,25 @@ RSpec.describe Puri::Core::AgentSession do
     around do |example|
       log = Pikuri.log_io
       Pikuri.log_io = StringIO.new
-      example.run
+      Dir.mktmpdir('puri-cache') do |cache|
+        @cache = File.join(cache, 'puri')
+        example.run
+      end
     ensure
       Pikuri.log_io = log
+    end
+
+    it "keeps each agent's Thunderbird snapshots in a folder of its own, until it closes" do
+      Dir.mktmpdir('puri-thunderbird') do |profile_dir|
+        table = Puri::Core::Config::ThunderbirdTable.new(profile_dir:)
+        first = agent(table)
+        second = agent(table)
+        assert_equal 2, Dir.children(@cache).size
+        assert_equal 0o700, File.stat(@cache).mode & 0o777
+        first.close
+        second.close
+        assert_empty Dir.children(@cache)
+      end
     end
 
     it 'wires the calendar and both hand-offs from the profile [thunderbird] names' do

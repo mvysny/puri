@@ -75,6 +75,15 @@ module Puri
         Pikuri::Conversations::Store.new(root: File.join(state, 'puri', 'conversations'), shell: SHELL)
       end
 
+      # Puri's cache; not created here.
+      #
+      # @param env [#[]] where `XDG_CACHE_HOME` comes from
+      # @return [String] `$XDG_CACHE_HOME/puri`, `~/.cache/puri` by default
+      def self.cache_dir(env: ENV)
+        cache = env['XDG_CACHE_HOME'].to_s.empty? ? File.join(Dir.home, '.cache') : env['XDG_CACHE_HOME']
+        File.join(cache, 'puri')
+      end
+
       # @param config [Puri::Core::Config] what each conversation's agent is built from
       # @param transport [Pikuri::Agent::ChatTransport] where conversations run
       # @param titler [Pikuri::Conversations::Titler] names each new conversation from its first message

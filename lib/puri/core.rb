@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'fileutils'
+require 'tmpdir'
 require 'pikuri-core'
 require 'pikuri-html'
 require 'pikuri-thunderbird'

@@ -642,6 +642,13 @@ module Puri
       # `~/.local/state` by default
       def self.store: (?env: untyped) -> Pikuri::Conversations::Store
 
+      # Puri's cache; not created here.
+      # 
+      # _@param_ `env` — where `XDG_CACHE_HOME` comes from
+      # 
+      # _@return_ — `$XDG_CACHE_HOME/puri`, `~/.cache/puri` by default
+      def self.cache_dir: (?env: untyped) -> String
+
       # _@param_ `config` — what each conversation's agent is built from
       # 
       # _@param_ `transport` — where conversations run
@@ -1084,7 +1091,14 @@ module Puri
         # _@param_ `conversation` — where a confirmation shows
         # 
         # _@param_ `lock` — the core's
-        def initialize: (Puri::Core::Config config, Puri::Core::Conversation conversation, lock: Monitor) -> void
+        # 
+        # _@param_ `cache_dir` — where each agent's Thunderbird snapshots go, in a folder of their own
+        def initialize: (
+                          Puri::Core::Config config,
+                          Puri::Core::Conversation conversation,
+                          lock: Monitor,
+                          ?cache_dir: String
+                        ) -> void
 
         # The machine's time zone, for the prompt:
         # 
@@ -1117,7 +1131,12 @@ module Puri
         # mail opens in Thunderbird's compose window, an event in its import wizard, and the user
         # sends or adds it there, so neither asks through {#confirmer}. No profile on the machine
         # wires nothing; two installs with a mail account fail the boot, naming both.
-        def thunderbird: () -> Pikuri::Thunderbird::Extension
+        # 
+        # Its snapshots go in a fresh folder under {#initialize}'s `cache_dir`, removed when the
+        # agent closes: two extensions sharing one copy each other's under an open database.
+        # 
+        # _@param_ `configurator`
+        def thunderbird: (Pikuri::Agent::Configurator configurator) -> Pikuri::Thunderbird::Extension
 
         # _@return_ — `web_search` with page text, and `web_read_cached`; none
         # without a keyed `[search]`
