@@ -141,13 +141,16 @@ That leaves the secretary's stored injection open, a mail planting a note a late
 trusts; the prompt still says to quote a stranger, never to write as the user, and a confirmation
 with a readable diff waits for v2.
 
-Search is pikuri-os's `fileindex_search` over GNOME's localsearch, or recoll (owner, 2026-11-17),
-as Siri searches through the OS's index rather than one of its own. It costs no embedder, no
-reranker, no Qdrant, no extractors' container and no hours of first indexing, and the index has
-already extracted every PDF's and office file's text, under the desktop's own sandbox. The price
-is keyword recall: no synonyms, no other language, so the prompt has the model search again in
-other words. The index often covers the whole home; the prompt names the documents folder to
-scope to, and the tool's legs are private and hard untrusted either way.
+Search is pikuri-fileindex's `fileindex_search` over GNOME's localsearch, or recoll (owner,
+2026-11-17), as Siri searches through the OS's index rather than one of its own. It costs no
+embedder, no reranker, no Qdrant, no extractors' container and no hours of first indexing, and the
+index has already extracted every PDF's and office file's text, under the desktop's own sandbox.
+The price is keyword recall: no synonyms, no other language, so the prompt has the model search
+again in other words. The index often covers the whole home, but the tools' roots are the
+documents folder alone (owner, 2026-11-18): the reach of `read` and `glob`, so the folder is the
+gate for search too, and an index that lacks the folder doesn't count as ready. A file elsewhere
+in the home is out of reach, even when the user asks for it. The legs are private and hard
+untrusted, since the agent quotes mail into `Notes/`.
 
 ## D_extractors — Why convert office files and PDFs in a container where podman or docker is, and read only PDFs, in-process, where neither is?
 

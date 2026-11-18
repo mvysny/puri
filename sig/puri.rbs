@@ -488,8 +488,7 @@ module Puri
       end
 
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
-      # through the desktop's own file index, which covers whatever the user's desktop indexes;
-      # the agent scopes it to this folder by passing it.
+      # through the desktop's own file index, bounded to this folder.
       # 
       # @!attribute [r] folder
       #   @return [String] an existing directory, absolute
@@ -642,15 +641,16 @@ module Puri
     #   library.memory             # => Notes/PURI.md's text, "" when absent
     # 
     # The index is the desktop's, not ours (`D_documents`): localsearch, else recoll, as
-    # `Pikuri::Os::FileIndex.pick` picks it. It holds every PDF's and office file's text already, so
-    # `fileindex_read` reads those too. No index on the machine leaves the agent the file tools
+    # `Pikuri::Fileindex.pick` picks it. Both tools reach only the documents folder, though the
+    # index usually covers the whole home. It holds every PDF's and office file's text already, so
+    # `fileindex_read` reads those too. No index holding the folder leaves the agent the file tools
     # alone, and a warning in the log.
     # 
     # Thread-safe.
     class Library
       LOGGER: Logger
 
-      # Creates `Notes/`, and asks each backend in turn whether its index answers.
+      # Creates `Notes/`, and asks each backend in turn whether its index holds the folder.
       # 
       # _@param_ `documents`
       # 
@@ -663,7 +663,7 @@ module Puri
       attr_reader documents: Puri::Core::Config::Documents
 
       # _@return_ — `fileindex_search` and `fileindex_read`, stateless, so every
-      # agent shares them; empty when no index answers
+      # agent shares them; empty when no index holds the folder
       attr_reader file_index_tools: ::Array[Pikuri::Tool]
     end
 

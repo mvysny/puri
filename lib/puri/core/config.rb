@@ -240,8 +240,7 @@ module Puri
       end
 
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
-      # through the desktop's own file index, which covers whatever the user's desktop indexes;
-      # the agent scopes it to this folder by passing it.
+      # through the desktop's own file index, bounded to this folder.
       #
       # @!attribute [r] folder
       #   @return [String] an existing directory, absolute

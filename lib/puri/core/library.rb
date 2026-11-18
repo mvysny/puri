@@ -12,8 +12,9 @@ module Puri
     #   library.memory             # => Notes/PURI.md's text, "" when absent
     #
     # The index is the desktop's, not ours (`D_documents`): localsearch, else recoll, as
-    # `Pikuri::Os::FileIndex.pick` picks it. It holds every PDF's and office file's text already, so
-    # `fileindex_read` reads those too. No index on the machine leaves the agent the file tools
+    # `Pikuri::Fileindex.pick` picks it. Both tools reach only the documents folder, though the
+    # index usually covers the whole home. It holds every PDF's and office file's text already, so
+    # `fileindex_read` reads those too. No index holding the folder leaves the agent the file tools
     # alone, and a warning in the log.
     #
     # Thread-safe.
@@ -25,26 +26,29 @@ module Puri
       attr_reader :documents
 
       # @return [Array<Pikuri::Tool>] `fileindex_search` and `fileindex_read`, stateless, so every
-      #   agent shares them; empty when no index answers
+      #   agent shares them; empty when no index holds the folder
       attr_reader :file_index_tools
 
-      # Creates `Notes/`, and asks each backend in turn whether its index answers.
+      # Creates `Notes/`, and asks each backend in turn whether its index holds the folder.
       #
       # @param documents [Puri::Core::Config::Documents]
       # @param backends [Array<Module>] file-index backends, most preferred first; a spec passes
       #   its own
-      def initialize(documents, backends: Pikuri::Os::FileIndex::BACKENDS)
+      def initialize(documents, backends: Pikuri::Fileindex::BACKENDS)
         @documents = documents
         FileUtils.mkdir_p(documents.notes)
+        # Untrusted: the agent quotes the user's mail into Notes/.
+        roots = Pikuri::Fileindex::Roots.new(dirs: [documents.folder], private: true, trusted: false)
         backend = begin
-          Pikuri::Os::FileIndex.pick(backends)
-        rescue Pikuri::Os::FileIndex::Unavailable => e
-          LOGGER.warn("no desktop file index answers (tried #{backends.map(&:label).join(', ')}): " \
-                      "the agent reads the documents only by their paths; #{e.message}")
+          Pikuri::Fileindex.pick(roots, backends:)
+        rescue Pikuri::Fileindex::Unavailable => e
+          LOGGER.warn("no desktop file index answers for #{documents.folder} " \
+                      "(tried #{backends.map(&:label).join(', ')}): the agent reads the documents only by " \
+                      "their paths; #{e.message}")
           nil
         end
-        @file_index_tools =
-          (backend ? [Pikuri::Os::FileindexSearch.new(backend:), Pikuri::Os::FileindexRead.new(backend:)] : []).freeze
+        @file_index_tools = (backend ? [Pikuri::Fileindex::Search, Pikuri::Fileindex::Read] : [])
+                            .map { _1.new(backend:, roots:) }.freeze
       end
 
       # @return [String] the memory note's text, stripped; "" when it doesn't exist yet

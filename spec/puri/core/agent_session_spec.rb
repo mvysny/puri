@@ -140,16 +140,18 @@ RSpec.describe Puri::Core::AgentSession do
         built&.close
       end
 
-      it 'finds a document under the folder the prompt names' do
+      it 'finds a document in the folder, and searches nowhere else' do
         File.write(File.join(@folder, 'lease.txt'), "The rent is 900 a month.\n")
         built = agent(nil, library: @library) do |llm|
-          llm.tool_call('fileindex_search', query: 'rent', folder: @folder)
+          llm.tool_batch(['fileindex_search', { query: 'rent' }],
+                         ['fileindex_search', { query: 'rent', folder: File.dirname(@folder) }])
           llm.reply('900 a month.')
         end
         assert_includes built.system_prompt, "The user's documents folder is #{@folder}."
         built.run_loop(user_message: 'What is my rent?')
-        result = built.export_history.messages.find { _1.role == 'tool' }
-        assert_includes result.content, File.join(@folder, 'lease.txt')
+        found, outside = built.export_history.messages.select { _1.role == 'tool' }.map(&:content)
+        assert_includes found, File.join(@folder, 'lease.txt')
+        assert_includes outside, "#{File.dirname(@folder)} is not inside the folders you can search"
       ensure
         built&.close
       end

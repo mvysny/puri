@@ -1,6 +1,6 @@
 GIT
   remote: https://codeberg.org/mvysny/pikuri.git
-  revision: 9b6a7e3f6b9af51dab7262f72f820fcfff323f31
+  revision: 44cb1b2cc3bbea85c0b41d2ac25186e27f445d5f
   branch: master
   specs:
     pikuri-core (0.1.0)
@@ -8,6 +8,8 @@ GIT
       rainbow (~> 3.1)
       ruby_llm (~> 2.2)
       zeitwerk (~> 2.7)
+    pikuri-fileindex (0.1.0)
+      pikuri-core (= 0.1.0)
     pikuri-html (0.1.0)
       nokogiri (~> 1.19)
       pikuri-core (= 0.1.0)
@@ -34,20 +36,13 @@ GIT
 
 GIT
   remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: 9c8c84d76499cb34546fb6e4ae08bd7887c4093e
+  revision: 2d74e2983ddc935236172791ed5b9e30f03f33a8
   branch: master
   specs:
-    pikuri-code (0.1.0)
-      pikuri-core (~> 0.1)
-      pikuri-workspace (~> 0.1)
     pikuri-conversations (0.1.0)
       pikuri-core (~> 0.1)
     pikuri-extractors (0.1.0)
       pikuri-core (~> 0.1)
-    pikuri-os (0.1.0)
-      pikuri-code (= 0.1.0)
-      pikuri-core (~> 0.1)
-      pikuri-workspace (~> 0.1)
 
 GEM
   remote: https://rubygems.org/
@@ -245,8 +240,8 @@ DEPENDENCIES
   pikuri-conversations!
   pikuri-core!
   pikuri-extractors!
+  pikuri-fileindex!
   pikuri-html!
-  pikuri-os!
   pikuri-pdf!
   pikuri-thunderbird!
   pikuri-web!
@@ -314,12 +309,11 @@ CHECKSUMS
   parlour (9.1.2) sha256=446ce24243e125f0e8c4f9b5722c3b86063d42d8b106c847a7d73a8cc693c382
   parser (3.3.13.0) sha256=e02f9b63c2fe05b0c68f692ba4df89b3cb113b663964f75d988fbebfd6c3deca
   pdf-reader (2.16.0) sha256=bf1b5564c085264d8279bde3cf1467778b75841494d20c0fe7da3dad475f3732
-  pikuri-code (0.1.0)
   pikuri-conversations (0.1.0)
   pikuri-core (0.1.0)
   pikuri-extractors (0.1.0)
+  pikuri-fileindex (0.1.0)
   pikuri-html (0.1.0)
-  pikuri-os (0.1.0)
   pikuri-pdf (0.1.0)
   pikuri-thunderbird (0.1.0)
   pikuri-web (0.1.0)

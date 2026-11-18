@@ -31,6 +31,7 @@ RSpec.describe Puri::Core::Library do
   it 'goes without search, and says so, when no index answers' do
     library = described_class.new(@documents, backends: [FakeIndex.new(available: false)])
     assert_empty library.file_index_tools
-    assert_match(/no desktop file index answers \(tried fake\)/, Pikuri.log_io.string)
+    assert_match(/no desktop file index answers for #{Regexp.escape(@documents.folder)} \(tried fake\)/,
+                 Pikuri.log_io.string)
   end
 end

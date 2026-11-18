@@ -4,13 +4,13 @@ require 'fileutils'
 require 'tmpdir'
 require 'pikuri-core'
 require 'pikuri-extractors'
+require 'pikuri-fileindex'
 require 'pikuri-html'
 require 'pikuri-pdf'
 require 'pikuri-thunderbird'
 require 'pikuri-web'
 require 'pikuri-workspace'
 require 'pikuri-conversations'
-require 'pikuri-os'
 
 module Puri
   # The backend. It takes {Protocol} commands and emits {Protocol} events on its own threads.

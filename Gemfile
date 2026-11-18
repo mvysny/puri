@@ -26,9 +26,12 @@ gem 'streaming-markdown-parser', '~> 0.1'
 # pikuri-thunderbird reads the local Thunderbird profile's mail, contacts and calendar, and hands a
 # drafted mail or event to Thunderbird's own UI; it brings sqlite3 and mail (parse-only).
 # pikuri-pdf is the PDF extractor for a machine with no container runtime (`D_extractors`); it
-# brings pdf-reader, pure Ruby.
+# brings pdf-reader, pure Ruby. pikuri-fileindex brings `fileindex_search` and `fileindex_read`
+# over the desktop's own file index (GNOME's localsearch, or recoll), which already holds the
+# PDFs' and office files' text; it brings no gem.
 git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-core'
+  gem 'pikuri-fileindex'
   gem 'pikuri-html'
   gem 'pikuri-pdf'
   gem 'pikuri-thunderbird'
@@ -38,15 +41,12 @@ end
 
 # The conversations Core hosts: their agents and turns, the folder they are saved in, the titler
 # and the per-server request throttle. A workshop gem, on its git master like pikuri;
-# `bundle update pikuri-conversations` moves the pin. pikuri-os brings `fileindex_search` and
-# `fileindex_read` over the desktop's own file index (GNOME's localsearch, or recoll), which
-# already holds the PDFs' and office files' text; it drags in pikuri-code, whose bash Puri
-# doesn't wire. pikuri-extractors converts office files and PDFs in a networkless container, the
-# extractor wired when podman or docker is installed (`D_extractors`); it brings no gem.
+# `bundle update pikuri-conversations` moves the pin. pikuri-extractors converts office files and
+# PDFs in a networkless container, the extractor wired when podman or docker is installed
+# (`D_extractors`); it brings no gem.
 git 'https://github.com/mvysny/pikuri-workshop.git', branch: 'master' do
   gem 'pikuri-conversations'
   gem 'pikuri-extractors'
-  gem 'pikuri-os'
 end
 
 # Core::Config, ported from pikuri-web with its gems: tomlrb parses the TOML (pure Ruby, MIT, no
