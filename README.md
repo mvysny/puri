@@ -1,6 +1,6 @@
 # Puri
 
-A Siri-style desktop assistant for Linux and GNOME, on top of [pikuri](https://codeberg.org/mvysny/pikuri).
+A Siri-style desktop assistant for Linux and GNOME, on top of [pikuri](https://github.com/mvysny/pikuri).
 A global shortcut pops up a search bar; you type, and the bar grows into a streamed conversation,
 with every earlier conversation one click away in the same window.
 It reads your Thunderbird mail and calendar and your documents, keeps notes, drafts a mail or an

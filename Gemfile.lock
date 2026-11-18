@@ -1,5 +1,15 @@
 GIT
-  remote: https://codeberg.org/mvysny/pikuri.git
+  remote: https://github.com/mvysny/pikuri-workshop.git
+  revision: 2d74e2983ddc935236172791ed5b9e30f03f33a8
+  branch: master
+  specs:
+    pikuri-conversations (0.1.0)
+      pikuri-core (~> 0.1)
+    pikuri-extractors (0.1.0)
+      pikuri-core (~> 0.1)
+
+GIT
+  remote: https://github.com/mvysny/pikuri.git
   revision: 44cb1b2cc3bbea85c0b41d2ac25186e27f445d5f
   branch: master
   specs:
@@ -33,16 +43,6 @@ GIT
     pikuri-workspace (0.1.0)
       pikuri-core (= 0.1.0)
       reline (~> 0.6)
-
-GIT
-  remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: 2d74e2983ddc935236172791ed5b9e30f03f33a8
-  branch: master
-  specs:
-    pikuri-conversations (0.1.0)
-      pikuri-core (~> 0.1)
-    pikuri-extractors (0.1.0)
-      pikuri-core (~> 0.1)
 
 GEM
   remote: https://rubygems.org/

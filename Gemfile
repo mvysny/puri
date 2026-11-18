@@ -29,7 +29,7 @@ gem 'streaming-markdown-parser', '~> 0.1'
 # brings pdf-reader, pure Ruby. pikuri-fileindex brings `fileindex_search` and `fileindex_read`
 # over the desktop's own file index (GNOME's localsearch, or recoll), which already holds the
 # PDFs' and office files' text; it brings no gem.
-git 'https://codeberg.org/mvysny/pikuri.git', branch: 'master' do
+git 'https://github.com/mvysny/pikuri.git', branch: 'master' do
   gem 'pikuri-core'
   gem 'pikuri-fileindex'
   gem 'pikuri-html'
