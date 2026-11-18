@@ -103,8 +103,16 @@ To let Puri search and read your documents, add the table:
 Puri searches that folder, and nothing else, through your desktop's own file index, GNOME's
 localsearch (`localsearch` and its `tinysparql` CLI, installed with GNOME), or recoll when
 localsearch isn't there; it keeps no index of its own. The index already holds the text of your
-PDFs and office files, so Puri reads those too. Make sure the index covers the folder: GNOME
-Settings → Search → Search Locations. Without an index that holds the folder Puri still reads its
+PDFs and office files, so Puri reads those too. On GNOME, installing localsearch's extractor for
+the zipped office formats is highly recommended: Ubuntu only suggests it, and without it the index
+holds no text of DOCX, XLSX, PPTX, ODT, ODS, ODP or EPUB files. The old DOC, XLS and PPT formats
+need nothing extra.
+
+```sh
+sudo apt install localsearch-extractor-office
+```
+
+Make sure the index covers the folder: GNOME Settings → Search → Search Locations. Without an index that holds the folder Puri still reads its
 files by path, and logs a warning. A file the
 index doesn't hold, such as a mail attachment or a search result, is converted in a networkless
 container when podman or docker is installed: office files, EPUB, RTF and PDF. With neither, Puri

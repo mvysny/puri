@@ -642,9 +642,9 @@ module Puri
     # 
     # The index is the desktop's, not ours (`D_documents`): localsearch, else recoll, as
     # `Pikuri::Fileindex.pick` picks it. Both tools reach only the documents folder, though the
-    # index usually covers the whole home. It holds every PDF's and office file's text already, so
-    # `fileindex_read` reads those too. No index holding the folder leaves the agent the file tools
-    # alone, and a warning in the log.
+    # index usually covers the whole home. It already holds the text of every PDF and office file
+    # its extractors read (README), so `fileindex_read` reads those too. No index holding the folder
+    # leaves the agent the file tools alone, and a warning in the log.
     # 
     # Thread-safe.
     class Library
