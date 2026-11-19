@@ -146,14 +146,14 @@ Search is pikuri-fileindex's `fileindex_search` over GNOME's localsearch, or rec
 (`R_siri_spotlight`). It costs no embedder, no reranker, no Qdrant, no extractors' container and no
 hours of first indexing, and the index has already extracted PDFs' and office files' text, under
 the desktop's own sandbox. The price is keyword recall, where Spotlight's index searches by meaning
-too: no synonyms, no other language, so the prompt has the model search again
-in other words. And the index reads only what the desktop's extractors do: Ubuntu's localsearch
-reads no DOCX, ODF or EPUB without `localsearch-extractor-office`, which it only suggests, so the
-README asks for it. The index often covers the whole home, but the tools' roots are the documents
-folder alone (owner, 2026-11-18): the reach of `read` and `glob`, so the folder is the gate for
-search too, and an index that lacks the folder doesn't count as ready. A file elsewhere in the
-home is out of reach, even when the user asks for it. The legs are private and hard untrusted,
-since the agent quotes mail into `Notes/`.
+too: the index knows no synonym and no other language, so the prompt has the model list them in one
+query, which a file matches by any of its words. And the index reads only what the desktop's
+extractors do: Ubuntu's localsearch reads no DOCX, ODF or EPUB without
+`localsearch-extractor-office`, which it only suggests, so the README asks for it. The index often
+covers the whole home, but the tools' roots are the documents folder alone (owner, 2026-11-18): the
+reach of `read` and `glob`, so the folder is the gate for search too, and an index that lacks the
+folder doesn't count as ready. A file elsewhere in the home is out of reach, even when the user
+asks for it. The legs are private and hard untrusted, since the agent quotes mail into `Notes/`.
 
 ## D_extractors — Why convert office files and PDFs in a container where podman or docker is, and read only PDFs, in-process, where neither is?
 
