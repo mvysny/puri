@@ -112,6 +112,17 @@ need nothing extra.
 sudo apt install localsearch-extractor-office
 ```
 
+Files the index already holds stay name-only after you install it, even across a restart ([a
+localsearch bug](https://gitlab.gnome.org/GNOME/localsearch/-/work_items/476)), so rebuild the index once afterwards:
+
+```sh
+localsearch reset
+```
+
+It asks before erasing the index, then localsearch reads your home folder again from scratch,
+office text included. That can take a while; `localsearch status` says "Data is still being
+indexed" until it's done.
+
 Make sure the index covers the folder: GNOME Settings → Search → Search Locations. Without an index that holds the folder Puri still reads its
 files by path, and logs a warning. A file the
 index doesn't hold, such as a mail attachment or a search result, is converted in a networkless
