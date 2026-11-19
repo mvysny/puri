@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: 2d74e2983ddc935236172791ed5b9e30f03f33a8
+  revision: 8e2931fb8912714fa4010436c9b4cdac108a5757
   branch: master
   specs:
     pikuri-conversations (0.1.0)
@@ -10,7 +10,7 @@ GIT
 
 GIT
   remote: https://github.com/mvysny/pikuri.git
-  revision: 44cb1b2cc3bbea85c0b41d2ac25186e27f445d5f
+  revision: e562495845d05c793d8d856cda424705562d7da2
   branch: master
   specs:
     pikuri-core (0.1.0)
