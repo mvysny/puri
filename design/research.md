@@ -76,6 +76,22 @@ Screenshots:
   ([geeky-gadgets](https://www.geeky-gadgets.com/siri-ai-mac-test/): since 27.2).
   **[verified 2026-11-11]**
 
+## R_siri_spotlight — Siri searches the Spotlight index, not one of its own
+
+Sources: [Apple's Siri AI announcement](https://www.apple.com/newsroom/2026/06/apple-introduces-siri-ai-a-profoundly-more-capable-and-personal-assistant/)
+(2026-06-08), [WWDC24 session 10131](https://developer.apple.com/videos/play/wwdc2024/10131/).
+
+- Siri AI reaches the user's data through "the system orchestrator", which taps "the Spotlight
+  index and App Toolbox, which work entirely on device". **[docs]**
+- Its personal context reaches a third-party app only when the app integrates with Spotlight.
+  **[docs]**
+- Core Spotlight has a semantic index since WWDC24: a donated item's `title` and `textContent`
+  "will be processed in the semantic index", which stays on the device. **[docs]**
+- Apple publishes neither the embedding model nor the index format; the query side's models are
+  downloaded to the device and run in the app's process. **[docs]**
+- Items donated before WWDC24 reach the semantic index by re-indexing, which Spotlight schedules
+  "when the device is sleeping or idle"; whether new items wait for idle too is unsaid. **[docs]**
+
 ## R_gtk4_binding_cost — Startup and memory of a GTK4 + libadwaita app, per binding
 
 A minimal `Adw::Application` with one window holding a label, on Broadway with

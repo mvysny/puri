@@ -142,10 +142,11 @@ trusts; the prompt still says to quote a stranger, never to write as the user, a
 with a readable diff waits for v2.
 
 Search is pikuri-fileindex's `fileindex_search` over GNOME's localsearch, or recoll (owner,
-2026-11-17), as Siri searches through the OS's index rather than one of its own. It costs no
-embedder, no reranker, no Qdrant, no extractors' container and no hours of first indexing, and the
-index has already extracted PDFs' and office files' text, under the desktop's own sandbox. The
-price is keyword recall: no synonyms, no other language, so the prompt has the model search again
+2026-11-17), as Siri searches through the OS's index rather than one of its own
+(`R_siri_spotlight`). It costs no embedder, no reranker, no Qdrant, no extractors' container and no
+hours of first indexing, and the index has already extracted PDFs' and office files' text, under
+the desktop's own sandbox. The price is keyword recall, where Spotlight's index searches by meaning
+too: no synonyms, no other language, so the prompt has the model search again
 in other words. And the index reads only what the desktop's extractors do: Ubuntu's localsearch
 reads no DOCX, ODF or EPUB without `localsearch-extractor-office`, which it only suggests, so the
 README asks for it. The index often covers the whole home, but the tools' roots are the documents
