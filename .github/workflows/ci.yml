@@ -25,14 +25,15 @@ jobs:
       # ripgrep backs pikuri-workspace's glob tool, which the [documents] specs configure.
       # gir1.2-shumate-1.0 is the map under a place answer; its specs draw a local tile server's.
       # rhythmbox and libgtk-3-bin's broadwayd run the real, headless Rhythmbox play_music's spec
-      # drives; without them that spec skips.
+      # drives; without them that spec skips. rhythmbox-plugins, only a Recommends, carries the
+      # dbus-media-server and MPRIS plugins that spec talks to.
       - name: Install the apt stack
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             ruby ruby-bundler ruby-dev build-essential \
             ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
-            rhythmbox libgtk-3-bin \
+            rhythmbox rhythmbox-plugins libgtk-3-bin \
             dbus-daemon libglib2.0-bin desktop-file-utils \
             gsettings-desktop-schemas gnome-settings-daemon-common \
             git ca-certificates

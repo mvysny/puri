@@ -98,13 +98,20 @@ module Puri
         # @return [Object] the block's value
         # @raise [Puri::Core::Music::Rhythmbox::Error]
         def connect
-          bus = DBus::BusConnection.new(@address || DBus::ASessionBus.session_bus_address)
+          bus = DBus::BusConnection.new(bus_address)
           # ruby-dbus has no timeouts: a Rhythmbox that never answers would hold the turn forever.
           Timeout.timeout(TIMEOUT, Error, "Rhythmbox didn't answer in #{TIMEOUT} s") { yield bus }
         rescue DBus::Error, SystemCallError, NotImplementedError, EOFError => e
           raise Error, e.message
         ensure
           bus&.message_queue&.socket&.close
+        end
+
+        # @return [String]
+        # @raise [Puri::Core::Music::Rhythmbox::Error] with no session bus
+        def bus_address
+          # Not ruby-dbus' ASessionBus.session_bus_address: without DISPLAY it raises NoMethodError.
+          @address || ENV.fetch('DBUS_SESSION_BUS_ADDRESS') { raise Error, 'DBUS_SESSION_BUS_ADDRESS is unset' }
         end
 
         # One connection to a running Rhythmbox.

@@ -60,3 +60,18 @@ RSpec.describe Puri::Core::Music::Rhythmbox do
     assert_equal 'Event Horizon', headless.player_property('Metadata')['xesam:title']
   end
 end
+
+# CI's container: no session bus, no display.
+RSpec.describe Puri::Core::Music::Rhythmbox, '.find' do
+  around do |example|
+    saved = ENV.to_h.slice('DBUS_SESSION_BUS_ADDRESS', 'DISPLAY')
+    saved.each_key { ENV.delete(_1) }
+    example.run
+  ensure
+    ENV.update(saved)
+  end
+
+  it 'is nil with no session bus' do
+    assert_nil described_class.find
+  end
+end

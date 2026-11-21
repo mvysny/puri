@@ -293,6 +293,8 @@ module Puri
         # _@return_ — the block's value
         def connect: () ?{ (DBus::BusConnection bus) -> Object } -> Object
 
+        def bus_address: () -> String
+
         # Raised for anything that keeps Rhythmbox from answering: no bus, a start that failed, a
         # call that timed out.
         class Error < StandardError
