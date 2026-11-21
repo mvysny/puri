@@ -40,6 +40,8 @@ and Puri gets them differently:
   `-t 4`. `--inference-path` replaces `/inference` (which then answers 404). An `.en` model
   ignores `-l` ("model is not multilingual, ignoring language").
 - **`pw-record`** (`pipewire-bin`) records the mic; PipeWire is every current GNOME distro's.
+  `pw-record --raw --rate 16000 --channels 1 --format s16 -` streams the PCM to stdout as it
+  records, 32 KB/s, so a reader sees the level live (tried 2026-11-21).
 
 ## Measured (2026-11-21, whisper.cpp 1.8.3, `small.en`, CPU, 4 threads, Ryzen 7 PRO 4750U)
 
@@ -114,8 +116,11 @@ written twice for chat and dictation, falls only on someone who opted out of loc
   48 kHz stereo), wraps the PCM in a WAV header in a `StringIO`, and transcribes that. OpenAI's
   shape, so a hosted server is the same code, an explicit opt-in.
   - A clip under ~0.5 s isn't sent: a stray click would cost 8 s of CPU.
-  - Backend methods `dictation_start` / `dictation_stop`; a `Dictation` event (listening,
-    transcribing, text, failed) through `BackendClient#deliver`, JSON like every other.
+  - It reads the level from that stream, the RMS of each chunk, about 15 a second.
+  - Backend methods `dictation_start` / `dictation_stop` / `dictation_cancel`, and whether
+    `[dictation]` is configured; one `DictationChanged` event (state `listening`, `transcribing`,
+    `idle` or `failed`; Core's words; the level; the text once done) through
+    `BackendClient#deliver`, JSON like every other.
 - **Desktop** draws: a mic as `PromptEntry`'s secondary icon (`audio-input-microphone-symbolic`)
   and a key in the window; press to start, press to stop; the state on the icon — transcribing
   shows, since it takes seconds; the text inserted at the cursor, waiting for Return. GNOME's top
@@ -146,13 +151,22 @@ written twice for chat and dictation, falls only on someone who opted out of loc
   `faraday_adapter`, as pikuri's `Pikuri::Testing.fake_transport` does for chats), covering the
   three answers the proposal handles: text, `[BLANK_AUDIO]`, `text: nil`. One opt-in spec posts
   the sample WAV to a running whisper-server.
-- `Q_dictation_ui`: the owner's sketch is a small popup, an animated bar and "Listening; press F5
-  to …". Lean: "Listening… press F5 when done" — "stop listening" sounds like discarding,
-  "transcribe" is jargon. A `Gtk::LevelBar` on the mic's volume while listening (a progress bar
-  has nothing to progress toward; a flat level shows a dead mic at once), then "Transcribing…"
-  with a pulsing bar. Escape cancels first and inserts nothing, like Escape on a streaming reply.
-  The window already has this shape — `StatusBar` and `Activity(state: 'working', status:)`, a
-  progress bar with Core's words under it — so reuse it with `listening` / `transcribing` states
-  rather than a popover? Then: dictating while a turn runs, with one `Activity` per conversation?
+- **Decided (owner, 2026-11-21), the dictation UI:** a row of its own in `ConversationView`'s
+  entry box, between `PromptEntry` and `StatusBar`, shown only while dictating.
+  - Listening: a `Gtk::LevelBar` on the mic's level (a progress bar has nothing to progress
+    toward; a flat level shows a dead mic at once) over "Listening… press F5 when done" — "stop
+    listening" sounds like discarding, "transcribe" is jargon. Transcribing: a pulsing bar over
+    "Transcribing…". A failure: Core's words, until the next F5, Escape or keystroke. The words
+    are Core's, as every status is.
+  - Not the turn's `Activity` and `ProgressRow`: they live in the transcript, which the pill
+    hides, and the pill is where dictation mostly starts; and `Activity#running?` is what
+    Escape and the queued messages read as "a turn runs". Not a popover, the owner's first
+    sketch: a widget parenting one presents it from its own `size_allocate`, a vfunc override
+    in Ruby, for what a row does as well. The pill grows by the row and shrinks back after.
+  - Escape while dictating cancels it, inserts nothing, and the window stays; the next Escape
+    is today's. Hiding the window, by × or by the pill losing focus, cancels too: the mic never
+    records behind a hidden window.
+  - Dictation is the entry's, not a conversation's: it runs beside a turn, survives Ctrl+N or a
+    pick from the history, and its text sent while a turn runs queues like typed text.
 - `Q_room_noise`: does a real room, keyboard and fan, still come back `[BLANK_AUDIO]`, or as an
   invented "Thank you."? Revisited at the first test on a real mic (owner, 2026-11-21).
