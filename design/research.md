@@ -279,7 +279,8 @@ On the owner's Mac, macOS 27.2.1.
 
 Its source on GNOME's master, 2026-11-21; run headless on Ubuntu 26.04's 3.4.9-3ubuntu3.
 
-- The `dbus-media-server` plugin, on by default, owns `org.gnome.UPnP.MediaServer2.Rhythmbox`;
+- The `dbus-media-server` plugin, on by default and shipped with MPRIS in `rhythmbox-plugins`, which
+  `rhythmbox` only recommends, owns `org.gnome.UPnP.MediaServer2.Rhythmbox`;
   its `…/Library` (the local library alone, no radio or podcasts) holds `artist`, `album`,
   `genre` and `all` containers, each with `ListContainers` and `ListItems`; no search,
   `SearchObjects` answering "search not supported". **[src]**
@@ -293,6 +294,10 @@ Its source on GNOME's master, 2026-11-21; run headless on Ubuntu 26.04's 3.4.9-3
   server and MPRIS names follow within a second. Its library is empty until the database loads,
   then whole: ~0.3 s after the media server's name, ~10 s on a first import. `…/all`'s
   `ItemCount` property stays 0; `…/Library`'s `ListContainers` counts live. **[verified]**
+- A first import needs `org.gnome.rhythmbox.rhythmdb`'s `monitor-library`, upstream `false`: off,
+  Rhythmbox never scans its `locations`. Ubuntu's desktop turns it on (`ubuntu-settings`'
+  `10_ubuntu-settings.gschema.override`); a bare `ubuntu:26.04` leaves it off. On, the scan
+  starts 10 s after the database loads. **[src]** **[verified]**
 - `org.gnome.Rhythmbox3.PlayQueue`'s `ClearQueue` and `AddToQueue(s uri)` are what
   `rhythmbox-client --clear-queue --enqueue` calls. **[src]** Entries leave the queue as they
   play, so it never loops, whatever MPRIS `LoopStatus`. **[verified]**

@@ -168,7 +168,8 @@ class HeadlessRhythmbox
     }
   end
 
-  # Rhythmbox's library is the Music folder, read at start.
+  # Rhythmbox's library is the Music folder, scanned 10 s after start. Upstream's `monitor-library`
+  # is `false`, which scans nothing; only Ubuntu's desktop turns it on (`R_rhythmbox_dbus`).
   #
   # @return [void]
   def write_settings
@@ -177,6 +178,7 @@ class HeadlessRhythmbox
     File.write(File.join(dir, 'keyfile'), <<~INI)
       [org/gnome/rhythmbox/rhythmdb]
       locations=['file://#{@music}']
+      monitor-library=true
     INI
   end
 
