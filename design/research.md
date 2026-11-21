@@ -165,3 +165,15 @@ a 6.5k-token prefix; the title on a second connection with `chat_template_kwargs
   (`cache_n` 6665 either way); prefilling it cold takes 24–26 s. **[verified 2026-11-11]**
 - Pinning the turn to a slot while the title floats loses that prefix. **[verified 2026-11-11]**
 - pikuri never pins a slot: it sends no `id_slot`. **[src]**
+
+## R_llama_server_turns — How long a turn takes on the owner's llama-server
+
+The same server and model as `R_llama_server_titles`, Puri on Broadway or headless, Brave search;
+timed by watching screenshots or logs, not instrumented.
+
+- The first token of an answer comes 13.6–18 s after Return. **[verified 2026-11-12]**
+- Escape mid-stream stops the reply within 2.5 s and keeps the partial text. **[verified
+  2026-11-12]**
+- A search turn thinks 10–20 s before each step; a Brave search takes ~1.3 s, a
+  `web_read_cached` read nothing measurable; an answer after two searches takes 30–57 s.
+  **[verified 2026-11-15]**

@@ -176,6 +176,15 @@ RSpec.describe Puri::Core::TurnListener do
                    blocks.last
     end
 
+    it 'keeps saying “Cancelling…” through the steps a cancelled turn still reports' do
+      conversation.cancelling
+      call('web_search', 'avocado')
+      result(Pikuri::Agent::CANCELLED_RESULT, Pikuri::Agent::INTERRUPTED_SUMMARY)
+      delta('Keep')
+      assert_equal '🔍 Searched: "avocado" — Interrupted', blocks[1].text
+      assert_equal Puri::Core::Conversation::CANCELLING, activity
+    end
+
     it 'shows an escape byte in the query, on one line, rather than letting it act' do
       call('web_search', "avo\e[2Kcado\nfresh")
       result('1. Avocado …', 'Returned 1 search result')

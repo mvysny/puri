@@ -15,6 +15,8 @@ module Puri
     #
     # A failed call is the tool's `Error:` observation, and its line is red with the tool's
     # summary, which for a failure is that message. A call a cancel cut short says so, not red.
+    # A call the user declined isn't an `Error:`, so it reads as done: no tool here asks yet, and
+    # the first that does needs pikuri to say the outcome, not a match on the observation's words.
     # The tool's strings are the model's arguments, so a line is flattened and defanged as
     # pikuri asks of every chrome: `Pikuri::Sanitizer` shows an escape byte, it never runs it.
     module ToolWording

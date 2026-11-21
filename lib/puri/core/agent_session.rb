@@ -258,15 +258,15 @@ module Puri
         end
       end
 
-      # Stops the running turn; a message it hasn't read yet moves from the queue into the
-      # transcript, and is dropped.
+      # Stops the running turn, which says "Cancelling…" until it notices; a message it hasn't
+      # read yet moves from the queue into the transcript, and is dropped.
       #
       # @return [void]
       def cancel
         return unless @live
 
         drop_pending
-        @live.cancel
+        @conversation.cancelling if @live.cancel == :cancelled
       end
 
       # The next turn runs on `choice`; a running one ends on its own model.

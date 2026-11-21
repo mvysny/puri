@@ -37,7 +37,8 @@ module Puri
       end
 
       # The question is the tool's, sanitized; its detail follows it, and a spoof the sanitizer
-      # found leads it.
+      # found leads it. The button always says "Approve", never destructive: pikuri's `Request`
+      # carries no label, and the first tool that needs one adds it there, not a table here.
       #
       # @param request [Pikuri::Workspace::Confirmer::Request]
       # @param cancellable [Pikuri::Agent::Control::Cancellable] the asking turn's
@@ -51,7 +52,7 @@ module Puri
                                                                   approve_label: 'Approve', destructive: false,
                                                                   state: 'pending'))
           @handoff = handoff
-          @conversation.activity = Protocol::Activity.new(state: 'confirming')
+          @conversation.step(Protocol::Activity.new(state: 'confirming'))
         end
         decide(request, handoff)
       end
@@ -109,7 +110,7 @@ module Puri
           @conversation.put(@pending.with(state:))
           @pending = nil
           @handoff = nil
-          @conversation.activity = Protocol::Activity.new(state: 'working', status: 'Thinking…') if decision
+          @conversation.step(TurnListener::THINKING) if decision
         end
         decision
       end

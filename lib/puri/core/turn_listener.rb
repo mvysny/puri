@@ -20,7 +20,8 @@ module Puri
     #   listener = Pikuri::Conversations::RateLimitedListener.new(TurnListener.new(conversation, server:), fps: 15)
     #   conversations.open(id:, transport:, listener:)
     #
-    # Going idle is not an event's: {AgentSession} asks the gem whether work is under way.
+    # Going idle is not an event's: {AgentSession} asks the gem whether work is under way. Each
+    # step goes through {Conversation#step}, so a cancelled turn says "Cancelling…" until it ends.
     # {ToolWording} words a tool's status and line, as {Replay} does a saved one's.
     #
     # == Threading
@@ -83,7 +84,7 @@ module Puri
       def thinking
         return if @conversation.transcript.activity.state == 'working'
 
-        @conversation.activity = THINKING
+        @conversation.step(THINKING)
       end
 
       # @param event [Pikuri::Conversations::Event::TurnEnded]
@@ -99,7 +100,7 @@ module Puri
       # @return [void]
       def tool_call(event)
         @calls[event.tool_call_id] = event
-        @conversation.activity = Protocol::Activity.new(state: 'working', status: ToolWording.status(event))
+        @conversation.step(Protocol::Activity.new(state: 'working', status: ToolWording.status(event)))
       end
 
       # A result whose call never showed — one a cancel answered before it ran — shows nothing.
@@ -110,7 +111,7 @@ module Puri
         call = @calls.delete(event.tool_call_id) or return
 
         @conversation.add(ToolWording.line(call, content: event.content, summary: event.summary))
-        @conversation.activity = THINKING
+        @conversation.step(THINKING)
       end
 
       # @param error [StandardError]
@@ -152,7 +153,7 @@ module Puri
 
         @reply = @conversation.add(Protocol::Reply.new(id: nil, parts: []))
         @stream = ReplyStream.new
-        @conversation.activity = Protocol::Activity.new(state: 'streaming')
+        @conversation.step(Protocol::Activity.new(state: 'streaming'))
       end
     end
   end

@@ -267,6 +267,20 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_equal p::Reply, finished(id).blocks.last.class
     end
 
+    # The gate holds the request as a cold prefill does: the turn notices only at the first token.
+    it 'says it is cancelling until the turn notices, then goes idle' do
+      gate.block!
+      id = core.ask(nil, "I'm Bob")
+      gate.wait_arrived
+      core.cancel(id)
+      assert_equal Puri::Core::Conversation::CANCELLING, core.load_conversation(id).activity
+
+      gate.release!
+      finished(id)
+      since = drain.grep(p::ActivityChanged).map(&:activity).drop_while { _1 != Puri::Core::Conversation::CANCELLING }
+      assert_equal [Puri::Core::Conversation::CANCELLING, p::Activity::IDLE], since
+    end
+
     # Return, then Escape at once: the agent is usually still booting, and a boot goes idle on
     # the cancel, its notice following once the boot is over. Wherever it is, the cancel ends it.
     it 'ends a turn cancelled before its thread reaches the model' do

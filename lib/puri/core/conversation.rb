@@ -6,13 +6,15 @@ module Puri
   module Core
     # One conversation as Desktop sees it: its blocks, its activity, its status, its title and its last
     # question, each change emitted as a {Protocol} event. Whatever runs its turns reports
-    # through {#add}, {#put} and {#activity=}, so {PikuriCore} and the dummy backend in `dev/`
-    # share it:
+    # through {#add}, {#put}, {#activity=} and {#step}, so {PikuriCore} and the dummy backend in
+    # `dev/` share it:
     #
     #   conversation = Conversation.new(id:, lock:, emit:, changed:)
     #   conversation.asked('how do I keep an avocado?')     # the question, for the history row
     #   reply = conversation.add(Protocol::Reply.new(id: nil, parts: []))   # => the block, id "b1"
     #   conversation.put(reply.with(parts:))                 # re-sent whole
+    #   conversation.step(Protocol::Activity.new(state: 'streaming'))
+    #   conversation.cancelling                              # "Cancelling…", until it goes idle
     #   conversation.activity = Protocol::Activity::IDLE
     #   conversation.status = Protocol::Status.new(model: 'Ornith 1.5')
     #   conversation.pending = ['and bananas?']             # typed during the turn, not yet read
@@ -25,6 +27,9 @@ module Puri
       #
       # @return [String]
       NEW_TITLE = 'New conversation'
+
+      # @return [Puri::Protocol::Activity] a turn told to stop that hasn't noticed yet
+      CANCELLING = Protocol::Activity.new(state: 'working', status: 'Cancelling…')
 
       # @return [String]
       attr_reader :id
@@ -145,6 +150,24 @@ module Puri
           @emit.call(Protocol::ActivityChanged.new(conversation: id, activity:))
           @changed.call if was_running != activity.running?
         end
+      end
+
+      # Shows {CANCELLING} until the turn goes idle, which can take a while: a turn notices a
+      # cancel only at its next token or tool call, and a cold prefill is up to 25 s of
+      # uninterruptible HTTP read. Does nothing once the turn is idle.
+      #
+      # @return [void]
+      def cancelling
+        @lock.synchronize { self.activity = CANCELLING if @activity.running? }
+      end
+
+      # Shows a running turn's step, unless {#cancelling} said the turn is stopping: a step it
+      # still reports before it notices — a tool's call or result — must not take that back.
+      #
+      # @param activity [Puri::Protocol::Activity]
+      # @return [void]
+      def step(activity)
+        @lock.synchronize { self.activity = activity unless @activity == CANCELLING }
       end
 
       # Emits nothing when it is the status already: each token count re-reads the whole.

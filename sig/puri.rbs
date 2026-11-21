@@ -697,7 +697,8 @@ module Puri
       def initialize: (Puri::Core::Conversation conversation, lock: Monitor) -> void
 
       # The question is the tool's, sanitized; its detail follows it, and a spoof the sanitizer
-      # found leads it.
+      # found leads it. The button always says "Approve", never destructive: pikuri's `Request`
+      # carries no label, and the first tool that needs one adds it there, not a table here.
       # 
       # _@param_ `request`
       # 
@@ -920,13 +921,15 @@ module Puri
 
     # One conversation as Desktop sees it: its blocks, its activity, its status, its title and its last
     # question, each change emitted as a {Protocol} event. Whatever runs its turns reports
-    # through {#add}, {#put} and {#activity=}, so {PikuriCore} and the dummy backend in `dev/`
-    # share it:
+    # through {#add}, {#put}, {#activity=} and {#step}, so {PikuriCore} and the dummy backend in
+    # `dev/` share it:
     # 
     #   conversation = Conversation.new(id:, lock:, emit:, changed:)
     #   conversation.asked('how do I keep an avocado?')     # the question, for the history row
     #   reply = conversation.add(Protocol::Reply.new(id: nil, parts: []))   # => the block, id "b1"
     #   conversation.put(reply.with(parts:))                 # re-sent whole
+    #   conversation.step(Protocol::Activity.new(state: 'streaming'))
+    #   conversation.cancelling                              # "Cancelling…", until it goes idle
     #   conversation.activity = Protocol::Activity::IDLE
     #   conversation.status = Protocol::Status.new(model: 'Ornith 1.5')
     #   conversation.pending = ['and bananas?']             # typed during the turn, not yet read
@@ -936,6 +939,7 @@ module Puri
     # Thread-safe: every method runs under the monitor its core shares with it.
     class Conversation
       NEW_TITLE: String
+      CANCELLING: Puri::Protocol::Activity
 
       # _@param_ `id`
       # 
@@ -998,6 +1002,17 @@ module Puri
 
       # _@param_ `activity`
       def activity=: (Puri::Protocol::Activity activity) -> void
+
+      # Shows {CANCELLING} until the turn goes idle, which can take a while: a turn notices a
+      # cancel only at its next token or tool call, and a cold prefill is up to 25 s of
+      # uninterruptible HTTP read. Does nothing once the turn is idle.
+      def cancelling: () -> void
+
+      # Shows a running turn's step, unless {#cancelling} said the turn is stopping: a step it
+      # still reports before it notices — a tool's call or result — must not take that back.
+      # 
+      # _@param_ `activity`
+      def step: (Puri::Protocol::Activity activity) -> void
 
       # Emits nothing when it is the status already: each token count re-reads the whole.
       # 
@@ -1068,6 +1083,8 @@ module Puri
     # 
     # A failed call is the tool's `Error:` observation, and its line is red with the tool's
     # summary, which for a failure is that message. A call a cancel cut short says so, not red.
+    # A call the user declined isn't an `Error:`, so it reads as done: no tool here asks yet, and
+    # the first that does needs pikuri to say the outcome, not a match on the observation's words.
     # The tool's strings are the model's arguments, so a line is flattened and defanged as
     # pikuri asks of every chrome: `Pikuri::Sanitizer` shows an escape byte, it never runs it.
     module ToolWording
@@ -1221,8 +1238,8 @@ module Puri
       # _@param_ `text`
       def ask: (String text) -> void
 
-      # Stops the running turn; a message it hasn't read yet moves from the queue into the
-      # transcript, and is dropped.
+      # Stops the running turn, which says "Cancelling…" until it notices; a message it hasn't
+      # read yet moves from the queue into the transcript, and is dropped.
       def cancel: () -> void
 
       # The next turn runs on `choice`; a running one ends on its own model.
@@ -1405,7 +1422,8 @@ module Puri
     #   listener = Pikuri::Conversations::RateLimitedListener.new(TurnListener.new(conversation, server:), fps: 15)
     #   conversations.open(id:, transport:, listener:)
     # 
-    # Going idle is not an event's: {AgentSession} asks the gem whether work is under way.
+    # Going idle is not an event's: {AgentSession} asks the gem whether work is under way. Each
+    # step goes through {Conversation#step}, so a cancelled turn says "Cancelling…" until it ends.
     # {ToolWording} words a tool's status and line, as {Replay} does a saved one's.
     # 
     # == Threading
