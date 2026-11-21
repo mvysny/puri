@@ -14,8 +14,8 @@ Maps answers no queries, so Puri asks the services Maps itself asks (*Research* 
 
 ## Decided (owner, 2026-11-21)
 
-- Photon for places, FOSSGIS's OSRM for car distance; the alternatives stay under *Research*.
-  "Coffee near me" reopens the first half (`Q_providers`).
+- Photon for names; Nominatim for categories, opening hours and websites; FOSSGIS's OSRM for car
+  routes. The alternatives stay under *Research*.
 - Built in Puri first, against the convention that a missing tool is a pikuri gap; its home is
   decided later, probably pikuri-workshop. Graduating needs a `D_` for the exception, or the move.
 - Several matches: the model picks the likeliest or asks the user.
@@ -23,10 +23,45 @@ Maps answers no queries, so Puri asks the services Maps itself asks (*Research* 
   `home` keyword (*The tools*).
 - Where the user is: when `Notes/PURI.md` holds no home address, the agent asks and writes it
   there. No GeoClue, no config key.
-- A map in the answer, drawn by libshumate. No buttons: no Call (Linux can't call), no Directions,
-  no Website.
+- A map in the answer, drawn by libshumate; a click on a pin opens that place in GNOME Maps, or on
+  openstreetmap.org in the browser when Maps isn't installed. The wheel scrolls the answer, never
+  zooms the map. No rows under it and no buttons: no Call (Linux can't call), no Website, and no Directions, since a
+  route from home asked of the model costs half a minute a click.
+- A `[maps]` table in `config.toml` holds the tile URL. Without it Puri starts, with no place
+  tools and no map, as `[search]` without a key leaves no web tools. At graduation the *Search,
+  never fetch* promise ("talks only to the configured search engines") grows to name the map
+  services.
+- Every request carries Puri's own User-Agent, the GitHub repository as contact:
+  `Puri (+https://github.com/mvysny/puri)`. Transitous would want a version in it too.
 - Not doing: leave-by times from the calendar; a self-hosted geocoder or router.
 - The owner drives Siri on the Mac for `Q_siri_maps`.
+
+## v1 (owner, 2026-11-21)
+
+- `place_search(query:, near:)` finds a place by name, through Photon. One Nominatim `lookup` adds
+  the hits' opening hours and websites, so "is it open now?" needs no third tool; several ids in
+  one `lookup` is untested.
+- `place_search(category:, near:)` finds what's nearby, through Nominatim. `category` is one of
+  about twenty OSM types — café, restaurant, pharmacy, supermarket, fuel, charging station, ATM —
+  and the model maps "coffee" or "kahvila" to `cafe`. Hits within 1–2 km of `near`, sorted by our
+  own distance.
+- Each hit's distance from `near` is by car, with the time: one OSRM `table` request for all the
+  hits.
+- `route(from:, to:)`, car only, through OSRM; its ends as in *How `route` takes its ends*.
+- The home address: the agent asks when `Notes/PURI.md` holds none, and saves it there. Prompt
+  text only.
+- A map under the answer, from the turn's last place tool: a search's hits as pins numbered like
+  their handles; a route's two ends and its line, the view fitted to both.
+- A click on a pin opens that place in GNOME Maps, or in the browser without Maps (*The map in
+  the answer*).
+- The wheel scrolls the answer, never zooms the map; a drag pans it, its buttons zoom (`Q_map`).
+- An old conversation redraws its map from the data stored with the answer.
+- Attribution: the map's OSM licence line; under a route, a "Fix the map" link, as FOSSGIS asks.
+- At most one request a second to Nominatim and to OSRM, and a small cache of their answers.
+- Specs draw local tiles from `dev/`, never OSM's.
+- `gir1.2-shumate-1.0` is required, like `gir1.2-adw-1`: in the README's apt line and CI's image.
+
+Later: bike, foot and public transport (`Q_modes`); photos.
 
 ## The tools
 
@@ -34,10 +69,10 @@ Both are the same class as `web_search`: a fixed host, the payload unreviewed
 (`egress_destination: :tool_vouched`), the results `untrusted: :hard`, since anyone can edit OSM
 and a shop's name can carry an injection.
 
-- `place_search(query:, near:)` → per hit: its handle, name, category, address, distance from
-  `near`, opening hours where known: `[3] Musiikki Silfverberg Oy Vantaan Musiikki (musical
-  instrument shop), Peltolantie 2, 01300 Vantaa`. For "where is X" and "what's near Y"
-  (`Q_categories`). `near` takes the same three forms as a route's end.
+- `place_search(query: or category:, near:)` → per hit: its handle, name, category, address,
+  distance and time by car from `near`, opening hours where known: `[3] Musiikki Silfverberg Oy Vantaan Musiikki
+  (musical instrument shop), Peltolantie 2, 01300 Vantaa`. "Where is X" by `query`, "what's near
+  Y" by `category`. `near` takes the same three forms as a route's end.
 - `route(from:, to:)` → what each end resolved to, the distance, the duration. Car only, to start.
 
 ### How `route` takes its ends (owner, 2026-11-21)
@@ -98,28 +133,33 @@ How it fits:
 - Core decides when an answer gets a map and what is on it — pins with labels, a route's line —
   and sends it as JSON data in the `Reply`; Desktop draws a `Shumate::SimpleMap` from it, so
   Desktop still only draws. `exe/puri` loads Shumate beside Adw.
-- Under the map, one row per place, as Siri's pills: name, category, distance, opening hours.
-  No photo: OSM rarely has one, and an image URL from OSM's data is a stranger's URL to fetch.
-  Siri's car glyph per place went with the buttons.
+- No rows under the map, unlike Siri's pills: the answer already lists the places, and each pin
+  carries its handle. No photo either: OSM rarely has one, and an image URL from OSM's data is a
+  stranger's URL to fetch.
+- A car button per place was dropped (owner, 2026-11-21): a route from home has to go through
+  the model, which reads the home address from `Notes/PURI.md`, and a turn with one tool call
+  takes half a minute or so on the owner's server (`R_llama_server_turns`). Siri's opens Apple
+  Maps at once.
+- A click on a pin opens the place by its openstreetmap.org URL: a hit's object,
+  `https://www.openstreetmap.org/node/9444805490`, or a GPS end's point,
+  `https://www.openstreetmap.org/?mlat=60.2931&mlon=25.0307&zoom=17`. With GNOME Maps installed,
+  the URL goes to Maps' desktop file, and Maps shows the place with its name and details. Without
+  Maps it goes to the default browser (owner, 2026-11-21), where a hit opens OSM's object page:
+  the place highlighted on the map, its raw tags beside it, address and opening hours among them
+  (*Research*). The click is the human's, so the agent still opens no URL.
 - The map fetches its own tiles when drawn: egress with no click, to `tile.openstreetmap.org`, for
   the area a tool found — never a URL the model wrote. The same class as the geocoder's query
   (`:tool_vouched`); the tile server learns which area the user looked at.
 - OSM's terms: Puri's own User-Agent, the licence line on the map, the cache honoured, the tile
-  URL a setting rather than hard-coded.
+  URL from `[maps]` rather than hard-coded.
 - `gir1.2-shumate-1.0` joins the README's apt line and CI's image.
 
-`Q_map`, still to brainstorm:
+`Q_map`, unchecked for v1:
 
-- Which result gets a map: the place the answer names, or every hit as pins, numbered like the
-  rows? A route: both ends and OSRM's line (`overview=full`), the view fitted to both — whether
-  libshumate fits a view to a bounding box, or we do the Mercator maths, is unchecked.
-- Inside a scrolling answer, does the wheel scroll the answer or zoom the map?
-- Does a click on the map open GNOME Maps on the spot (`geo:`), the way Siri's Directions opens
-  Apple Maps behind the card?
-- An old conversation replayed from the history: the map redraws from its stored data, the tiles
-  from the cache or the network.
-- Specs fetch no real tiles: a local tile source for `Puri::Dummy`, under `dev/`.
-- Without `gir1.2-shumate-1.0` the answer stays text?
+- A route's view fitted to both ends and OSRM's line (`overview=full`): does libshumate fit a view
+  to a bounding box, or do we do the Mercator maths?
+- The wheel scrolls the answer (owner): can libshumate's map pass it on rather than zoom?
+- A replayed map's tiles come from `~/.cache/shumate` or the network.
 
 ## What Siri does — `Q_siri_maps`
 
@@ -149,22 +189,9 @@ Still to try:
 ## Open questions
 
 - `Q_map`: above.
-- `Q_providers`: Photon finds no category near a point; Nominatim does, and finds the names too,
-  but its `viewbox` is a box to prefer, not a ranking by distance ("Prisma" gave three Helsinki
-  Prismas, not Jumbo's). Photon for names and Nominatim for categories and details, or Nominatim
-  alone, with a tight box around `near` and our own sort by distance?
-- `Q_categories`: how do "coffee", "kahvila" or "pharmacy" become `amenity=cafe` or
-  `amenity=pharmacy` — a list of categories the model picks from, or Nominatim's special phrases
-  ("cafe near …", untested)?
-- `Q_details`: website and opening hours for a name search — Photon drops them, Nominatim's
-  `lookup` by the hit's OSM id returns them, one more request per place. Fetch them inside
-  `place_search` for the top hit, or a third tool `place_details`? Opening hours would answer
-  "is it open now?".
-- `Q_modes`: bike and foot are FOSSGIS's too (`routed-bike`, `routed-foot`); public transport
-  would be Transitous, whose open-source, non-commercial terms Puri (MIT) meets. After car, if
+- `Q_modes`, after v1: bike and foot are FOSSGIS's too (`routed-bike`, `routed-foot`); public
+  transport would be Transitous, whose open-source, non-commercial terms Puri (MIT) meets. If
   Siri does them.
-- `Q_attribution`: the map carries OSM's licence line; FOSSGIS's routes ask for a "fix the map"
-  link too — under the answer, like Siri's source chip?
 
 ## Research (2026-11-21)
 
@@ -183,6 +210,11 @@ Ubuntu 26.04's package, its JavaScript read out of the GResource.
 - `geo:lat,lon` opens it on a point; `maps:q=…`, `geo:0,0?q=…` or `--search` on a search. A
   `maps:` URI takes `q=` alone, so no URI opens a route. **[src]**
 - Installed, it is the `x-scheme-handler/geo` default. **[verified]**
+- `geo:lat,lon` gives a nameless pin. An `https://www.openstreetmap.org/node/<id>` URL (or `way`,
+  `relation`) passed to it as a file makes it fetch that object from Overpass and select it as a
+  place, with its name and details; one with `mlat`/`mlon` and `zoom`, or `#map=`, gives a point.
+  **[src]**
+- Its desktop file launches it with `gapplication launch org.gnome.Maps %U`. **[verified]**
 - It searches GraphHopper's geocoding API with a key written in its source, finds places by
   category through Overpass (`around:`), routes with GraphHopper and Transitous, and draws
   `tile.openstreetmap.org`. **[src]**
@@ -226,6 +258,8 @@ Ubuntu 26.04's package, its JavaScript read out of the GResource.
 - FOSSGIS's Valhalla (`valhalla1.openstreetmap.de`) answers without a key; its terms are unread,
   as FOSSGIS's policy page turns bots away. **[verified]**
 - For the same 6.3 km by car, OSRM says 8.8 min and Valhalla 12.7 min. **[verified]**
+- FOSSGIS's OSRM answers the `table` service: one request gave car distances and times from the
+  shop to three points, 1.1 to 6.9 km. **[verified]**
 - Transitous (public transport): open-source, non-commercial apps only, a User-Agent naming the
   app, its version and a contact; over 720 plans a day, coordinate first. **[docs]**
 - GraphHopper's free plan: 500 credits a day, non-commercial only. **[docs]**
@@ -250,3 +284,5 @@ libshumate 1.6~beta from apt, a 560 × 330 map on Broadway; OSM's
 - Tiles honour the server's caching headers, or are kept at least 7 days; no prefetch, no offline
   use; the attribution stays visible on the map. **[docs]**
 - OSM asks apps not to hard-code the tile URL, so it can be switched without an update. **[docs]**
+- openstreetmap.org in a browser opens `?mlat=…&mlon=…&zoom=17` as a marker on that point, and
+  `/node/<id>` as the object's page: highlighted on the map, its tags beside it. **[verified]**
