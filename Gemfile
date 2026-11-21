@@ -18,29 +18,25 @@ gem 'kramdown-parser-gfm', '~> 1.1'
 # Cuts the streamed Markdown into final kramdown blocks, so a reply converts each block once.
 gem 'streaming-markdown-parser', '~> 0.1'
 
-# pikuri on its git master, as pikuri-tui and pikuri-web ride it: Core's confirmations need the
-# unreleased `Confirmer::Redirected` and the textless `Rejected` (pikuri#12). Gemfile.lock pins
-# the commit; `bundle update pikuri-core` moves it. One checkout for both, since every pikuri gem
-# pins `pikuri-core = <exact version>` in lockstep. pikuri-web brings `web_search` and
-# `web_read_cached`, and with them nokogiri; pikuri-html registers the HTML → Markdown extractor.
-# pikuri-thunderbird reads the local Thunderbird profile's mail, contacts and calendar, and hands a
-# drafted mail or event to Thunderbird's own UI; it brings sqlite3 and mail (parse-only).
-# pikuri-pdf is the PDF extractor for a machine with no container runtime (`D_extractors`); it
-# brings pdf-reader, pure Ruby. pikuri-fileindex brings `fileindex_search` and `fileindex_read`
-# over the desktop's own file index (GNOME's localsearch, or recoll), which already holds the
-# PDFs' and office files' text; it brings no gem.
-git 'https://github.com/mvysny/pikuri.git', branch: 'master' do
-  gem 'pikuri-core'
-  gem 'pikuri-fileindex'
-  gem 'pikuri-html'
-  gem 'pikuri-pdf'
-  gem 'pikuri-thunderbird'
-  gem 'pikuri-web'
-  gem 'pikuri-workspace'
-end
+# pikuri's released gems from rubygems, one release for all: every pikuri gem pins
+# `pikuri-core = <exact version>` in lockstep, and the workshop below takes them at `~> 0.2.0`.
+# pikuri-web brings `web_search` and `web_read_cached`, and with them nokogiri; pikuri-html
+# registers the HTML → Markdown extractor. pikuri-thunderbird reads the local Thunderbird
+# profile's mail, contacts and calendar, and hands a drafted mail or event to Thunderbird's own UI;
+# it brings sqlite3 and mail (parse-only). pikuri-pdf is the PDF extractor for a machine with no
+# container runtime (`D_extractors`); it brings pdf-reader, pure Ruby. pikuri-fileindex brings
+# `fileindex_search` and `fileindex_read` over the desktop's own file index (GNOME's localsearch,
+# or recoll), which already holds the PDFs' and office files' text; it brings no gem.
+gem 'pikuri-core', '~> 0.2.0'
+gem 'pikuri-fileindex', '~> 0.2.0'
+gem 'pikuri-html', '~> 0.2.0'
+gem 'pikuri-pdf', '~> 0.2.0'
+gem 'pikuri-thunderbird', '~> 0.2.0'
+gem 'pikuri-web', '~> 0.2.0'
+gem 'pikuri-workspace', '~> 0.2.0'
 
 # The conversations Core hosts: their agents and turns, the folder they are saved in, the titler
-# and the per-server request throttle. A workshop gem, on its git master like pikuri;
+# and the per-server request throttle. A workshop gem, on its git master;
 # `bundle update pikuri-conversations` moves the pin. pikuri-extractors converts office files and
 # PDFs in a networkless container, the extractor wired when podman or docker is installed
 # (`D_extractors`); it brings no gem.

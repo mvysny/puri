@@ -1,48 +1,12 @@
 GIT
   remote: https://github.com/mvysny/pikuri-workshop.git
-  revision: 8e2931fb8912714fa4010436c9b4cdac108a5757
+  revision: 35287e127d72747860b3121ff6a88b29f0bda740
   branch: master
   specs:
     pikuri-conversations (0.1.0)
-      pikuri-core (~> 0.1)
+      pikuri-core (~> 0.2.0)
     pikuri-extractors (0.1.0)
-      pikuri-core (~> 0.1)
-
-GIT
-  remote: https://github.com/mvysny/pikuri.git
-  revision: e562495845d05c793d8d856cda424705562d7da2
-  branch: master
-  specs:
-    pikuri-core (0.1.0)
-      faraday (~> 2.9)
-      rainbow (~> 3.1)
-      ruby_llm (~> 2.2)
-      zeitwerk (~> 2.7)
-    pikuri-fileindex (0.1.0)
-      pikuri-core (= 0.1.0)
-    pikuri-html (0.1.0)
-      nokogiri (~> 1.19)
-      pikuri-core (= 0.1.0)
-      reverse_markdown (~> 3.0)
-      ruby-readability (~> 0.7)
-    pikuri-pdf (0.1.0)
-      pdf-reader (~> 2.15)
-      pikuri-core (= 0.1.0)
-    pikuri-thunderbird (0.1.0)
-      ice_cube (~> 0.17)
-      mail (~> 2.9)
-      pikuri-core (= 0.1.0)
-      sqlite3 (~> 2.9)
-      tzinfo (~> 2.0)
-    pikuri-web (0.1.0)
-      faraday (~> 2.9)
-      nokogiri (~> 1.19)
-      pikuri-core (= 0.1.0)
-      pikuri-html (= 0.1.0)
-      pikuri-workspace (= 0.1.0)
-    pikuri-workspace (0.1.0)
-      pikuri-core (= 0.1.0)
-      reline (~> 0.6)
+      pikuri-core (~> 0.2.0)
 
 GEM
   remote: https://rubygems.org/
@@ -135,6 +99,36 @@ GEM
       afm (>= 0.2.1, < 2)
       hashery (~> 2.0)
       ttfunk
+    pikuri-core (0.2.0)
+      faraday (~> 2.9)
+      rainbow (~> 3.1)
+      ruby_llm (~> 2.2)
+      zeitwerk (~> 2.7)
+    pikuri-fileindex (0.2.0)
+      pikuri-core (= 0.2.0)
+    pikuri-html (0.2.0)
+      nokogiri (~> 1.19)
+      pikuri-core (= 0.2.0)
+      reverse_markdown (~> 3.0)
+      ruby-readability (~> 0.7)
+    pikuri-pdf (0.2.0)
+      pdf-reader (~> 2.15)
+      pikuri-core (= 0.2.0)
+    pikuri-thunderbird (0.2.0)
+      ice_cube (~> 0.17)
+      mail (~> 2.9)
+      pikuri-core (= 0.2.0)
+      sqlite3 (~> 2.9)
+      tzinfo (~> 2.0)
+    pikuri-web (0.2.0)
+      faraday (~> 2.9)
+      nokogiri (~> 1.19)
+      pikuri-core (= 0.2.0)
+      pikuri-html (= 0.2.0)
+      pikuri-workspace (= 0.2.0)
+    pikuri-workspace (0.2.0)
+      pikuri-core (= 0.2.0)
+      reline (~> 0.6)
     prism (1.9.0)
     racc (1.8.1)
     rainbow (3.1.1)
@@ -241,14 +235,14 @@ DEPENDENCIES
   kramdown-parser-gfm (~> 1.1)
   minitest (~> 6.0)
   pikuri-conversations!
-  pikuri-core!
+  pikuri-core (~> 0.2.0)
   pikuri-extractors!
-  pikuri-fileindex!
-  pikuri-html!
-  pikuri-pdf!
-  pikuri-thunderbird!
-  pikuri-web!
-  pikuri-workspace!
+  pikuri-fileindex (~> 0.2.0)
+  pikuri-html (~> 0.2.0)
+  pikuri-pdf (~> 0.2.0)
+  pikuri-thunderbird (~> 0.2.0)
+  pikuri-web (~> 0.2.0)
+  pikuri-workspace (~> 0.2.0)
   prism (< 2)
   rake (~> 13.4)
   rbs (~> 4.2)
@@ -315,14 +309,14 @@ CHECKSUMS
   parser (3.3.13.0) sha256=e02f9b63c2fe05b0c68f692ba4df89b3cb113b663964f75d988fbebfd6c3deca
   pdf-reader (2.16.0) sha256=bf1b5564c085264d8279bde3cf1467778b75841494d20c0fe7da3dad475f3732
   pikuri-conversations (0.1.0)
-  pikuri-core (0.1.0)
+  pikuri-core (0.2.0) sha256=65678eaacaa747b6c17b61adfa444730a4d75fcfc0620942f5e872f31cf7d8ba
   pikuri-extractors (0.1.0)
-  pikuri-fileindex (0.1.0)
-  pikuri-html (0.1.0)
-  pikuri-pdf (0.1.0)
-  pikuri-thunderbird (0.1.0)
-  pikuri-web (0.1.0)
-  pikuri-workspace (0.1.0)
+  pikuri-fileindex (0.2.0) sha256=b33e8dc4f5bc50e4973cfecfdc2247c4abf50c966db91485e46bbbf0e4277089
+  pikuri-html (0.2.0) sha256=8364363a7b94d56e83c7578220e2d6e4fd160a2be1af69696e26d3542e19a936
+  pikuri-pdf (0.2.0) sha256=e3aab814b1de874e8b750c82d1cf936beaba7ae3148027fa51d5b3f0370ac400
+  pikuri-thunderbird (0.2.0) sha256=3cf9e41994838acf878a72237c6cef164061059e0e3a710a3738e9229a4c45ec
+  pikuri-web (0.2.0) sha256=68c43227040cdd43304244e6c20973a99322b537d28b603f59e8c4570eaf408c
+  pikuri-workspace (0.2.0) sha256=37040203245398900648adc8ddf0da6ec5d021816c8f0821e587fc759c538c26
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
   racc (1.8.1) sha256=4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f
   rainbow (3.1.1) sha256=039491aa3a89f42efa1d6dec2fc4e62ede96eb6acd95e52f1ad581182b79bc6a
