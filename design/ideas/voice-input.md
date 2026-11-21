@@ -142,8 +142,16 @@ No table, no mic icon — like `[maps]`.
   it is sized from its slots by pikuri-conversations, which a whisper-server can't answer —
   presumably only for requests through the throttle hook (check), and a transcription needs
   none (whisper-server runs one request at a time, one user dictates).
-- `Q_key`: which key in the window starts and stops? F5 like Siri, or a chord?
-- `Q_send_on_stop`: Siri's orb answers when you stop; v1 waits for Return. A setting later?
+- **Decided (owner, 2026-11-21):** F5 starts and F5 stops, in the window's `ShortcutController`
+  beside F9; the mic icon does the same. Stopping transcribes into the entry; Return still sends.
+- `Q_dictation_ui`: the owner's sketch is a small popup, an animated bar and "Listening; press F5
+  to …". Lean: "Listening… press F5 when done" — "stop listening" sounds like discarding,
+  "transcribe" is jargon. A `Gtk::LevelBar` on the mic's volume while listening (a progress bar
+  has nothing to progress toward; a flat level shows a dead mic at once), then "Transcribing…"
+  with a pulsing bar. Escape cancels first and inserts nothing, like Escape on a streaming reply.
+  The window already has this shape — `StatusBar` and `Activity(state: 'working', status:)`, a
+  progress bar with Core's words under it — so reuse it with `listening` / `transcribing` states
+  rather than a popover? Then: dictating while a turn runs, with one `Activity` per conversation?
 - `Q_room_noise`: does a real room, keyboard and fan, still come back `[BLANK_AUDIO]`, or as an
   invented "Thank you."? Try with the real mic.
 - `Q_spec`: Core's recorder could read a WAV file in specs (a real source, not a mock), the
