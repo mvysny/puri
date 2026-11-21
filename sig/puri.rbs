@@ -49,6 +49,322 @@ module Puri
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
+    # "Play my favourite music": the `play_music` tool, which finds an artist, an album, a song or
+    # a genre in Rhythmbox's library and plays it there (`D_music`).
+    # 
+    #   rhythmbox = Music::Rhythmbox.find          # one per process; nil without Rhythmbox
+    #   configurator.add_tool(Music::PlayTool.new(rhythmbox:))
+    # 
+    # {Rhythmbox} speaks D-Bus, {Finder} turns the model's names into {Track}s, and {PlayTool}
+    # orders them and words the answer.
+    module Music
+      # One track of Rhythmbox's library, as its media server lists it.
+      # 
+      # @!attribute [r] title
+      #   @return [String]
+      # @!attribute [r] artist
+      #   @return [String]
+      # @!attribute [r] album
+      #   @return [String]
+      # @!attribute [r] genre
+      #   @return [String]
+      # @!attribute [r] duration
+      #   @return [Integer] seconds; 0 when Rhythmbox doesn't know
+      # @!attribute [r] number
+      #   @return [Integer] its track number on the album; 0 when untagged
+      # @!attribute [r] uri
+      #   @return [String] where Rhythmbox plays it from, a percent-encoded `file://` URI
+      class Track
+        PROPERTIES: ::Array[String]
+
+        # _@param_ `item` — one of `ListItems`' answers, with {PROPERTIES}
+        def self.from_item: (::Hash[String, Object] item) -> Puri::Core::Music::Track
+
+        # _@param_ `kind` — one of {Finder::KINDS}
+        # 
+        # _@return_ — the field a kind names: the title for a song
+        def []: (String kind) -> String
+
+        attr_reader title: String
+
+        attr_reader artist: String
+
+        attr_reader album: String
+
+        attr_reader genre: String
+
+        # _@return_ — seconds; 0 when Rhythmbox doesn't know
+        attr_reader duration: Integer
+
+        # _@return_ — its track number on the album; 0 when untagged
+        attr_reader number: Integer
+
+        # _@return_ — where Rhythmbox plays it from, a percent-encoded `file://` URI
+        attr_reader uri: String
+      end
+
+      # Turns the model's names into the library's tracks, or into a {Miss} that tells the model
+      # what is there instead:
+      # 
+      #   Finder.new(session).find('artist' => 'state azure')            # => State Azure's tracks
+      #   Finder.new(session).find('artist' => 'Johnny Cash', 'song' => 'Hurt')   # => his "Hurt"
+      #   Finder.new(session).find('artist' => 'Ambient')
+      #   # raises Miss: No artist "Ambient" in the library. Genre "Ambient" has 3 tracks. …
+      # 
+      # A name matches case-folded and exactly; a near miss comes back as candidates, never
+      # played. Several names narrow: the most specific kind given picks the tracks, and every
+      # other must match each one's own field.
+      class Finder
+        KINDS: ::Array[String]
+        NEAREST: Integer
+
+        # _@param_ `session`
+        def initialize: (Puri::Core::Music::Rhythmbox::Session session) -> void
+
+        # _@param_ `asked` — a name per kind of {KINDS}, at least one
+        # 
+        # _@return_ — never empty
+        def find: (::Hash[String, String] asked) -> ::Array[Puri::Core::Music::Track]
+
+        # _@param_ `kind`
+        # 
+        # _@param_ `name` — the model's
+        # 
+        # _@return_ — the library's spelling
+        def resolve: (String kind, String name) -> String
+
+        # _@param_ `kind`
+        # 
+        # _@param_ `name`
+        def missing: (String kind, String name) -> String
+
+        # _@param_ `kind`
+        # 
+        # _@param_ `name`
+        # 
+        # _@return_ — "Genre "Jazz" has 214 tracks.", when the name is one of this kind
+        def elsewhere: (String kind, String name) -> String?
+
+        # _@param_ `primary` — the kind that picked `tracks`
+        # 
+        # _@param_ `names`
+        # 
+        # _@param_ `tracks`
+        def apart: (String primary, ::Hash[String, String] names, ::Array[Puri::Core::Music::Track] tracks) -> String
+
+        # _@param_ `found` — one title by several artists
+        def several: (::Array[Puri::Core::Music::Track] found) -> String
+
+        # _@param_ `candidates`
+        # 
+        # _@param_ `name`
+        # 
+        # _@return_ — those containing it or contained in it, then the near spellings
+        def nearest: (::Array[String] candidates, String name) -> ::Array[String]
+
+        # _@param_ `kind`
+        # 
+        # _@return_ — every name of a kind in the library
+        def names: (String kind) -> ::Array[String]
+
+        # _@param_ `kind`
+        # 
+        # _@param_ `name` — the library's spelling
+        # 
+        # _@return_ — every track of that name: a song's, from the
+        # whole library, since songs have no container of their own
+        def primary_tracks: (String kind, String name) -> ::Array[Puri::Core::Music::Track]
+
+        # _@param_ `kind` — not `song`
+        # 
+        # _@param_ `name` — the library's spelling
+        def group: (String kind, String name) -> Puri::Core::Music::Rhythmbox::Group
+
+        # _@param_ `kind` — not `song`
+        def groups: (String kind) -> ::Array[Puri::Core::Music::Rhythmbox::Group]
+
+        # Every track, read once and only when a song is asked for, or a name is missing: a big
+        # library is one long answer.
+        def library: () -> ::Array[Puri::Core::Music::Track]
+
+        # _@param_ `names`
+        # 
+        # _@return_ — "\"a\", \"b\""
+        def quoted: (::Array[String] names) -> String
+
+        # _@param_ `name`
+        def fold: (String name) -> String
+
+        # Raised when the names find nothing to play; the message is for the model.
+        class Miss < StandardError
+        end
+      end
+
+      # `play_music`: plays an artist, an album, a song or a genre from Rhythmbox's library, in
+      # Rhythmbox, and raises its window.
+      # 
+      #   tool = PlayTool.new(rhythmbox: Rhythmbox.find)
+      #   tool.run('artist' => 'state azure').content
+      #   # => Playing State Azure in Rhythmbox: 3 tracks, shuffled, round after round.
+      # 
+      # Each kind plays its own way: an artist or a genre shuffled afresh each round until a
+      # day's worth is queued, endless in practice; an album in track order, once; a song alone,
+      # the library carrying on after it. The tool takes names, never a URI (*Search, never
+      # fetch*), and asks no confirmation: local playback has no outbound leg, and a pause undoes
+      # it (`D_music`).
+      class PlayTool < Pikuri::Tool
+        DAY: Integer
+        QUEUE_LIMIT: Integer
+        DESCRIPTION: String
+
+        # _@param_ `rhythmbox`
+        # 
+        # _@param_ `random` — what shuffles
+        def initialize: (rhythmbox: Puri::Core::Music::Rhythmbox, ?random: Random) -> void
+
+        # _@param_ `arguments` — the model's
+        # 
+        # _@return_ — "Hurt, Johnny Cash"
+        def describe_call: (::Hash[untyped, untyped] arguments) -> String
+
+        # _@param_ `asked` — a name per kind, nil where not given
+        # 
+        # _@param_ `cancellable`
+        def play: (::Hash[String, String?] asked, Pikuri::Agent::Control::Cancellable cancellable) -> Pikuri::Tool::Result
+
+        # _@param_ `asked`
+        # 
+        # _@param_ `tracks`
+        # 
+        # _@return_ — in the order they play
+        def queue: (::Hash[String, String] asked, ::Array[Puri::Core::Music::Track] tracks) -> ::Array[Puri::Core::Music::Track]
+
+        # Fresh shuffles back to back, cut at a day's worth: the play queue never loops, and a
+        # listener refilling it couldn't tell it running dry from the user picking other music.
+        # 
+        # _@param_ `tracks`
+        def rounds: (::Array[Puri::Core::Music::Track] tracks) -> ::Array[Puri::Core::Music::Track]
+
+        # _@param_ `asked`
+        # 
+        # _@param_ `tracks`
+        def answer: (::Hash[String, String] asked, ::Array[Puri::Core::Music::Track] tracks) -> Pikuri::Tool::Result
+      end
+
+      # Rhythmbox, over the session bus: its library through the `dbus-media-server` plugin, its
+      # play queue, and MPRIS (`R_rhythmbox_dbus`). Each {#open} is a connection of its own,
+      # which starts Rhythmbox when it isn't running:
+      # 
+      #   rhythmbox = Rhythmbox.find                 # nil where the bus can't start Rhythmbox
+      #   rhythmbox.open(cancellable:) do |session|
+      #     artist = session.groups('artist').find { _1.name == 'State Azure' }
+      #     session.play(session.tracks(artist.path).map(&:uri).shuffle)
+      #   end
+      # 
+      # Thread-safe: a call opens its own connection, since ruby-dbus' isn't safe to share.
+      class Rhythmbox
+        APPLICATION: String
+        MEDIA_SERVER: String
+        MPRIS: String
+        LIBRARY: String
+        CONTAINER: String
+        TIMEOUT: Integer
+        LOAD_TIMEOUT: Integer
+
+        # _@param_ `address` — the session bus's; nil for the user's own
+        # 
+        # _@return_ — nil where the bus can't start Rhythmbox, or
+        # there is no bus
+        def self.find: (?String? address) -> Puri::Core::Music::Rhythmbox?
+
+        # _@param_ `address` — the session bus's; nil for the user's own
+        def initialize: (?String? address) -> void
+
+        # _@return_ — whether the bus can start Rhythmbox, or it runs already
+        def installed?: () -> bool
+
+        # Connects, starts Rhythmbox unless it runs, and yields the connection.
+        # 
+        # _@param_ `cancellable` — polled while Rhythmbox starts
+        # 
+        # _@return_ — the block's value
+        def open: (cancellable: Pikuri::Agent::Control::Cancellable) ?{ (Puri::Core::Music::Rhythmbox::Session session) -> Object } -> Object
+
+        # _@return_ — the block's value
+        def connect: () ?{ (DBus::BusConnection bus) -> Object } -> Object
+
+        # Raised for anything that keeps Rhythmbox from answering: no bus, a start that failed, a
+        # call that timed out.
+        class Error < StandardError
+        end
+
+        # An artist, album or genre, as the library lists it.
+        # 
+        # @!attribute [r] name
+        #   @return [String] as Rhythmbox shows it
+        # @!attribute [r] path
+        #   @return [String] its container's object path, for {Session#tracks}
+        # @!attribute [r] count
+        #   @return [Integer] how many tracks it has
+        class Group
+          # _@return_ — as Rhythmbox shows it
+          attr_reader name: String
+
+          # _@return_ — its container's object path, for {Session#tracks}
+          attr_reader path: String
+
+          # _@return_ — how many tracks it has
+          attr_reader count: Integer
+        end
+
+        # One connection to a running Rhythmbox.
+        class Session
+          # _@param_ `bus`
+          # 
+          # _@param_ `cancellable`
+          def initialize: (DBus::BusConnection bus, cancellable: Pikuri::Agent::Control::Cancellable) -> void
+
+          # Starts Rhythmbox unless its media server is on the bus, and waits for its library.
+          # D-Bus activation opens its window, which is wanted: the user sees the music start
+          # even with the sound off (`D_music`).
+          def start: () -> void
+
+          # _@param_ `kind` — `artist`, `album` or `genre`
+          # 
+          # _@return_ — every one in the library
+          def groups: (String kind) -> ::Array[Puri::Core::Music::Rhythmbox::Group]
+
+          # _@param_ `path` — a {Group}'s, or `nil` for the whole library
+          def tracks: (?String? path) -> ::Array[Puri::Core::Music::Track]
+
+          # Plays `uris` in order: the first at once, the rest from the play queue, which it
+          # clears of whatever was queued before. Then raises Rhythmbox's window.
+          # 
+          # _@param_ `uris` — the library's own, never the model's: a URI Rhythmbox doesn't know is fetched
+          def play: (::Array[String] uris) -> void
+
+          def mpris_player: () -> DBus::ProxyObjectInterface
+
+          # _@param_ `path`
+          def container: (String path) -> DBus::ProxyObjectInterface
+
+          # _@param_ `name`
+          def owned?: (String name) -> bool
+
+          # A fresh Rhythmbox serves an empty library until its database has loaded, then all of
+          # it at once; a count that holds for two polls is taken as loaded.
+          def wait_for_library: () -> void
+
+          def all_tracks_count: () -> Integer
+
+          # _@param_ `seconds`
+          # 
+          # _@return_ — whether the block came true in time
+          def wait: (Numeric seconds) ?{ () -> bool } -> bool
+        end
+      end
+    end
+
     # Puri's `config.toml`: the model connections, which one writes the titles, the search
     # engines' keys, the Thunderbird profile and the documents folder. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
@@ -1596,13 +1912,16 @@ module Puri
       # _@param_ `library` — the documents folder every agent searches
       # 
       # _@param_ `osm` — what every agent's place tools ask, with `[maps]`; one for all, so its pacing covers them all
+      # 
+      # _@param_ `rhythmbox` — what every agent's `play_music` plays in; nil wires none
       def initialize: (
                         config: Puri::Core::Config,
                         models: Puri::Core::Models,
                         titler: Pikuri::Conversations::Titler,
                         store: Pikuri::Conversations::Store,
                         ?library: Puri::Core::Library?,
-                        ?osm: Puri::Core::Places::Osm?
+                        ?osm: Puri::Core::Places::Osm?,
+                        ?rhythmbox: Puri::Core::Music::Rhythmbox?
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
@@ -1993,6 +2312,8 @@ module Puri
       # _@param_ `library` — the `[documents]` folder its agents search
       # 
       # _@param_ `osm` — what its place tools ask; nil wires none
+      # 
+      # _@param_ `rhythmbox` — what `play_music` plays in; nil wires none
       def initialize: (
                         Puri::Core::Conversation conversation,
                         entry: Pikuri::Conversations::Store::Entry,
@@ -2004,7 +2325,8 @@ module Puri
                         lock: Monitor,
                         saved: bool,
                         ?library: Puri::Core::Library?,
-                        ?osm: Puri::Core::Places::Osm?
+                        ?osm: Puri::Core::Places::Osm?,
+                        ?rhythmbox: Puri::Core::Music::Rhythmbox?
                       ) -> void
 
       # Fills a saved conversation's blocks from its history, the first time only; the agent
@@ -2106,7 +2428,14 @@ module Puri
         # _@param_ `documents` — whether it has the documents folder
         # 
         # _@param_ `places` — whether it has the place tools
-        def self.system_prompt: (web: bool, documents: bool, ?places: bool) -> String
+        # 
+        # _@param_ `music` — whether it has `play_music`
+        def self.system_prompt: (
+                                  web: bool,
+                                  documents: bool,
+                                  ?places: bool,
+                                  ?music: bool
+                                ) -> String
 
         # _@param_ `config`
         # 
@@ -2121,6 +2450,8 @@ module Puri
         # _@param_ `osm` — what the place tools ask; nil wires none
         # 
         # _@param_ `notebook` — the conversation's places, which the place tools number and draw in
+        # 
+        # _@param_ `rhythmbox` — what `play_music` plays in; nil wires none
         def initialize: (
                           Puri::Core::Config config,
                           Puri::Core::Conversation conversation,
@@ -2128,7 +2459,8 @@ module Puri
                           ?library: Puri::Core::Library?,
                           ?cache_dir: String,
                           ?osm: Puri::Core::Places::Osm?,
-                          ?notebook: Puri::Core::Places::Notebook?
+                          ?notebook: Puri::Core::Places::Notebook?,
+                          ?rhythmbox: Puri::Core::Music::Rhythmbox?
                         ) -> void
 
         # The machine's time zone, for the prompt:
@@ -2151,9 +2483,9 @@ module Puri
         # extensions' own fragments
         def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
-        # Adds the calculator, the web tools, the place tools, the Thunderbird extension, and the
-        # documents' search and file tools. An extension is built afresh for each agent as pikuri
-        # asks, and one that asks before it acts takes {#confirmer}.
+        # Adds the calculator, the web tools, the place tools, `play_music`, the Thunderbird
+        # extension, and the documents' search and file tools. An extension is built afresh for
+        # each agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         # 
         # _@param_ `configurator`
         # 

@@ -167,6 +167,9 @@ GEM
     rubocop-ast (1.51.0)
       parser (>= 3.3.7.2)
       prism (>= 1.7)
+    ruby-dbus (0.25.0)
+      logger
+      rexml
     ruby-progressbar (1.13.0)
     ruby-readability (0.7.3)
       guess_html_encoding (>= 0.0.4)
@@ -252,6 +255,7 @@ DEPENDENCIES
   redcarpet (~> 3.6)
   rspec-core (~> 3.13)
   rubocop (~> 1.92)
+  ruby-dbus (~> 0.25)
   simplecov (~> 0.22)
   sord (~> 7.1)
   streaming-markdown-parser (~> 0.1)
@@ -332,6 +336,7 @@ CHECKSUMS
   rspec-support (3.13.8) sha256=e4160030309b7e3e9d9863dfe720a35dfcc577162f5402cd68fc8c5258a0ffd6
   rubocop (1.92.2) sha256=14fb31eed143a0dc6f78186c550c1715e81cd38f59d05d1165050e445c1f5382
   rubocop-ast (1.51.0) sha256=0ec311e36b191b3872d909078a35274e962ae97dbce64be6812d145ca59acfcb
+  ruby-dbus (0.25.0) sha256=fe431ca96a61f7c87a5177a43c9fe0a50eafe174c1d108421e38bb5165ea4814
   ruby-progressbar (1.13.0) sha256=80fc9c47a9b640d6834e0dc7b3c94c9df37f08cb072b7761e4a71e22cff29b33
   ruby-readability (0.7.3) sha256=bd213fab037118cc15d999e167a8ea2cc6b689dc78c033e78fb36a2a37efc241
   ruby_llm (2.2.2) sha256=e08da09150bc11e15b294a7628b8295e0813d7f611ca97f74dcb1286ba7cdc79

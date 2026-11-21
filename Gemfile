@@ -57,6 +57,10 @@ gem 'rbs', '~> 4.2'
 gem 'tomlrb', '~> 3.0'
 gem 'typemap', '~> 0.1'
 
+# `play_music` drives Rhythmbox over the session bus (`D_music`). Pure Ruby, so Core stays free of
+# GLib, which Gio would load (spec/boundaries_spec.rb).
+gem 'ruby-dbus', '~> 0.25'
+
 # Types are written once, as YARD tags; sord compiles them into the committed sig/puri.rbs, and
 # `rake sig` fails on any tag sord cannot type. redcarpet renders the Markdown .yardopts selects.
 group :development do

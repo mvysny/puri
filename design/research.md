@@ -262,3 +262,47 @@ On the owner's Mac, macOS 27.2.1.
 - "Coffee near me" asks nothing and uses the Mac's location: a map of two cafés, then a
   full-width pill per place — name, opening hours, a photo — with a car glyph opening directions.
   **[verified 2026-11-21]**
+
+## R_gnome_music_mpris — MPRIS can't search, and GNOME Music can't be handed a track
+
+- MPRIS, what every player and GNOME Shell's media widget speak, is a remote control: play, pause,
+  next, `Shuffle`, `Metadata`, `OpenUri` of one URI, and an optional `Playlists` interface that
+  starts one of the player's own playlists. No search, and no desktop standard says "play artist
+  X". **[docs]**
+- GNOME Music's `OpenUri` is `"""Not implemented."""` and `pass`, and its desktop file declares no
+  `MimeType=`; its only levers are `ActivatePlaylist` on its own playlists and a writable
+  `Shuffle`. **[src]** (`gnomemusic/mpris.py`, master, 2026-11-21)
+- Ubuntu's localsearch reads MP3 tags alone without `localsearch-extractor-ffmpeg`; 26.04 installs
+  only `libextract-mp3.so`. **[verified 2026-11-21]**
+
+## R_rhythmbox_dbus — Rhythmbox 3.4.9 over D-Bus
+
+Its source on GNOME's master, 2026-11-21; run headless on Ubuntu 26.04's 3.4.9-3ubuntu3.
+
+- The `dbus-media-server` plugin, on by default, owns `org.gnome.UPnP.MediaServer2.Rhythmbox`;
+  its `…/Library` (the local library alone, no radio or podcasts) holds `artist`, `album`,
+  `genre` and `all` containers, each with `ListContainers` and `ListItems`; no search,
+  `SearchObjects` answering "search not supported". **[src]**
+- A child's path keeps a name's alphanumerics and writes every other byte `_XX`; a lowercased
+  path lists nothing, without an error. An album container is one name: two artists' "Greatest
+  Hits" are one album. `ListContainers 0 0` gave all 826 artists of the owner's library at once.
+  **[verified]**
+- An item carries `DisplayName` (its title), `URLs` (one percent-encoded `file://` URI), `Artist`,
+  `Album`, `Genre`, `Duration` in seconds and `TrackNumber`. **[src]** **[verified]**
+- Any call to `org.gnome.Rhythmbox3` starts it by D-Bus activation, its window open; the media
+  server and MPRIS names follow within a second. Its library is empty until the database loads,
+  then whole: ~0.3 s after the media server's name, ~10 s on a first import. `…/all`'s
+  `ItemCount` property stays 0; `…/Library`'s `ListContainers` counts live. **[verified]**
+- `org.gnome.Rhythmbox3.PlayQueue`'s `ClearQueue` and `AddToQueue(s uri)` are what
+  `rhythmbox-client --clear-queue --enqueue` calls. **[src]** Entries leave the queue as they
+  play, so it never loops, whatever MPRIS `LoopStatus`. **[verified]**
+- MPRIS `OpenUri` of a library track plays it at once, then the queue overrides the play order;
+  after the last queued track the library carries on. MPRIS `Play` from stopped plays the
+  sidebar's selected source instead. **[src]** **[verified]**
+- `OpenUri` of a local `.m3u` imports it as a static playlist and plays nothing; each import adds
+  another, named after the file, and no D-Bus call deletes one. **[src]** **[verified]**
+- On Broadway with no sound server, `PlaybackStatus` reads `Playing`. The bus daemon hands its own
+  environment to what it activates: a scratch `HOME` set inside `dbus-run-session` came too late,
+  and the real dconf and `~/.cache/rhythmbox` got written. Through ALSA's PipeWire plugin it
+  deadlocked on a track change now and then; with GStreamer's real sinks ranked `NONE`,
+  `autoaudiosink` falls back to a fake one. **[verified]**

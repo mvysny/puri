@@ -54,7 +54,7 @@ Every fact lives in exactly one of these; the others link to it.
 - **Ruby, GTK4, libadwaita and libshumate from distro packages** — apt's `ruby` (pikuri needs ≥ 3.3), `ruby-gtk4`, `gir1.2-adw-1` and `gir1.2-shumate-1.0` loaded through GObject Introspection; a gem or binary apt does not ship waits on the owner.
 - **`gtk4` stays out of the Gemfile:** Bundler would compile it from source, while `require 'gtk4'` finds apt's copy under `bundle exec` anyway; the gtk4-dev skill has the details.
 - **Desktop only draws:** ordering, titling, wording a tool line or a confirmation, rendering Markdown are Core's, and Desktop keeps view state only (`D_ruby_gtk4`); a feature that grows Desktop belongs in Core.
-- **A gap is a missing pikuri primitive**, never a workaround here: a tool, a prompt or a listener event goes upstream, and whatever this app shares with pikuri-tui or pikuri-web lives in pikuri or its workshop, never in a copy; hosting conversations is `pikuri-conversations`' (`D_port_pikuri_web`). The place tools are the one exception, until they move (`D_places`).
+- **A gap is a missing pikuri primitive**, never a workaround here: a tool, a prompt or a listener event goes upstream, and whatever this app shares with pikuri-tui or pikuri-web lives in pikuri or its workshop, never in a copy; hosting conversations is `pikuri-conversations`' (`D_port_pikuri_web`). The place tools and `play_music` are the exceptions, until they move (`D_places`, `D_music`).
 
 ## Commands
 

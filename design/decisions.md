@@ -198,3 +198,23 @@ stops once the map reaches the pointer. Tiles load on view with no click, the sa
 as a search's query; OSM's terms want Puri's User-Agent, the attribution on the map, and the tile
 server a setting, hence `[maps] tiles`, which turns the feature on. No photo: OSM rarely has one,
 and its URL would be a stranger's to fetch.
+
+## D_music — Why play music in Rhythmbox alone, over its D-Bus, rather than in the default player, or in Puri itself?
+
+No standard can ask "the default player" for an artist, and GNOME Music can't be handed a track
+(`R_gnome_music_mpris`). Handing any player a shuffled `.m3u` works only where it plays a file it
+is given, Rhythmbox imports one as a playlist instead, and localsearch misses every tag but MP3's;
+Puri playing it itself would be a music player in *a desktop UI and nothing else*, the music dying
+with Puri. Rhythmbox is the owner's player (owner, 2026-11-21), and its D-Bus does it all
+(`R_rhythmbox_dbus`): the library the owner sees, in every format it reads, a play queue, MPRIS.
+One `play_music(artist:, album:, song:, genre:)`, the model sorting a name into its kind (owner):
+names only, never a URI, which would let a mail's "play https://…" make the player fetch. A name
+matches case-folded and exactly; anything else comes back as candidates, never played. "My
+favourite music" is a line of the memory, `Notes/PURI.md`, as the home address is. An artist
+or a genre clears the queue (owner) and fills it with fresh shuffles cut at a day: the owner wants
+it endless, the queue never loops, and a listener refilling it couldn't tell it running dry from
+the user picking other music. An album plays in order once, a song alone. No confirmation: no
+outbound leg, and a pause undoes it. Rhythmbox's window opens or rises, so the music shows even
+with the sound off (owner). No pause or next tool: the media keys and GNOME's widget have them
+(owner). It lives here against *a gap is a missing pikuri primitive*, like the place tools, to
+settle first (owner, 2026-11-21), on ruby-dbus, since Core must not load GLib.

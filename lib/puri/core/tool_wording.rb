@@ -53,7 +53,8 @@ module Puri
         'edit' => Wording.new('Editing a note…', '📝 Edited'),
         'calculator' => Wording.new('Calculating…', '🧮 Calculated'),
         'place_search' => Wording.new('Looking up places…', '📍 Looked up'),
-        'route' => Wording.new('Finding a route…', '🚗 Route')
+        'route' => Wording.new('Finding a route…', '🚗 Route'),
+        'play_music' => Wording.new('Looking for the music…', '🎵 Music')
       }.freeze
 
       # Whose argument a line leaves out.
@@ -62,10 +63,10 @@ module Puri
       BARE = %w[thunderbird_mail_read thunderbird_mail_attachment_read thunderbird_calendar_read].freeze
 
       # Whose line ends in the tool's summary even when it answered: a note written unasked is
-      # what the user checks, so its line says what changed.
+      # what the user checks, so its line says what changed; music says whether it plays.
       #
       # @return [Array<String>]
-      SUMMED = %w[write edit].freeze
+      SUMMED = %w[write edit play_music].freeze
 
       # @param call [Pikuri::Agent::Event::ToolCall, Pikuri::Agent::History::ToolCall]
       # @return [String] what the turn is doing while the call runs

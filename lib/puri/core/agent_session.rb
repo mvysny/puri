@@ -58,10 +58,12 @@ module Puri
         # @param web [Boolean] whether the agent has the web tools
         # @param documents [Boolean] whether it has the documents folder
         # @param places [Boolean] whether it has the place tools
+        # @param music [Boolean] whether it has `play_music`
         # @return [String]
-        def self.system_prompt(web:, documents:, places: false)
+        def self.system_prompt(web:, documents:, places: false, music: false)
           files = %W[puri.txt #{web ? 'web.txt' : 'offline.txt'} #{documents ? 'documents.txt' : 'no-documents.txt'}]
           files << 'places.txt' if places
+          files << 'music.txt' if music
           files.map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
         end
 
@@ -76,8 +78,9 @@ module Puri
         # @param osm [Puri::Core::Places::Osm, nil] what the place tools ask; nil wires none
         # @param notebook [Puri::Core::Places::Notebook, nil] the conversation's places, which the
         #   place tools number and draw in
+        # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what `play_music` plays in; nil wires none
         def initialize(config, conversation, lock:, library: nil, cache_dir: PikuriCore.cache_dir, osm: nil,
-                       notebook: nil)
+                       notebook: nil, rhythmbox: nil)
           @config = config
           @conversation = conversation
           @lock = lock
@@ -85,6 +88,7 @@ module Puri
           @cache_dir = cache_dir
           @osm = notebook && osm
           @notebook = notebook
+          @rhythmbox = rhythmbox
           @confirmer = nil
         end
 
@@ -112,14 +116,16 @@ module Puri
         #   extensions' own fragments
         def system_prompt(_conversation)
           now = Time.now
-          "#{Initializer.system_prompt(web: !@config.search.nil?, documents: !@library.nil?, places: !@osm.nil?)}\n\n" \
+          prompt = Initializer.system_prompt(web: !@config.search.nil?, documents: !@library.nil?, places: !@osm.nil?,
+                                             music: !@rhythmbox.nil?)
+          "#{prompt}\n\n" \
             "Today is #{now.strftime('%A, %-d %B %Y')}; the time zone is #{Initializer.time_zone(now)}." \
             "#{library_prompt}"
         end
 
-        # Adds the calculator, the web tools, the place tools, the Thunderbird extension, and the
-        # documents' search and file tools. An extension is built afresh for each agent as pikuri
-        # asks, and one that asks before it acts takes {#confirmer}.
+        # Adds the calculator, the web tools, the place tools, `play_music`, the Thunderbird
+        # extension, and the documents' search and file tools. An extension is built afresh for
+        # each agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         #
         # @param configurator [Pikuri::Agent::Configurator]
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
@@ -132,6 +138,7 @@ module Puri
             configurator.add_tools([Places::SearchTool.new(osm: @osm, notebook: @notebook),
                                     Places::RouteTool.new(osm: @osm, notebook: @notebook)])
           end
+          configurator.add_tool(Music::PlayTool.new(rhythmbox: @rhythmbox)) if @rhythmbox
           configurator.add_extension(thunderbird(configurator)) if @config.thunderbird
           return unless @library
 
@@ -215,8 +222,9 @@ module Puri
       # @param saved [Boolean] whether the store holds this conversation already
       # @param library [Puri::Core::Library, nil] the `[documents]` folder its agents search
       # @param osm [Puri::Core::Places::Osm, nil] what its place tools ask; nil wires none
+      # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what `play_music` plays in; nil wires none
       def initialize(conversation, entry:, store:, conversations:, transport:, models:, config:, lock:, saved:,
-                     library: nil, osm: nil)
+                     library: nil, osm: nil, rhythmbox: nil)
         super()
         @conversation = conversation
         @entry = entry
@@ -228,7 +236,8 @@ module Puri
         @notebook = Places::Notebook.new(tiles: config.maps&.tiles, saved: (entry.extra['places'] if saved))
         # self.class's: a spec's subclass brings an Initializer that adds what Puri doesn't wire.
         @initializer = self.class::Initializer.new(config, conversation, lock:, library:,
-                                                                         osm: (osm if config.maps), notebook: @notebook)
+                                                                         osm: (osm if config.maps), notebook: @notebook,
+                                                                         rhythmbox:)
         @lock = lock
         @saved = saved
         @untitled = !saved || store.stamp_titled?(entry) || entry.title == Conversation::NEW_TITLE

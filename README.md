@@ -16,7 +16,8 @@ mascot. "Ask Puri."
 
 **Status:** the UI is done, and the model answers through pikuri. It can search the web, read
 your Thunderbird mail, contacts and calendar, search, read and take notes in your documents, and
-find places and car routes on OpenStreetMap, with a map under the answer. `exe/puri --dummy` runs
+find places and car routes on OpenStreetMap, with a map under the answer, and play your music in
+Rhythmbox. `exe/puri --dummy` runs
 a canned backend instead, with no config and no model: `search`, `note`, `table`, `long`,
 `coffee`, `drive`, `fail`, `mail`, or `calendar` plus `reschedule` in a question walk the paths
 the tools will take. The plan lives in `design/ideas/`.
@@ -149,6 +150,13 @@ once and remembers it in `Notes/PURI.md`. Under the answer it draws the places o
 tiles come from the server above; a click on a pin opens the place in GNOME Maps, or on
 openstreetmap.org when Maps isn't installed. Without the table Puri has no place tools and draws
 no map.
+
+With Rhythmbox installed (`sudo apt install rhythmbox`), Puri plays an artist, an album, a song or
+a genre from its library: "play some State Azure", or "play my favourite music" once you've told it
+your favourite, which it remembers in `Notes/PURI.md`. It starts Rhythmbox when it isn't running
+and shows its window; an artist or a genre plays shuffled, over and over, and replaces whatever you
+had queued. Pause and skip with the media keys or GNOME's media controls. It needs Rhythmbox's
+"D-Bus Media Server" plugin, on by default.
 
 To open Puri from a global shortcut, install it for your user:
 

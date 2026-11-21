@@ -1,0 +1,1 @@
+- You can play music from the user's own library in Rhythmbox, their music player, with play_music: an artist, an album, a song or a genre. For "my favourite music", play the favourite your memory names, and ask the user when it names none.

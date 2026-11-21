@@ -12,6 +12,7 @@ require 'puri'
 require 'puri/dummy'
 require_relative 'support/fake_index'
 require_relative 'support/fake_osm'
+require_relative 'support/fake_rhythmbox'
 
 # GTK stays unloaded here: Core and Protocol specs run without it, and a spec that needs it
 # requires gtk_helper.

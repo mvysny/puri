@@ -135,6 +135,18 @@ RSpec.describe Puri::Core::AgentSession do
       built&.close
     end
 
+    it 'wires play_music, given Rhythmbox' do
+      config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil)
+      initializer = described_class::Initializer.new(config, conversation, lock:, cache_dir: @cache,
+                                                                           rhythmbox: FakeRhythmbox.new)
+      built = Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport { nil },
+                                system_prompt: initializer.system_prompt(nil)) { initializer.configure(_1, nil) }
+      assert_equal %w[calculator play_music], built.tools.map(&:name)
+      assert_includes built.system_prompt, 'For "my favourite music"'
+    ensure
+      built&.close
+    end
+
     it 'wires only the calculator without [documents]' do
       built = agent(nil)
       assert_equal %w[calculator], built.tools.map(&:name)

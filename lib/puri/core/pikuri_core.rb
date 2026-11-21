@@ -69,7 +69,10 @@ module Puri
         end
         LOGGER.info('no [maps] in config.toml: the agent has no place tools') unless config.maps
         library = config.documents && Library.new(config.documents)
-        new(config:, models: Models.from_config(config), titler:, store:, library:, osm: Places::Osm.new, &)
+        rhythmbox = Music::Rhythmbox.find
+        LOGGER.info('the session bus can\'t start Rhythmbox: the agent has no play_music') unless rhythmbox
+        new(config:, models: Models.from_config(config), titler:, store:, library:, osm: Places::Osm.new, rhythmbox:,
+            &)
       end
 
       # Plugs the document extractors into pikuri's registry, process-wide, so `read`,
@@ -122,9 +125,11 @@ module Puri
       # @param library [Puri::Core::Library, nil] the documents folder every agent searches
       # @param osm [Puri::Core::Places::Osm, nil] what every agent's place tools ask, with `[maps]`;
       #   one for all, so its pacing covers them all
+      # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what every agent's `play_music` plays
+      #   in; nil wires none
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(config:, models:, titler:, store:, library: nil, osm: nil, &listener)
+      def initialize(config:, models:, titler:, store:, library: nil, osm: nil, rhythmbox: nil, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @models = models
@@ -133,6 +138,7 @@ module Puri
         @config = config
         @library = library
         @osm = osm
+        @rhythmbox = rhythmbox
         @listener = listener
         @lock = Monitor.new
         @conversations = {}
@@ -261,7 +267,8 @@ module Puri
       def agent_session(conversation, entry, saved:)
         AgentSession.new(conversation, entry:, store: @store, conversations: @live,
                                        transport: start_on(entry, saved:).transport, models: @models,
-                                       config: @config, lock: @lock, saved:, library: @library, osm: @osm)
+                                       config: @config, lock: @lock, saved:, library: @library, osm: @osm,
+                                       rhythmbox: @rhythmbox)
       end
 
       # @param entry [Pikuri::Conversations::Store::Entry]
