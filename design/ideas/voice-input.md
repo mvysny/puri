@@ -76,24 +76,27 @@ whether the GPU has room; the README shows how. Puri records and posts. A bigger
 nothing on Puri's side, the same request and the same answer, only slower and more accurate.
 
 ```toml
-[[server]]
-id  = "whisper"
-url = "http://127.0.0.1:8081"
-
 [dictation]
-server = "whisper"
-# model = "whisper-1"    # whisper-server ignores it; a hosted server needs its own
+url = "http://127.0.0.1:8081"
+# api_key = "…"          # a hosted server only
+# model   = "whisper-1"  # whisper-server ignores it; a hosted server needs its own
 ```
 
-No table, no mic icon — like `[maps]`.
+No table, no mic icon — like `[maps]`. Its own `url`, not a `[[server]]` id (owner,
+2026-11-21): `Config::Server` is a chat server, its `max_concurrent_requests` falling back to
+llama-server's `total_slots`, and `PikuriCore.from_config` walks `config.servers` as chat servers
+for throttle limits; a whisper-server is none of that, and nothing else would point at it. Like
+`[maps]` and `[search]`, the endpoint and key live in the feature's own table. `Config.keys?`
+then counts `dictation.api_key` for its loose-permissions warning. The cost, a hosted OpenAI key
+written twice for chat and dictation, falls only on someone who opted out of local first.
 
 - **Core transcribes through RubyLLM directly**, not through pikuri: one call on a
   `RubyLLM::Context` of its own, as `Pikuri::VectorDb::Embedder` does for embeddings.
 
   ```ruby
   context = RubyLLM.context do |c|
-    c.openai_api_base = "#{server.url}/v1"
-    c.openai_api_key  = server.api_key || 'not-needed'
+    c.openai_api_base = "#{dictation.url}/v1"
+    c.openai_api_key  = dictation.api_key || 'not-needed'
   end
   context.transcribe(wav_io, model:, provider: :openai, assume_model_exists: true).text
   ```
@@ -136,12 +139,6 @@ No table, no mic icon — like `[maps]`.
 
 ## Open questions
 
-- `Q_config_shape`: `server = "<id>"` reusing `[[server]]` (above), or `[dictation] url` +
-  `api_key` of its own? Reusing gives the context exactly its URL and key. Puri only reads
-  `max_concurrent_requests` into `Throttle.limit` (`PikuriCore.from_config`); a server without
-  it is sized from its slots by pikuri-conversations, which a whisper-server can't answer —
-  presumably only for requests through the throttle hook (check), and a transcription needs
-  none (whisper-server runs one request at a time, one user dictates).
 - **Decided (owner, 2026-11-21):** F5 starts and F5 stops, in the window's `ShortcutController`
   beside F9; the mic icon does the same. Stopping transcribes into the entry; Return still sends.
 - `Q_dictation_ui`: the owner's sketch is a small popup, an animated bar and "Listening; press F5
