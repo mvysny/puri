@@ -166,6 +166,47 @@ a 6.5k-token prefix; the title on a second connection with `chat_template_kwargs
 - Pinning the turn to a slot while the title floats loses that prefix. **[verified 2026-11-11]**
 - pikuri never pins a slot: it sends no `id_slot`. **[src]**
 
+## R_gnome_maps — GNOME Maps answers no queries
+
+GNOME Maps 49.3 from Ubuntu 26.04's apt, its JavaScript read out of the package's GResource.
+
+- It ships no GNOME Shell search provider. **[verified 2026-11-21]**
+- On the session bus it exports only GApplication actions: `search(s)`, `osm-account-setup`,
+  `shortcuts`, `quit`. `search` shows the results in its window and returns nothing.
+  **[verified 2026-11-21]**
+- `geo:lat,lon` opens it on a point; `maps:q=…`, `geo:0,0?q=…` or `--search` on a search. A `maps:`
+  URI takes `q=` alone, so no URI opens a route. **[src]**
+- Installed, it is the `x-scheme-handler/geo` default. **[verified 2026-11-21]**
+- It searches GraphHopper's geocoding API with a key written in its source, finds places by
+  category through Overpass (`around:`), routes with GraphHopper and Transitous, and draws
+  `tile.openstreetmap.org`. **[src]**
+- Its own position comes from GeoClue. **[src]** Ubuntu's `geoclue.conf` sets no Wi-Fi
+  geolocation URL. **[verified 2026-11-21]**
+
+## R_osm_services — Free OpenStreetMap geocoders and routers, and their terms
+
+Terms read 2026-11-21. The test: where Vantaan Musiikki is, and how far by car from Jumbo Vantaa.
+
+- Photon (`photon.komoot.io`): no key, no stated limit, "extensive usage will be throttled", no
+  availability promised. **[docs]**
+- Photon's first hits are Vantaan Musiikki (`shop=musical_instrument`, Peltolantie 2, 01300
+  Vantaa) and Jumbo (`shop=mall`, Vantaanportinkatu 3); three other "Vantaan musiikki…" places
+  follow the first. **[verified 2026-11-21]**
+- Nominatim: one request a second per application, an identifying User-Agent, results cached, no
+  autocomplete. **[docs]**
+- FOSSGIS's OSRM (`routing.openstreetmap.de`; car, bike, foot): one request a second, a valid
+  User-Agent, "reasonable, non-commercial use-cases", requests logged, a "fix the map" link shown.
+  **[docs]**
+- FOSSGIS's Valhalla (`valhalla1.openstreetmap.de`) answers without a key; its terms are unread,
+  as FOSSGIS's policy page turns bots away. **[verified 2026-11-21]**
+- For the same 6.3 km by car, OSRM says 8.8 min and Valhalla 12.7 min. **[verified 2026-11-21]**
+- Transitous (public transport): open-source, non-commercial apps only, a User-Agent naming the
+  app, its version and a contact; over 720 plans a day, coordinate first. **[docs]**
+- GraphHopper's free plan: 500 credits a day, non-commercial only. **[docs]**
+- Overpass's public instance: about 10,000 requests and 1 GB a day, but it calls "an app for more
+  than just OSM mappers" relying on it problematic. **[docs]**
+- None of these servers is in Ubuntu 26.04's apt. **[verified 2026-11-21]**
+
 ## R_llama_server_turns — How long a turn takes on the owner's llama-server
 
 The same server and model as `R_llama_server_titles`, Puri on Broadway or headless, Brave search;
