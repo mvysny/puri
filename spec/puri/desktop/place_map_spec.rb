@@ -40,10 +40,11 @@ RSpec.describe 'Puri::Desktop::PlaceMap' do
     assert_equal 'Route by FOSSGIS OSRM', place_map.note.text
   end
 
-  it 'leaves the wheel to the transcript, which scrolls' do
+  # A drag's claim needs a real pointer, which no spec has: Broadway and a browser checked it.
+  it 'zooms on the wheel rather than leaving it to the transcript' do
     controllers = place_map.map.map.observe_controllers
     scrolls = Array.new(controllers.n_items) { controllers.get_item(_1) }.grep(Gtk::EventControllerScroll)
-    assert_equal([:none], scrolls.map { _1.propagation_phase.nick.to_sym })
+    assert_equal([:bubble], scrolls.map { _1.propagation_phase.nick.to_sym })
   end
 
   it 'gets its tiles from the block’s server, the dummy’s on this machine' do

@@ -2496,7 +2496,8 @@ module Puri
     #   PlaceMap.new(block)                              # a pin click opens the place in GNOME Maps
     #   PlaceMap.new(block) { |url| opened << url }      # a spec's
     # 
-    # The wheel scrolls the answer, never zooms the map; a drag pans it, its buttons zoom.
+    # The wheel over the map zooms it and a drag pans it; neither scrolls the answer nor moves the
+    # window.
     class PlaceMap < Gtk::Box
       HEIGHT: Integer
       ASSUMED_WIDTH: Integer
@@ -2549,8 +2550,9 @@ module Puri
       # _@param_ `block`
       def source: (Puri::Protocol::Map block) -> Shumate::RasterRenderer
 
-      # libshumate zooms on the wheel; switched off, the event bubbles up to the transcript.
-      def let_the_wheel_scroll: () -> void
+      # libshumate's pan never claims its drag, so past the drag threshold the popup's WindowHandle
+      # would take it and move the window. Claimed there and not on press, a click still reaches a pin.
+      def keep_the_drag: () -> void
 
       # _@param_ `points`
       def line_layer: (::Array[::Array[Float]] points) -> Shumate::PathLayer

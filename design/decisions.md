@@ -192,7 +192,9 @@ like Adw (`R_shumate`). Rows would repeat the answer, which names each place by 
 car button would have to ask the model for the route, half a minute a click
 (`R_llama_server_turns`); Linux can't call. A pin opens its place's openstreetmap.org URL in GNOME
 Maps, which shows the place itself, or in the browser without Maps: the human's click, so *Search,
-never fetch* holds. The wheel scrolls the answer: a map zooming under a scrolling transcript traps
-it. Tiles load on view with no click, the same class of egress as a search's query; OSM's terms want
-Puri's User-Agent, the attribution on the map, and the tile server a setting, hence `[maps] tiles`,
-which turns the feature on. No photo: OSM rarely has one, and its URL would be a stranger's to fetch.
+never fetch* holds. Over the map the wheel zooms and a drag pans, as in any map, never scrolling the
+answer or moving the window (owner, 2026-11-21); the price is a wheel scrolling the answer that
+stops once the map reaches the pointer. Tiles load on view with no click, the same class of egress
+as a search's query; OSM's terms want Puri's User-Agent, the attribution on the map, and the tile
+server a setting, hence `[maps] tiles`, which turns the feature on. No photo: OSM rarely has one,
+and its URL would be a stranger's to fetch.

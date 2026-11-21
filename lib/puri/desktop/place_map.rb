@@ -10,7 +10,8 @@ module Puri
     #   PlaceMap.new(block)                              # a pin click opens the place in GNOME Maps
     #   PlaceMap.new(block) { |url| opened << url }      # a spec's
     #
-    # The wheel scrolls the answer, never zooms the map; a drag pans it, its buttons zoom.
+    # The wheel over the map zooms it and a drag pans it; neither scrolls the answer nor moves the
+    # window.
     class PlaceMap < Gtk::Box
       # @return [Integer] pixels
       HEIGHT = 280
@@ -37,7 +38,7 @@ module Puri
         @map.set_size_request(-1, HEIGHT)
         @map.overflow = :hidden
         @map.add_css_class('puri-map')
-        let_the_wheel_scroll
+        keep_the_drag
         @note = Gtk::Label.new
         @note.wrap = true
         @note.xalign = 0
@@ -117,14 +118,15 @@ module Puri
         renderer
       end
 
-      # libshumate zooms on the wheel; switched off, the event bubbles up to the transcript.
+      # libshumate's pan never claims its drag, so past the drag threshold the popup's WindowHandle
+      # would take it and move the window. Claimed there and not on press, a click still reaches a pin.
       #
       # @return [void]
-      def let_the_wheel_scroll
+      def keep_the_drag
         controllers = @map.map.observe_controllers
-        controllers.n_items.times do |i|
-          controller = controllers.get_item(i)
-          controller.propagation_phase = :none if controller.is_a?(Gtk::EventControllerScroll)
+        pan = Array.new(controllers.n_items) { controllers.get_item(_1) }.grep(Gtk::GestureDrag).first
+        pan.signal_connect('drag-update') do |gesture, x, y|
+          gesture.set_state(:claimed) if @map.drag_check_threshold(0, 0, x.to_i, y.to_i)
         end
       end
 

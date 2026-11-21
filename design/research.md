@@ -234,8 +234,12 @@ Broadway, Ruby-GNOME 4.3.4.
   template loads nothing; an HTTP server on 127.0.0.1 does. **[verified 2026-11-21]**
 - No call fits the view to a set of points: `center_on` and a zoom level only. **[verified
   2026-11-21]**
-- The inner `Map` zooms on the wheel through an `EventControllerScroll`; set to propagation phase
-  none, the wheel reaches an enclosing `ScrolledWindow`. **[verified 2026-11-21]**
+- The inner `Map` zooms on the wheel through an `EventControllerScroll` and keeps the event from an
+  enclosing `ScrolledWindow`; set to propagation phase none, the wheel reaches it. **[verified
+  2026-11-21]**
+- Its pan, a `GestureDrag`, never claims its sequence: inside a `WindowHandle`, a drag past the drag
+  threshold moves the window. Claimed in `drag-update` past that threshold, the drag stays the map's
+  and a click still reaches a marker's `Button`. **[verified 2026-11-21]**
 - The tile downloader sends `libshumate/1.6.beta` whatever `Shumate.set_user_agent` says: it
   hard-codes the string, and main still does (2026-11-12). **[src]** Tiles reached a local server
   so; `tile.openstreetmap.org` serves that User-Agent. **[verified 2026-11-21]**
