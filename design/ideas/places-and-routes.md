@@ -19,6 +19,8 @@ Maps answers no queries, so Puri asks the services Maps itself asks (*Research* 
 - Built in Puri first, against the convention that a missing tool is a pikuri gap; its home is
   decided later, probably pikuri-workshop. Graduating needs a `D_` for the exception, or the move.
 - Several matches: the model picks the likeliest or asks the user.
+- `route` takes each end as a handle, an address or GPS coordinates, and resolves it itself; no
+  `home` keyword (*The tools*).
 - Where the user is: when `Notes/PURI.md` holds no home address, the agent asks and writes it
   there. No GeoClue, no config key.
 - A map in the answer, drawn by libshumate. No buttons: no Call (Linux can't call), no Directions,
@@ -32,14 +34,37 @@ Both are the same class as `web_search`: a fixed host, the payload unreviewed
 (`egress_destination: :tool_vouched`), the results `untrusted: :hard`, since anyone can edit OSM
 and a shop's name can carry an injection.
 
-- `place_search(query:, near:)` → per hit: name, category, address, distance from `near`,
-  opening hours where known. For "where is X" and "what's near Y" (`Q_categories`).
-- `route(from:, to:, near:)` → what each end resolved to, the distance, the duration. Car only,
-  to start.
+- `place_search(query:, near:)` → per hit: its handle, name, category, address, distance from
+  `near`, opening hours where known: `[3] Musiikki Silfverberg Oy Vantaan Musiikki (musical
+  instrument shop), Peltolantie 2, 01300 Vantaa`. For "where is X" and "what's near Y"
+  (`Q_categories`). `near` takes the same three forms as a route's end.
+- `route(from:, to:)` → what each end resolved to, the distance, the duration. Car only, to start.
 
-### `Q_route_args`: text, coordinates or handles — recommendation, for the owner
+### How `route` takes its ends (owner, 2026-11-21)
 
-Prior art splits three ways (read 2026-11-21):
+Each end is one of three, and `route` resolves it to coordinates itself before it calls OSRM:
+
+- **A handle**, the number a `place_search` hit carries (`3`): the usual case, once the user has
+  searched and perhaps said which place they meant. Numbers count up through the whole
+  conversation, never restarting per search, so after two searches `3` still means one place. A
+  table in memory, per conversation, maps each number to the hit's coordinates and OSM id. After a
+  restart the table is gone: an unknown handle answers "pass the address instead", and the model
+  copies it from the hit's line in the transcript — one more step, only then.
+  - Why not OSM's own id (`N9444805490`), which needs no table and survives a restart: ten digits
+    to copy in every call, where a small model slips, and the echo below catches a slip only after
+    the wrong place was routed to. Anthropic's tool-writing post found the same: a simple numbered
+    scheme in place of long ids raised precision and cut hallucinations.
+- **An address**, as text, geocoded inside — a cold "from my home to Cafe XYZ". A text end is
+  looked up near the other end.
+- **GPS coordinates**, `60.2931,25.0307` — what the user or a mail gives.
+
+No `home` keyword: the model passes the address it saved in `Notes/PURI.md`, which it may well
+word differently from one save to the next.
+
+The result names what each end turned out to be, "name (category), address", GPS ends as the
+nearest address, so a wrong match or a miscopied handle or number shows, and the model can ask.
+
+Why not one form alone — prior art, read 2026-11-21:
 
 - MCP's archived Google Maps server: `maps_directions(origin, destination, mode)`, both strings,
   "address or coordinates", geocoded by Google.
@@ -51,27 +76,16 @@ Prior art splits three ways (read 2026-11-21):
   with natural-language names than with cryptic identifiers, and one tool may fold a frequently
   chained task into one call.
 
-Our own findings:
+Google's mix is the closest. Our own findings behind the three forms:
 
-- Photon needs a bias point, or "Prisma" lands in Bolivia (*Research*).
-- Name plus address finds the exact place again; an address alone finds another business at the
-  same building (*Research*).
-- Each step costs 10–20 s of thinking on the owner's server (`R_llama_server_turns`). With
-  coordinates the first case takes two steps (both searches, then the route); with text, one.
-
-Recommendation: **text in, resolved places out.**
-
-- `route` takes each end as text and geocodes it inside: `from` near `near`, `to` near `from`.
-  `near` is the area the question names, else the home from memory.
-- Its result names each end as "name (category), address", and the runner-up matches beside it:
-  "Musiikki Silfverberg Oy Vantaan Musiikki (musical instrument shop), Peltolantie 2, 01300 Vantaa;
-  also matched: Vantaan musiikkiopisto (music school), Lummetie 4". One call answers both "where"
-  and "how far", and a wrong pick shows; the model then asks, or calls again with the runner-up's
-  line.
-- A hit's line from `place_search`, name plus address, is the exact reference to pass on — no
-  handle store to evict, nothing that breaks when an old conversation is replayed.
-- No coordinates in: no numbers for a model to copy. Handles (Google's `place_id`) only if a
-  name-plus-address line ever fails to come back as itself.
+- Coordinates alone make the model copy four long numbers, and a miscopied digit moves a point by
+  kilometres unseen; a handle alone makes even a cold question two steps, search then route, each
+  costing 10–20 s of thinking on the owner's server (`R_llama_server_turns`). Text alone picks the
+  geocoder's first match unseen.
+- A text end needs a bias point, or "Prisma" lands in Bolivia (*Research*).
+- An address alone finds the building but whichever business there ranks first: "Peltolantie 2"
+  echoes as a grill (*Research*). So an address end echoes as the address, a business's name only
+  when the text named it.
 
 ## The map in the answer
 
@@ -134,7 +148,6 @@ Still to try:
 
 ## Open questions
 
-- `Q_route_args`: the recommendation above.
 - `Q_map`: above.
 - `Q_providers`: Photon finds no category near a point; Nominatim does, and finds the names too,
   but its `viewbox` is a box to prefer, not a ranking by distance ("Prisma" gave three Helsinki
