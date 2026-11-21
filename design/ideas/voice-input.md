@@ -141,6 +141,11 @@ written twice for chat and dictation, falls only on someone who opted out of loc
 
 - **Decided (owner, 2026-11-21):** F5 starts and F5 stops, in the window's `ShortcutController`
   beside F9; the mic icon does the same. Stopping transcribes into the entry; Return still sends.
+- **Decided (owner, 2026-11-21), kept small:** in specs Core's recorder reads a WAV file (a real
+  source, not a mock) and the transcription runs on a scripted Faraday adapter (the context's
+  `faraday_adapter`, as pikuri's `Pikuri::Testing.fake_transport` does for chats), covering the
+  three answers the proposal handles: text, `[BLANK_AUDIO]`, `text: nil`. One opt-in spec posts
+  the sample WAV to a running whisper-server.
 - `Q_dictation_ui`: the owner's sketch is a small popup, an animated bar and "Listening; press F5
   to …". Lean: "Listening… press F5 when done" — "stop listening" sounds like discarding,
   "transcribe" is jargon. A `Gtk::LevelBar` on the mic's volume while listening (a progress bar
@@ -150,8 +155,4 @@ written twice for chat and dictation, falls only on someone who opted out of loc
   progress bar with Core's words under it — so reuse it with `listening` / `transcribing` states
   rather than a popover? Then: dictating while a turn runs, with one `Activity` per conversation?
 - `Q_room_noise`: does a real room, keyboard and fan, still come back `[BLANK_AUDIO]`, or as an
-  invented "Thank you."? Try with the real mic.
-- `Q_spec`: Core's recorder could read a WAV file in specs (a real source, not a mock), the
-  transcription run on a scripted Faraday adapter (the context's `faraday_adapter`, as pikuri's
-  `Pikuri::Testing.fake_transport` does for chats), and an opt-in spec post the sample WAV to a
-  running whisper-server.
+  invented "Thank you."? Revisited at the first test on a real mic (owner, 2026-11-21).
