@@ -54,6 +54,15 @@ module Puri
       # (see Puri::Protocol::Backend#delete_conversation)
       def delete_conversation(conversation) = command(:delete_conversation, conversation)
 
+      # (see Puri::Protocol::Backend#dictation_available?)
+      def dictation_available? = call(:dictation_available?)
+
+      # (see Puri::Protocol::Backend#toggle_dictation)
+      def toggle_dictation = command(:toggle_dictation)
+
+      # (see Puri::Protocol::Backend#cancel_dictation)
+      def cancel_dictation = command(:cancel_dictation)
+
       # Subscribes for good: a component's subscription lives as long as the client.
       #
       # @yieldparam event [Data] a {Protocol} event, on the GTK main loop

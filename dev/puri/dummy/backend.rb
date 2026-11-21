@@ -15,7 +15,7 @@ module Puri
     #   core.close                           # kills the turns and titles still running
     #
     # `seed: true` starts it with a few earlier conversations, so the history isn't empty. Its
-    # {MODELS} change nothing but the status bar.
+    # {MODELS} change nothing but the status bar. Its mic is Core's own, on a {Voice}.
     #
     # Thread-safe.
     class Backend
@@ -44,6 +44,7 @@ module Puri
         @listener = ->(_) {}
         seed_history if seed
         @listener = listener
+        @dictation = Core::Dictation.new(transcriber: Voice.new(think:), command: Voice::COMMAND, &listener)
       end
 
       # (see Puri::Protocol::Backend#ask)
@@ -91,11 +92,22 @@ module Puri
         end
       end
 
+      # (see Puri::Protocol::Backend#dictation_available?)
+      def dictation_available? = true
+
+      # (see Puri::Protocol::Backend#toggle_dictation)
+      def toggle_dictation = @dictation.toggle
+
+      # (see Puri::Protocol::Backend#cancel_dictation)
+      def cancel_dictation = @dictation.cancel
+
       # Kills every thread a turn or a title runs on, and waits until they're gone. A turn killed
-      # may start the message that waited for it, on a new thread: that one goes too.
+      # may start the message that waited for it, on a new thread: that one goes too. Stops the
+      # mic.
       #
       # @return [void]
       def close
+        @dictation.close
         until (threads = @threads.list).empty?
           threads.each(&:kill).each(&:join)
         end

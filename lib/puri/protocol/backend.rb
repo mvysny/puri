@@ -5,7 +5,8 @@ module Puri
     # The methods Desktop calls on Core. A backend includes this module and overrides every
     # method; the bodies here only raise. Calls come from the GTK main loop and return at once:
     # a turn runs on Core's own thread and reports through events ({BlockChanged},
-    # {ActivityChanged}, {StatusChanged}, {PendingChanged}, {ConversationsChanged}).
+    # {ActivityChanged}, {StatusChanged}, {PendingChanged}, {ConversationsChanged}), and so does
+    # dictation ({DictationChanged}).
     #
     #   id = backend.ask(nil, 'reschedule my dentist in the calendar')   # a new conversation
     #   # … BlockChanged(Confirmation(state: 'pending')) arrives …
@@ -75,6 +76,29 @@ module Puri
       # @param conversation [String]
       # @return [void]
       def delete_conversation(conversation)
+        raise NotImplementedError, "#{self.class} must implement #{__method__}"
+      end
+
+      # @return [Boolean] whether the prompt has a mic: false, and the dictation methods do
+      #   nothing, without a transcription server
+      def dictation_available?
+        raise NotImplementedError, "#{self.class} must implement #{__method__}"
+      end
+
+      # F5: starts listening, or stops and transcribes what was heard; a press while it
+      # transcribes does nothing. {DictationChanged} reports each step, its `idle` carrying the
+      # text.
+      #
+      # @return [void]
+      def toggle_dictation
+        raise NotImplementedError, "#{self.class} must implement #{__method__}"
+      end
+
+      # Escape: drops the recording, or the transcription on its way, and clears a failure;
+      # nothing is inserted.
+      #
+      # @return [void]
+      def cancel_dictation
         raise NotImplementedError, "#{self.class} must implement #{__method__}"
       end
     end

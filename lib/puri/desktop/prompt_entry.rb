@@ -7,6 +7,8 @@ module Puri
     # entry recalls the last question, shell-style.
     #
     #   entry = PromptEntry.new(recall: -> { transcript.last_question }) { |text| ask(text) }
+    #   entry.on_mic { client.toggle_dictation }   # a mic icon at the end, F5's twin
+    #   entry.dictation = event                    # red while listening; the text lands at the cursor
     class PromptEntry < Gtk::Entry
       # @param recall [Proc] returns the question Up brings back, a String or nil
       # @yieldparam text [String] what the user sent, trimmed
@@ -37,7 +39,39 @@ module Puri
         true
       end
 
+      # Shows the mic.
+      #
+      # @yieldreturn [void] called on its click
+      # @return [void]
+      def on_mic(&listener)
+        self.secondary_icon_name = 'audio-input-microphone-symbolic'
+        self.secondary_icon_tooltip_text = 'Dictate (F5)'
+        signal_connect('icon-press') { |_, position| listener.call if position == Gtk::EntryIconPosition::SECONDARY }
+      end
+
+      # @param event [Puri::Protocol::DictationChanged]
+      # @return [void]
+      def dictation=(event)
+        event.state == 'listening' ? add_css_class('puri-listening') : remove_css_class('puri-listening')
+        self.secondary_icon_sensitive = event.state != 'transcribing'
+        insert_at_cursor(event.text) unless event.text.empty?
+      end
+
       private
+
+      # Inserts dictated words, a space between them and any word they touch.
+      #
+      # @param words [String]
+      # @return [void]
+      def insert_at_cursor(words)
+        at = position
+        before = at.zero? ? ' ' : text[at - 1]
+        after = text[at] || ' '
+        words = " #{words}" unless before.match?(/\s/)
+        words = "#{words} " unless after.match?(/\s/)
+        self.text = text[0...at] + words + text[at..]
+        self.position = at + words.length
+      end
 
       # @return [void]
       def submit

@@ -28,6 +28,8 @@ RSpec.describe Puri::Protocol do
     p::StatusChanged.new(conversation: 'c1', status: p::Status.new(model: 'Ornith 1.5', context: '7.4k of 64.0k tokens',
                                                                    fill: 0.116, detail: 'msg #2  Δ+1.6k')),
     p::Models.new(names: ['Ornith 1.5', 'Qwen 3.6'], selected: 'Qwen 3.6'),
+    p::DictationChanged.new(state: 'listening', status: 'Listening… press F5 when done', level: 0.42),
+    p::DictationChanged.new(state: 'idle', text: 'buy avocados'),
     [summary, nil, 'c1', 3, 1.5, true]
   ].each do |value|
     it "round-trips #{value.class.name.split('::').last} through JSON" do

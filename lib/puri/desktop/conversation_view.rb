@@ -4,15 +4,16 @@ require 'time'
 
 module Puri
   module Desktop
-    # One conversation, on screen: its transcript over the entry that continues it, and its
-    # {StatusBar} under both once the window is expanded. It keeps
-    # which conversation it shows and nothing else; the blocks come from Core, and stay current
-    # through Core's events for that conversation.
+    # One conversation, on screen: its transcript over the entry that continues it, the
+    # {DictationRow} under the entry while dictating, and its {StatusBar} under them once the
+    # window is expanded. It keeps which conversation it shows and nothing else; the blocks come
+    # from Core, and stay current through Core's events for that conversation.
     #
     #   view = ConversationView.new(client)
     #   view.on_asked { expand_the_window }
     #   view.conversation = id     # loads it; nil shows a new, empty one
     #   view.cancel                # Escape
+    #   view.dictate               # F5; the words land in the entry, whichever conversation shows
     #
     # Up in the empty entry recalls this conversation's last question or, in a new one, the last
     # question asked anywhere.
@@ -29,6 +30,12 @@ module Puri
       # @return [Puri::Desktop::StatusBar]
       attr_reader :status_bar
 
+      # @return [Puri::Desktop::DictationRow]
+      attr_reader :dictation_row
+
+      # @return [Puri::Protocol::DictationChanged] the mic's latest state
+      attr_reader :dictation
+
       # @param client [Puri::Desktop::BackendClient]
       def initialize(client)
         super(:vertical, 0)
@@ -37,8 +44,14 @@ module Puri
         @transcript = TranscriptView.new { |id, approved| @client.answer(@conversation, id, approved) }
         @transcript.vexpand = true
         @entry = PromptEntry.new(recall: -> { recall }) { |text| ask(text) }
+        @entry.on_mic { dictate } if client.dictation_available?
+        # A keystroke dismisses a failure.
+        @entry.signal_connect('changed') { @client.cancel_dictation if @dictation.state == 'failed' }
+        @dictation = Protocol::DictationChanged.new(state: 'idle')
+        @dictation_row = DictationRow.new
         @entry_box = Gtk::Box.new(:vertical, 0)
         @entry_box.append(@entry)
+        @entry_box.append(@dictation_row)
         @status_bar = StatusBar.new(client)
         @status_bar.margin_top = 8
         @status_bar.show(nil)
@@ -79,6 +92,17 @@ module Puri
         @client.cancel(@conversation) if @conversation && activity.running?
       end
 
+      # Starts listening, or stops and transcribes.
+      #
+      # @return [void]
+      def dictate = @client.toggle_dictation
+
+      # Drops the recording or the transcription on its way, and clears a failure; harmless when
+      # idle.
+      #
+      # @return [void]
+      def cancel_dictation = @client.cancel_dictation
+
       # @yieldparam conversation [String] the conversation just asked in, after it is shown
       # @yieldreturn [void]
       # @return [void]
@@ -107,6 +131,7 @@ module Puri
       # @param event [Data] a {Protocol} event
       # @return [void]
       def show(event)
+        return dictated(event) if event.is_a?(Protocol::DictationChanged)
         return unless event.respond_to?(:conversation) && event.conversation == @conversation
 
         case event
@@ -116,6 +141,14 @@ module Puri
         in Protocol::PendingChanged(texts:) then @transcript.pending = texts
         in Protocol::StatusChanged then nil # the status bar's
         end
+      end
+
+      # @param event [Puri::Protocol::DictationChanged]
+      # @return [void]
+      def dictated(event)
+        @dictation = event
+        @dictation_row.dictation = event
+        @entry.dictation = event
       end
     end
   end

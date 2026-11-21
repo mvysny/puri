@@ -226,6 +226,26 @@ RSpec.describe Puri::Core::Config do
     end
   end
 
+  describe '[dictation]' do
+    it 'is off without the table' do
+      write(@home, minimal)
+      assert_nil load.dictation
+    end
+
+    it 'takes the URL, on whisper-1 with no key by default' do
+      write(@home, %(#{minimal}[dictation]\nurl = "http://127.0.0.1:8081"\n))
+      assert_equal Puri::Core::Config::DictationTable.new(url: 'http://127.0.0.1:8081', api_key: nil,
+                                                          model: 'whisper-1'), load.dictation
+    end
+
+    it 'requires an http(s) URL' do
+      write(@home, %(#{minimal}[dictation]\n))
+      assert_rejected('dictation.url')
+      write(@home, %(#{minimal}[dictation]\nurl = "127.0.0.1:8081"\n))
+      assert_rejected('dictation.url: .* is no http\(s\) URL')
+    end
+  end
+
   describe 'connections' do
     it "resolves an [[llm]]'s server id into that [[server]]'s URL and key" do
       write(@home, <<~TOML)
@@ -379,6 +399,11 @@ RSpec.describe Puri::Core::Config do
 
     it "warns for a search engine's key too" do
       File.chmod(0o644, write(@home, "#{minimal}[search]\nexa_key = \"E\"\n"))
+      assert_output(nil, /chmod 600/) { load }
+    end
+
+    it "warns for the dictation server's key too" do
+      File.chmod(0o644, write(@home, "#{minimal}[dictation]\nurl = \"https://api.example\"\napi_key = \"k\"\n"))
       assert_output(nil, /chmod 600/) { load }
     end
   end

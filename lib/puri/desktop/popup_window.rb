@@ -11,10 +11,12 @@ module Puri
     #   window.present
     #
     # Keys: Escape cancels a running turn and hides, except that while a reply streams the first
-    # Escape only stops it, leaving the partial answer to read; Ctrl+N starts a new conversation,
-    # Ctrl+F searches the history, F9 shows or hides it. The header's × hides without cancelling.
+    # Escape only stops it, leaving the partial answer to read, and while dictating it only drops
+    # the dictation; Ctrl+N starts a new conversation, Ctrl+F searches the history, F9 shows or
+    # hides it, F5 starts dictating and stops. The header's × hides without cancelling a turn.
     # Losing focus hides only the empty pill, so a glance at another window never loses a
-    # running answer.
+    # running answer. Hiding always drops a dictation: the mic never records behind a hidden
+    # window.
     class PopupWindow < Adw::ApplicationWindow
       # @return [Float] share of the screen's width the window takes, pill or expanded
       WIDTH = 0.33
@@ -53,6 +55,8 @@ module Puri
         # After the click is done with focus, or the row takes it back.
         @sidebar.on_activated { GLib::Idle.add { @conversation_view.entry.grab_focus && false } }
         self.content = layout
+        # The pill grows by the dictation row by itself, but shrinks back only when asked.
+        @conversation_view.dictation_row.signal_connect('notify::visible') { resize unless @expanded }
 
         install_actions
         signal_connect('notify::visible') { reset unless visible? }
@@ -92,7 +96,9 @@ module Puri
       #
       # @return [void]
       def escape
-        if @conversation_view.activity.state == 'streaming' && !@escape_cancelled
+        if @conversation_view.dictation.state != 'idle'
+          @conversation_view.cancel_dictation
+        elsif @conversation_view.activity.state == 'streaming' && !@escape_cancelled
           @conversation_view.cancel
           @escape_cancelled = true
         else
@@ -155,6 +161,7 @@ module Puri
           'new-conversation' => [[Gdk::Keyval::KEY_n, :control_mask], -> { new_conversation }],
           'search' => [[Gdk::Keyval::KEY_f, :control_mask], -> { search }],
           'toggle-history' => [[Gdk::Keyval::KEY_F9, 0], -> { self.history_visible = !history_visible? }],
+          'dictate' => [[Gdk::Keyval::KEY_F5, 0], -> { @conversation_view.dictate }],
           'hide' => [nil, -> { self.visible = false }]
         }.each do |name, (key, body)|
           action = Gio::SimpleAction.new(name)
@@ -171,6 +178,7 @@ module Puri
       #
       # @return [void]
       def reset
+        @conversation_view.cancel_dictation
         @escape_cancelled = false
         @was_active = false
         @expanded = false

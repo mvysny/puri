@@ -61,6 +61,10 @@ gem 'typemap', '~> 0.1'
 # GLib, which Gio would load (spec/boundaries_spec.rb).
 gem 'ruby-dbus', '~> 0.25'
 
+# The mic's clips go to the user's transcription server through a RubyLLM context of Core's own,
+# not through pikuri, which has no transcriber (`D_dictation`); pikuri-core brings it anyway.
+gem 'ruby_llm', '~> 2.2'
+
 # Types are written once, as YARD tags; sord compiles them into the committed sig/puri.rbs, and
 # `rake sig` fails on any tag sord cannot type. redcarpet renders the Markdown .yardopts selects.
 group :development do

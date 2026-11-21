@@ -378,6 +378,7 @@ module Puri
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
     #   config.maps          # => MapsTable(tiles:), or nil without the table
+    #   config.dictation     # => DictationTable(url:, api_key:, model:), or nil without the table
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -414,6 +415,11 @@ module Puri
     # 
     #   [maps]                           # optional; omitted, the agent has no place tools
     #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
+    # 
+    #   [dictation]                      # optional; omitted, the prompt has no mic
+    #   url     = "http://127.0.0.1:8081"  # required; an OpenAI-style transcription server
+    #   api_key = "…"                    # optional; a local whisper-server needs none
+    #   model   = "whisper-1"            # optional, the default; whisper-server ignores it
     # 
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -457,6 +463,8 @@ module Puri
       # _@param_ `documents` — the `[documents]` folder, or nil
       # 
       # _@param_ `maps` — the `[maps]` table, or nil
+      # 
+      # _@param_ `dictation` — the `[dictation]` table, or nil
       def initialize: (
                         llms: ::Array[Puri::Core::Config::Llm],
                         servers: ::Array[Puri::Core::Config::Server],
@@ -464,7 +472,8 @@ module Puri
                         ?search: Puri::Core::Config::SearchTable?,
                         ?thunderbird: Puri::Core::Config::ThunderbirdTable?,
                         ?documents: Puri::Core::Config::Documents?,
-                        ?maps: Puri::Core::Config::MapsTable?
+                        ?maps: Puri::Core::Config::MapsTable?,
+                        ?dictation: Puri::Core::Config::DictationTable?
                       ) -> void
 
       # _@return_ — where conversations run: the first `[[llm]]`
@@ -476,7 +485,7 @@ module Puri
       def self.candidate_paths: (untyped env) -> ::Array[String]
 
       # Warns on stderr, never fails, when a file holding a key — a `[[server]]`'s `api_key`, a
-      # search engine's — is readable by others.
+      # search engine's, `[dictation]`'s — is readable by others.
       # 
       # _@param_ `path`
       # 
@@ -539,6 +548,11 @@ module Puri
       # _@return_ — `table`
       def self.resolve_maps: (Puri::Core::Config::MapsTable table) -> Puri::Core::Config::MapsTable
 
+      # _@param_ `table`
+      # 
+      # _@return_ — `table`
+      def self.resolve_dictation: (Puri::Core::Config::DictationTable table) -> Puri::Core::Config::DictationTable
+
       # _@param_ `env`
       # 
       # _@return_ — where to write the config, and what
@@ -569,6 +583,10 @@ module Puri
       # _@return_ — the tiles the map under an answer draws; nil
       # without a `[maps]` table, and the agent has no place tools
       attr_reader maps: Puri::Core::Config::MapsTable?
+
+      # _@return_ — the server the mic's clips go to; nil
+      # without a `[dictation]` table, and the prompt has no mic
+      attr_reader dictation: Puri::Core::Config::DictationTable?
 
       # Raised for a missing, unreadable, malformed or incomplete config; the message names the
       # file or the offending key, and says what to write.
@@ -841,6 +859,37 @@ module Puri
         attr_reader tiles: String
       end
 
+      # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): an
+      # OpenAI-style transcription server of the user's own, whisper.cpp's `whisper-server` on
+      # this machine unless they opt into a hosted one. Its own URL, not a `[[server]]` id: those
+      # are chat servers.
+      # 
+      # @!attribute [r] url
+      #   @return [String] base URL, with or without `/v1`
+      # @!attribute [r] api_key
+      #   @return [String, nil] the key, or nil for a server that needs none
+      # @!attribute [r] model
+      #   @return [String] what the request names; `whisper-server` ignores it
+      class DictationTable
+        extend Typemap::Constrain
+
+        # _@param_ `url`
+        # 
+        # _@param_ `api_key`
+        # 
+        # _@param_ `model`
+        def initialize: (url: String, ?api_key: String?, ?model: String) -> void
+
+        # _@return_ — base URL, with or without `/v1`
+        attr_reader url: String
+
+        # _@return_ — the key, or nil for a server that needs none
+        attr_reader api_key: String?
+
+        # _@return_ — what the request names; `whisper-server` ignores it
+        attr_reader model: String
+      end
+
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
       # through the desktop's own file index, bounded to this folder.
       # 
@@ -874,6 +923,8 @@ module Puri
       #   @return [DocumentsTable, nil] the `[documents]` table
       # @!attribute [r] maps
       #   @return [MapsTable, nil] the `[maps]` table
+      # @!attribute [r] dictation
+      #   @return [DictationTable, nil] the `[dictation]` table
       class Root
         extend Typemap::Constrain
 
@@ -890,6 +941,8 @@ module Puri
         # _@param_ `documents`
         # 
         # _@param_ `maps`
+        # 
+        # _@param_ `dictation`
         def initialize: (
                           ?server: ::Array[Server],
                           ?llm: ::Array[LlmTable],
@@ -897,7 +950,8 @@ module Puri
                           ?search: SearchTable?,
                           ?thunderbird: ThunderbirdTable?,
                           ?documents: DocumentsTable?,
-                          ?maps: MapsTable?
+                          ?maps: MapsTable?,
+                          ?dictation: DictationTable?
                         ) -> void
 
         # _@return_ — the `[[server]]` entries, ids unique
@@ -920,6 +974,9 @@ module Puri
 
         # _@return_ — the `[maps]` table
         attr_reader maps: MapsTable?
+
+        # _@return_ — the `[dictation]` table
+        attr_reader dictation: DictationTable?
       end
     end
 
@@ -1833,6 +1890,165 @@ module Puri
       def question: (Pikuri::Workspace::Confirmer::Request request) -> String
     end
 
+    # The mic in the prompt (`D_dictation`): one clip per press, recorded by {Recorder},
+    # transcribed by {Transcriber} on the user's own server, every step a
+    # {Protocol::DictationChanged}.
+    # 
+    #   dictation = Dictation.new(transcriber: Dictation::Transcriber.new(config.dictation)) { |event| … }
+    #   dictation.toggle   # listening, its level ~15 times a second
+    #   dictation.toggle   # transcribing, then idle with text: "Buy avocados."
+    #   dictation.cancel   # Escape: idle, nothing inserted; a late transcription is dropped
+    # 
+    # A clip under {MIN_SECONDS} isn't sent: a stray press would cost the server's 7 s floor.
+    # 
+    # Thread-safe; {#toggle} and {#cancel} return at once, the recorder stopping and the server
+    # answering on a thread of their own.
+    class Dictation
+      LISTENING: String
+      TRANSCRIBING: String
+      MIN_SECONDS: Float
+      LOGGER: Logger
+
+      # _@param_ `transcriber`
+      # 
+      # _@param_ `command` — the {Recorder}'s
+      def initialize: (transcriber: (Puri::Core::Dictation::Transcriber | untyped), ?command: ::Array[String]) ?{ (Puri::Protocol::DictationChanged event) -> void } -> void
+
+      # F5: starts listening, or stops and transcribes what was heard; a press while it
+      # transcribes does nothing. {DictationChanged} reports each step, its `idle` carrying the
+      # text.
+      def toggle: () -> void
+
+      # Escape: drops the recording, or the transcription on its way, and clears a failure;
+      # nothing is inserted.
+      def cancel: () -> void
+
+      # Stops the mic, waiting for the recorder to exit.
+      def close: () -> void
+
+      # _@return_ — the one recording, now forgotten
+      def drop: () -> Puri::Core::Dictation::Recorder?
+
+      def listen: () -> void
+
+      # _@param_ `clip`
+      # 
+      # _@param_ `level`
+      def heard: (Integer clip, Float level) -> void
+
+      def stop: () -> void
+
+      # _@param_ `recorder`
+      # 
+      # _@param_ `clip`
+      def transcribe: (Puri::Core::Dictation::Recorder recorder, Integer clip) -> void
+
+      # _@param_ `clip`
+      # 
+      # _@param_ `state`
+      # 
+      # _@return_ — whether `clip` is still the one in `state`, not cancelled or replaced
+      def current?: (Integer clip, String state) -> bool
+
+      # _@param_ `status`
+      def failed: (String status) -> void
+
+      # _@param_ `state`
+      # 
+      # _@param_ `fields` — the rest of the {Protocol::DictationChanged}
+      def change: (String state, **::Hash[Symbol, Object] fields) -> void
+
+      # One clip from the mic: `pw-record`'s raw PCM, 16 kHz mono s16le, read as it records,
+      # its level reported on the way.
+      # 
+      #   recorder = Recorder.new { |level| show(level) }   # 0..1, ~15 times a second
+      #   pcm = recorder.stop                               # or recorder.cancel
+      #   pcm.bytesize / Recorder::BYTES_PER_SECOND         # => seconds heard
+      # 
+      # The command is any that writes such PCM to stdout and stops on SIGINT; specs `cat` a
+      # file, which ends by itself, and the clip then waits for {#stop} all the same.
+      # 
+      # Thread-safe.
+      class Recorder
+        COMMAND: ::Array[String]
+        BYTES_PER_SECOND: Integer
+        LEVEL_INTERVAL: Float
+        FLOOR_DB: Float
+        STOP_SECONDS: Integer
+
+        # _@param_ `command`
+        def initialize: (?command: ::Array[String]) ?{ (Float level) -> void } -> void
+
+        # Stops recording.
+        # 
+        # _@return_ — the PCM heard, binary; empty when stopped before the first chunk
+        def stop: () -> String
+
+        # Stops recording and forgets the clip.
+        def cancel: () -> void
+
+        def finish: () -> void
+
+        # _@param_ `name`
+        def signal: (String name) -> void
+
+        def read: () -> void
+
+        # _@param_ `chunk`
+        def measure: (String chunk) -> void
+
+        # _@return_ — the RMS since the last level, in dBFS mapped from {FLOOR_DB}..0 to 0..1
+        def level: () -> Float
+
+        # _@return_ — the command's first line on stderr, or its exit status
+        def failure: () -> String
+
+        def clock: () -> Float
+
+        # Raised when the command can't start, or dies before giving any sound.
+        class Error < StandardError
+        end
+      end
+
+      # Turns a clip into text on the `[dictation]` server, OpenAI's `/v1/audio/transcriptions`,
+      # through a RubyLLM context of its own rather than pikuri (`D_dictation`).
+      # 
+      #   transcriber = Transcriber.new(config.dictation)
+      #   transcriber.transcribe(pcm)   # => "Buy avocados and limes."
+      #   transcriber.transcribe(hush)  # => "" for whisper-server's " [BLANK_AUDIO]\n"
+      # 
+      # == Implementation details
+      # 
+      # whisper-server reports a failure as HTTP 200 with `{"error": …}`, which RubyLLM reads as
+      # `text: nil`, its message lost; that raises here. No retries: a dead server should say so
+      # at once, and a retry would cost the encoder's 7 s floor again.
+      # 
+      # Thread-safe.
+      class Transcriber
+        TIMEOUT: Integer
+
+        # _@param_ `table`
+        # 
+        # _@param_ `faraday_adapter` — what specs script the server with; nil for RubyLLM's own
+        def initialize: (Puri::Core::Config::DictationTable table, ?faraday_adapter: (Class | Symbol)?) -> void
+
+        # _@param_ `pcm` — 16 kHz mono s16le, as {Recorder#stop} returns it
+        # 
+        # _@return_ — the text squeezed to single spaces; empty when Whisper heard only its
+        # bracketed tags, `[BLANK_AUDIO]` and the like
+        def transcribe: (String pcm) -> String
+
+        # _@param_ `pcm` — 16 kHz mono s16le
+        # 
+        # _@return_ — `pcm` behind a 44-byte WAV header, binary
+        def self.wav: (String pcm) -> String
+
+        # Raised when the server can't be reached or transcribes nothing.
+        class Error < StandardError
+        end
+      end
+    end
+
     # The backend: each conversation a pikuri agent on the configured model, hosted by
     # `Pikuri::Conversations`, everything reported as {Protocol} events.
     # 
@@ -1862,7 +2078,8 @@ module Puri
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
       # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
-      # builds that folder's {Library}; with `[maps]`, the place tools. Also sets each
+      # builds that folder's {Library}; with `[maps]`, the place tools; with `[dictation]`, the
+      # mic's {Dictation::Transcriber}. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -1914,6 +2131,8 @@ module Puri
       # _@param_ `osm` — what every agent's place tools ask, with `[maps]`; one for all, so its pacing covers them all
       # 
       # _@param_ `rhythmbox` — what every agent's `play_music` plays in; nil wires none
+      # 
+      # _@param_ `transcriber` — what the mic's clips go to; nil, and the prompt has no mic
       def initialize: (
                         config: Puri::Core::Config,
                         models: Puri::Core::Models,
@@ -1921,7 +2140,8 @@ module Puri
                         store: Pikuri::Conversations::Store,
                         ?library: Puri::Core::Library?,
                         ?osm: Puri::Core::Places::Osm?,
-                        ?rhythmbox: Puri::Core::Music::Rhythmbox?
+                        ?rhythmbox: Puri::Core::Music::Rhythmbox?,
+                        ?transcriber: Puri::Core::Dictation::Transcriber?
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
@@ -1970,8 +2190,21 @@ module Puri
       # _@param_ `conversation`
       def delete_conversation: (String conversation) -> void
 
+      # _@return_ — whether the prompt has a mic: false, and the dictation methods do
+      # nothing, without a transcription server
+      def dictation_available?: () -> bool
+
+      # F5: starts listening, or stops and transcribes what was heard; a press while it
+      # transcribes does nothing. {DictationChanged} reports each step, its `idle` carrying the
+      # text.
+      def toggle_dictation: () -> void
+
+      # Escape: drops the recording, or the transcription on its way, and clears a failure;
+      # nothing is inserted.
+      def cancel_dictation: () -> void
+
       # Closes every conversation, cancelling its turn, and waits for each turn to be saved and
-      # its agent closed. Not under the core's lock: a turn's save takes it.
+      # its agent closed; stops the mic. Not under the core's lock: a turn's save takes it.
       def close: () -> void
 
       # _@param_ `id`
@@ -3039,10 +3272,12 @@ module Puri
     #   window.present
     # 
     # Keys: Escape cancels a running turn and hides, except that while a reply streams the first
-    # Escape only stops it, leaving the partial answer to read; Ctrl+N starts a new conversation,
-    # Ctrl+F searches the history, F9 shows or hides it. The header's × hides without cancelling.
+    # Escape only stops it, leaving the partial answer to read, and while dictating it only drops
+    # the dictation; Ctrl+N starts a new conversation, Ctrl+F searches the history, F9 shows or
+    # hides it, F5 starts dictating and stops. The header's × hides without cancelling a turn.
     # Losing focus hides only the empty pill, so a glance at another window never loses a
-    # running answer.
+    # running answer. Hiding always drops a dictation: the mic never records behind a hidden
+    # window.
     class PopupWindow < Adw::ApplicationWindow
       WIDTH: Float
       HEIGHT: Float
@@ -3134,6 +3369,8 @@ module Puri
     # entry recalls the last question, shell-style.
     # 
     #   entry = PromptEntry.new(recall: -> { transcript.last_question }) { |text| ask(text) }
+    #   entry.on_mic { client.toggle_dictation }   # a mic icon at the end, F5's twin
+    #   entry.dictation = event                    # red while listening; the text lands at the cursor
     class PromptEntry < Gtk::Entry
       # _@param_ `recall` — returns the question Up brings back, a String or nil
       def initialize: (recall: Proc) ?{ (String text) -> void } -> void
@@ -3143,7 +3380,42 @@ module Puri
       # _@return_ — whether it did, which consumes the Up key
       def recall_question: () -> bool
 
+      # Shows the mic.
+      def on_mic: () -> void
+
+      # _@param_ `event`
+      def dictation=: (Puri::Protocol::DictationChanged event) -> void
+
+      # Inserts dictated words, a space between them and any word they touch.
+      # 
+      # _@param_ `words`
+      def insert_at_cursor: (String words) -> void
+
       def submit: () -> void
+    end
+
+    # The mic's state under the entry, shown only while dictating or after it failed:
+    # 
+    #   ▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱             the mic's level while listening; a pulsing bar while transcribing
+    #   Listening… press F5 when done
+    # 
+    #   row = DictationRow.new
+    #   row.dictation = event   # each Protocol::DictationChanged
+    # 
+    # A level bar rather than a progress bar while listening: there is nothing to progress
+    # toward, and a flat level shows a dead mic at once (`D_dictation`).
+    class DictationRow < Gtk::Box
+      def initialize: () -> void
+
+      # _@param_ `event`
+      def dictation=: (Puri::Protocol::DictationChanged event) -> void
+
+      # _@param_ `on`
+      def pulsing: (bool on) -> void
+
+      attr_reader level: Gtk::LevelBar
+
+      attr_reader status: Gtk::Label
     end
 
     # Opens a place's openstreetmap.org URL where the user can look around it: in GNOME Maps,
@@ -3240,6 +3512,19 @@ module Puri
       # 
       # _@param_ `conversation`
       def delete_conversation: (String conversation) -> void
+
+      # _@return_ — whether the prompt has a mic: false, and the dictation methods do
+      # nothing, without a transcription server
+      def dictation_available?: () -> bool
+
+      # F5: starts listening, or stops and transcribes what was heard; a press while it
+      # transcribes does nothing. {DictationChanged} reports each step, its `idle` carrying the
+      # text.
+      def toggle_dictation: () -> void
+
+      # Escape: drops the recording, or the transcription on its way, and clears a failure;
+      # nothing is inserted.
+      def cancel_dictation: () -> void
 
       # Subscribes for good: a component's subscription lives as long as the client.
       def subscribe: () ?{ (Data event) -> void } -> void
@@ -3422,15 +3707,16 @@ module Puri
       def block=: (Puri::Protocol::UserMessage block) -> void
     end
 
-    # One conversation, on screen: its transcript over the entry that continues it, and its
-    # {StatusBar} under both once the window is expanded. It keeps
-    # which conversation it shows and nothing else; the blocks come from Core, and stay current
-    # through Core's events for that conversation.
+    # One conversation, on screen: its transcript over the entry that continues it, the
+    # {DictationRow} under the entry while dictating, and its {StatusBar} under them once the
+    # window is expanded. It keeps which conversation it shows and nothing else; the blocks come
+    # from Core, and stay current through Core's events for that conversation.
     # 
     #   view = ConversationView.new(client)
     #   view.on_asked { expand_the_window }
     #   view.conversation = id     # loads it; nil shows a new, empty one
     #   view.cancel                # Escape
+    #   view.dictate               # F5; the words land in the entry, whichever conversation shows
     # 
     # Up in the empty entry recalls this conversation's last question or, in a new one, the last
     # question asked anywhere.
@@ -3449,6 +3735,13 @@ module Puri
       # Stops this conversation's turn, if one runs.
       def cancel: () -> void
 
+      # Starts listening, or stops and transcribes.
+      def dictate: () -> void
+
+      # Drops the recording or the transcription on its way, and clears a failure; harmless when
+      # idle.
+      def cancel_dictation: () -> void
+
       def on_asked: () ?{ (String conversation) -> void } -> void
 
       # _@param_ `text`
@@ -3459,6 +3752,9 @@ module Puri
       # _@param_ `event` — a {Protocol} event
       def show: (Data event) -> void
 
+      # _@param_ `event`
+      def dictated: (Puri::Protocol::DictationChanged event) -> void
+
       # _@return_ — the conversation shown; nil until the first question
       attr_accessor conversation: String?
 
@@ -3467,6 +3763,11 @@ module Puri
       attr_reader transcript: Puri::Desktop::TranscriptView
 
       attr_reader status_bar: Puri::Desktop::StatusBar
+
+      attr_reader dictation_row: Puri::Desktop::DictationRow
+
+      # _@return_ — the mic's latest state
+      attr_reader dictation: Puri::Protocol::DictationChanged
     end
   end
 
@@ -3744,7 +4045,8 @@ module Puri
     # The methods Desktop calls on Core. A backend includes this module and overrides every
     # method; the bodies here only raise. Calls come from the GTK main loop and return at once:
     # a turn runs on Core's own thread and reports through events ({BlockChanged},
-    # {ActivityChanged}, {StatusChanged}, {PendingChanged}, {ConversationsChanged}).
+    # {ActivityChanged}, {StatusChanged}, {PendingChanged}, {ConversationsChanged}), and so does
+    # dictation ({DictationChanged}).
     # 
     #   id = backend.ask(nil, 'reschedule my dentist in the calendar')   # a new conversation
     #   # … BlockChanged(Confirmation(state: 'pending')) arrives …
@@ -3797,6 +4099,19 @@ module Puri
       # 
       # _@param_ `conversation`
       def delete_conversation: (String conversation) -> void
+
+      # _@return_ — whether the prompt has a mic: false, and the dictation methods do
+      # nothing, without a transcription server
+      def dictation_available?: () -> bool
+
+      # F5: starts listening, or stops and transcribes what was heard; a press while it
+      # transcribes does nothing. {DictationChanged} reports each step, its `idle` carrying the
+      # text.
+      def toggle_dictation: () -> void
+
+      # Escape: drops the recording, or the transcription on its way, and clears a failure;
+      # nothing is inserted.
+      def cancel_dictation: () -> void
     end
 
     # What a conversation's turn is doing.
@@ -4025,6 +4340,57 @@ module Puri
       attr_reader conversation: String
 
       attr_reader activity: Puri::Protocol::Activity
+    end
+
+    # Event: the mic in the prompt changed state. Dictation is the window's, not a
+    # conversation's, so it names none.
+    # 
+    #   DictationChanged.new(state: 'listening', status: 'Listening… press F5 when done', level: 0.4)
+    #   DictationChanged.new(state: 'transcribing', status: 'Transcribing…')
+    #   DictationChanged.new(state: 'idle', text: 'buy avocados')     # insert at the cursor
+    #   DictationChanged.new(state: 'failed', status: "Couldn't transcribe: …")
+    # 
+    # @!attribute [r] state
+    #   @return [String] one of {STATES}
+    # @!attribute [r] status
+    #   @return [String] what to show under the bar, as Core words it; empty while `idle`
+    # @!attribute [r] level
+    #   @return [Float] the mic's level while `listening`, 0 (silence) to 1; 0 otherwise
+    # @!attribute [r] text
+    #   @return [String] on the `idle` that ends a transcription, what was heard, squeezed to
+    #     single spaces; empty for silence and on every other event
+    class DictationChanged
+      STATES: ::Array[String]
+
+      # _@param_ `state` — one of {STATES}
+      # 
+      # _@param_ `status`
+      # 
+      # _@param_ `level`
+      # 
+      # _@param_ `text`
+      def initialize: (
+                        state: String,
+                        ?status: String,
+                        ?level: Float,
+                        ?text: String
+                      ) -> void
+
+      # _@return_ — whether the mic records or its clip is being transcribed
+      def active?: () -> bool
+
+      # _@return_ — one of {STATES}
+      attr_reader state: String
+
+      # _@return_ — what to show under the bar, as Core words it; empty while `idle`
+      attr_reader status: String
+
+      # _@return_ — the mic's level while `listening`, 0 (silence) to 1; 0 otherwise
+      attr_reader level: Float
+
+      # _@return_ — on the `idle` that ends a transcription, what was heard, squeezed to
+      # single spaces; empty for silence and on every other event
+      attr_reader text: String
     end
 
     # One row of the history sidebar.

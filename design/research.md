@@ -306,3 +306,40 @@ Its source on GNOME's master, 2026-11-21; run headless on Ubuntu 26.04's 3.4.9-3
   and the real dconf and `~/.cache/rhythmbox` got written. Through ALSA's PipeWire plugin it
   deadlocked on a track change now and then; with GStreamer's real sinks ranked `NONE`,
   `autoaudiosink` falls back to a fake one. **[verified]**
+
+## R_dictation_tools — Linux dictation, November 2026
+
+- Canonical's Myna, a technology preview since 12 Oct 2026, from `ppa:canonical-desktop-team/myna`
+  and snaps: Ubuntu 24.04, 26.04 and 26.10, amd64, GNOME on Wayland only, in no archive. It types
+  through IBus, a toggle that transcribes after the second press; Parakeet, Whisper or FunASR,
+  local. No D-Bus API. **[docs]**
+  ([blog](https://ubuntu.com/blog/myna-speech-to-text-technology-preview-available),
+  [Discourse](https://discourse.ubuntu.com/t/introducing-myna-speech-to-text-for-ubuntu-desktop/84251),
+  [OMG! Ubuntu](https://omgubuntu.co.uk/2026/08/testing-ubuntu-ai-voice-dictation))
+- GNOME has only a [proposal](https://discourse.gnome.org/t/proposal-desktop-wide-offline-speech-to-text-dictation-support/35858)
+  (June 2026) for a dictation service with a D-Bus API; no maintainer decision. **[docs]**
+- Fedora packages [`ibus-speech-to-text`](https://github.com/PhilippeRo/IBus-Speech-To-Text)
+  (Vosk); Ubuntu's archive has no IBus speech engine. **[docs]**
+
+## R_whisper_server — whisper.cpp's `whisper-server` as a transcription server
+
+Ubuntu 26.04's whisper.cpp 1.8.3, `ggml-small.en.bin` on 4 CPU threads of a Ryzen 7 PRO 4750U.
+
+- 26.04's universe ships `whisper.cpp` (`whisper-server`, `whisper-cli`, `whisper-stream`) and
+  ggml's Vulkan backend, but no model: the ggml weights come from Hugging Face. **[verified 2026-11-21]**
+- Defaults: `--port 8080`, llama-server's too; `-l en`, not `auto`; `-t 4`. `--inference-path`
+  replaces `/inference`, which then answers 404; an `.en` model ignores `-l`. **[verified]**
+- At `--inference-path /v1/audio/transcriptions` it answers OpenAI's multipart `file` + `model`
+  with `{"text": …}`, ignoring `model` and a `Bearer` key. **[verified]**
+- A clip costs 7–8 s however short, silence included, the encoder always running a 30 s window:
+  2 s → 7.3 s, 10 s → 14.4 s, 53 s → 17.5–20 s. **[verified]**
+- The text starts with a space and breaks per segment. Silence, faint noise and a 0.3 s clip
+  answer `" [BLANK_AUDIO]\n"`; with `suppress_nst=true`, Whisper's inventions `" you"` and
+  `" Thank you."` instead. **[verified]** Whether a real room, keyboard and fan, still answers
+  `[BLANK_AUDIO]` or an invention is untried. **[unverified]**
+- Errors come as HTTP 200 with `{"error": …}`, which RubyLLM 2.2.2 reads as `text: nil` without
+  raising. **[verified]**
+- `temperature_inc=0` sent a clip cut mid-sentence into a 21 s repetition loop; `no_timestamps=true`
+  was no faster and lost the punctuation. **[verified]**
+- `pw-record --raw --rate 16000 --channels 1 --format s16 -` streams the PCM to stdout as it
+  records, 32 KB/s. **[verified 2026-11-21]**

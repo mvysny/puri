@@ -40,6 +40,8 @@ module Puri
         .puri-confirmation { padding: 14px; }
         .puri-confirmation button { padding: 4px 18px; }
         .puri-status { font-size: 0.9em; }
+        .puri-dictation { padding: 8px 16px 4px 16px; }
+        entry.puri-listening image.right { color: @error_color; }
         .puri-status-bar { font-size: 0.85em; }
         .puri-status-bar dropdown > button { padding: 2px 8px; min-height: 0; }
         .puri-history-row { padding: 6px 4px; }

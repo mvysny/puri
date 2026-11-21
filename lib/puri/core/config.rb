@@ -18,6 +18,7 @@ module Puri
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
     #   config.maps          # => MapsTable(tiles:), or nil without the table
+    #   config.dictation     # => DictationTable(url:, api_key:, model:), or nil without the table
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -54,6 +55,11 @@ module Puri
     #
     #   [maps]                           # optional; omitted, the agent has no place tools
     #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
+    #
+    #   [dictation]                      # optional; omitted, the prompt has no mic
+    #   url     = "http://127.0.0.1:8081"  # required; an OpenAI-style transcription server
+    #   api_key = "…"                    # optional; a local whisper-server needs none
+    #   model   = "whisper-1"            # optional, the default; whisper-server ignores it
     #
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -255,6 +261,28 @@ module Puri
         constrain :tiles, not_blank: true
       end
 
+      # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): an
+      # OpenAI-style transcription server of the user's own, whisper.cpp's `whisper-server` on
+      # this machine unless they opt into a hosted one. Its own URL, not a `[[server]]` id: those
+      # are chat servers.
+      #
+      # @!attribute [r] url
+      #   @return [String] base URL, with or without `/v1`
+      # @!attribute [r] api_key
+      #   @return [String, nil] the key, or nil for a server that needs none
+      # @!attribute [r] model
+      #   @return [String] what the request names; `whisper-server` ignores it
+      class DictationTable < Data.define(:url, :api_key, :model)
+        extend Typemap::Constrain
+
+        constrain :url, :model, not_blank: true
+
+        # @param url [String]
+        # @param api_key [String, nil]
+        # @param model [String]
+        def initialize(url:, api_key: nil, model: 'whisper-1') = super
+      end
+
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
       # through the desktop's own file index, bounded to this folder.
       #
@@ -285,7 +313,9 @@ module Puri
       #   @return [DocumentsTable, nil] the `[documents]` table
       # @!attribute [r] maps
       #   @return [MapsTable, nil] the `[maps]` table
-      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird, :documents, :maps)
+      # @!attribute [r] dictation
+      #   @return [DictationTable, nil] the `[dictation]` table
+      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird, :documents, :maps, :dictation)
         extend Typemap::Constrain
 
         constrain :server, unique_by: :id
@@ -298,8 +328,9 @@ module Puri
         # @param thunderbird [ThunderbirdTable, nil]
         # @param documents [DocumentsTable, nil]
         # @param maps [MapsTable, nil]
+        # @param dictation [DictationTable, nil]
         def initialize(server: [], llm: [], titler: nil, search: nil, thunderbird: nil, documents: nil,
-                       maps: nil) = super
+                       maps: nil, dictation: nil) = super
       end
 
       # A file that loads: Ornith 1.5 on a local llama-server, and the same model with its
@@ -333,6 +364,10 @@ module Puri
         # Places, routes by car, and a map under the answer, on OpenStreetMap's public services.
         # [maps]
         # tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+        # The mic in the prompt (F5), transcribed by your own whisper-server; see the README.
+        # [dictation]
+        # url = "http://127.0.0.1:8081"
       TOML
 
       # The file's name, and its directory under each XDG config root.
@@ -372,7 +407,8 @@ module Puri
         llms = root.llm.map { |table| resolve_llm(table, servers) }
         new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
             search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird),
-            documents: root.documents && resolve_documents(root.documents), maps: root.maps && resolve_maps(root.maps))
+            documents: root.documents && resolve_documents(root.documents), maps: root.maps && resolve_maps(root.maps),
+            dictation: root.dictation && resolve_dictation(root.dictation))
       end
 
       # @param llms [Array<Puri::Core::Config::Llm>] never empty
@@ -384,7 +420,9 @@ module Puri
       #   or nil; nil by default, so a config built in code reads no profile unless it says which
       # @param documents [Puri::Core::Config::Documents, nil] the `[documents]` folder, or nil
       # @param maps [Puri::Core::Config::MapsTable, nil] the `[maps]` table, or nil
-      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil, documents: nil, maps: nil)
+      # @param dictation [Puri::Core::Config::DictationTable, nil] the `[dictation]` table, or nil
+      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil, documents: nil, maps: nil,
+                     dictation: nil)
         @llms = llms.freeze
         @servers = servers.freeze
         @titler_llm = titler_llm
@@ -392,6 +430,7 @@ module Puri
         @thunderbird = thunderbird
         @documents = documents
         @maps = maps
+        @dictation = dictation
         freeze
       end
 
@@ -421,6 +460,10 @@ module Puri
       #   without a `[maps]` table, and the agent has no place tools
       attr_reader :maps
 
+      # @return [Puri::Core::Config::DictationTable, nil] the server the mic's clips go to; nil
+      #   without a `[dictation]` table, and the prompt has no mic
+      attr_reader :dictation
+
       # @return [Puri::Core::Config::Llm] where conversations run: the first `[[llm]]`
       def primary_llm = @llms.first
 
@@ -433,7 +476,7 @@ module Puri
       end
 
       # Warns on stderr, never fails, when a file holding a key — a `[[server]]`'s `api_key`, a
-      # search engine's — is readable by others.
+      # search engine's, `[dictation]`'s — is readable by others.
       #
       # @param path [String]
       # @param parsed [Hash{String => Object}] the file's raw TOML, unchecked
@@ -455,8 +498,10 @@ module Puri
       def self.keys?(parsed)
         servers = parsed['server']
         search = parsed['search']
+        dictation = parsed['dictation']
         (servers.is_a?(Array) && servers.any? { |entry| entry.is_a?(Hash) && entry['api_key'] }) ||
-          (search.is_a?(Hash) && (search['brave_key'] || search['exa_key'])) || false
+          (search.is_a?(Hash) && (search['brave_key'] || search['exa_key'])) ||
+          (dictation.is_a?(Hash) && dictation['api_key']) || false
       end
 
       # @param path [String]
@@ -563,6 +608,15 @@ module Puri
         table
       end
 
+      # @param table [Puri::Core::Config::DictationTable]
+      # @return [Puri::Core::Config::DictationTable] `table`
+      # @raise [Error] when `url` isn't http(s)
+      def self.resolve_dictation(table)
+        raise Error, "dictation.url: #{table.url} is no http(s) URL" unless table.url.match?(%r{\Ahttps?://}i)
+
+        table
+      end
+
       # @param env [#[]]
       # @return [String] where to write the config, and what
       def self.write_example(env)
@@ -571,7 +625,7 @@ module Puri
 
       private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
                            :resolve_llm, :resolve_titler, :resolve_search, :resolve_thunderbird,
-                           :resolve_documents, :resolve_maps, :write_example
+                           :resolve_documents, :resolve_maps, :resolve_dictation, :write_example
     end
   end
 end

@@ -388,6 +388,24 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_equal({ 'http://127.0.0.1:9' => 2, 'http://fake.invalid' => nil },
                    Pikuri::Conversations::Throttle.sizes)
     end
+
+    it 'has no mic without [dictation], and says so' do
+      refute core.dictation_available?
+      core.toggle_dictation
+      core.cancel_dictation
+      assert_includes Pikuri.log_io.string, 'no [dictation] in config.toml: the prompt has no mic'
+    end
+
+    context 'with [dictation]' do
+      let(:config) do
+        main = c::Llm.new(name: 'Main', server: 'http://127.0.0.1:9', model: 'x')
+        c.new(llms: [main], servers: [], titler_llm: main, dictation: c::DictationTable.new(url: 'http://127.0.0.1:9'))
+      end
+
+      it 'has a mic' do
+        assert core.dictation_available?
+      end
+    end
   end
 
   context 'with a tool that asks before it acts' do

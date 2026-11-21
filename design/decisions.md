@@ -218,3 +218,18 @@ outbound leg, and a pause undoes it. Rhythmbox's window opens or rises, so the m
 with the sound off (owner). No pause or next tool: the media keys and GNOME's widget have them
 (owner). It lives here against *a gap is a missing pikuri primitive*, like the place tools, to
 settle first (owner, 2026-11-21), on ruby-dbus, since Core must not load GLib.
+
+## D_dictation — Why a mic of Puri's own, on the user's whisper-server through RubyLLM, rather than Myna's key, or pikuri?
+
+The desktop's dictation key (Myna, `ibus-speech-to-text`) types into Puri already, but no app can
+start it from a mic of its own (`R_dictation_tools`), so that mic is ours. The user owns the
+server, the model and the language, whisper.cpp from apt (`R_whisper_server`); Puri records and
+posts OpenAI's shape, so a bigger model or a hosted server, an explicit opt-in, changes nothing
+here. One clip per press, like Myna: phrases at each pause would each pay the encoder's 7 s floor,
+and a clip under 0.5 s isn't sent at all. The request goes through a RubyLLM context of Core's own
+against *a desktop UI and nothing else* (owner, 2026-11-21): a URL and a key share nothing of a
+chat's transport, and pikuri has no transcriber; should it grow one, Puri moves. `[dictation]`
+names its URL, not a `[[server]]`, which is a chat server, throttled and slot-sized. The state
+shows in a row under the entry, not the turn's progress bar: the pill, where dictation mostly
+starts, hides the transcript, and a turn's `Activity` is what Escape and the queue read. Hiding
+the window drops it: the mic never records behind a hidden window.

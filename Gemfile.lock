@@ -256,6 +256,7 @@ DEPENDENCIES
   rspec-core (~> 3.13)
   rubocop (~> 1.92)
   ruby-dbus (~> 0.25)
+  ruby_llm (~> 2.2)
   simplecov (~> 0.22)
   sord (~> 7.1)
   streaming-markdown-parser (~> 0.1)

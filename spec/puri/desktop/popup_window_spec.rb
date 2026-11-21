@@ -105,6 +105,55 @@ RSpec.describe 'Puri::Desktop::PopupWindow' do
     end
   end
 
+  context 'dictating' do
+    let(:row) { view.dictation_row }
+
+    # F5, then some 0.7 s of the dummy's voice, past the clip Core won't send.
+    #
+    # @return [void]
+    def listen
+      window.present
+      window.activate_action('dictate', nil)
+      wait_until('it listens') { row.visible? && view.dictation.state == 'listening' }
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      wait_until('0.7 s pass') { Process.clock_gettime(Process::CLOCK_MONOTONIC) - started > 0.7 }
+    end
+
+    it 'shows the mic in the entry' do
+      assert_equal 'audio-input-microphone-symbolic', view.entry.secondary_icon_name
+    end
+
+    it 'listens on F5, the level rising, and types what it heard at the cursor on the next' do
+      view.entry.text = 'note:'
+      view.entry.position = -1
+      listen
+      assert_equal 'Listening… press F5 when done', row.status.text
+      assert row.level.visible?
+      assert_operator row.level.value, :>, 0
+      grown = window.default_height
+      window.activate_action('dictate', nil)
+      wait_until('the words land') { view.entry.text == 'note: Remind me to buy avocados on Friday.' }
+      refute row.visible?
+      refute window.expanded?, 'dictating is no question'
+      assert_operator window.default_height, :<, grown, 'the pill shrinks back'
+    end
+
+    it 'drops the dictation on Escape and stays open' do
+      listen
+      window.activate_action('escape', nil)
+      assert window.visible?
+      wait_until('it is dropped') { view.dictation.state == 'idle' && !row.visible? }
+      assert_equal '', view.entry.text
+    end
+
+    it 'drops the dictation on hiding' do
+      listen
+      window.activate_action('hide', nil)
+      wait_until('it is dropped') { view.dictation.state == 'idle' }
+      assert_equal '', view.entry.text
+    end
+  end
+
   it 'comes back as an empty pill after hiding, and Up recalls the last question' do
     window.present
     ask('hi there')

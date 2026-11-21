@@ -205,4 +205,14 @@ RSpec.describe Puri::Dummy::Backend do
     refute(seeded.any?(&:running))
     assert_equal 'when is the dentist?', seeded.first.last_question
   end
+
+  it 'dictates its canned sentence, with no mic and no server' do
+    assert core.dictation_available?
+    core.toggle_dictation
+    seen = []
+    wait_until('0.7 s of levels') { (seen += drain).count { _1.state == 'listening' && _1.level.positive? } >= 10 }
+    core.toggle_dictation
+    wait_until('the text') { (seen += drain).last.state == 'idle' }
+    assert_equal p::DictationChanged.new(state: 'idle', text: 'Remind me to buy avocados on Friday.'), seen.last
+  end
 end

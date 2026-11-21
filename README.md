@@ -158,6 +158,46 @@ and shows its window; an artist or a genre plays shuffled, over and over, and re
 had queued. Pause and skip with the media keys or GNOME's media controls. It needs Rhythmbox's
 "D-Bus Media Server" plugin, on by default.
 
+To dictate, run a transcription server of your own, whisper.cpp's, and point Puri at it. apt ships
+the server but no model: pick one from [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp),
+`ggml-small.bin` say, or `ggml-small.en.bin` if you speak only English (an `.en` model turns other
+languages into English gibberish).
+
+```sh
+sudo apt install whisper.cpp
+whisper-server -m ~/.local/share/whisper/ggml-small.bin --port 8081 \
+  --inference-path /v1/audio/transcriptions -l auto
+```
+
+`--port`, since 8080 is llama-server's; `-l auto`, since it assumes English otherwise. To keep it
+running, put that command in a systemd user unit, `~/.config/systemd/user/whisper-server.service`,
+then `systemctl --user enable --now whisper-server`:
+
+```ini
+[Service]
+ExecStart=/usr/bin/whisper-server -m %h/.local/share/whisper/ggml-small.bin --port 8081 --inference-path /v1/audio/transcriptions -l auto
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+```toml
+[dictation]
+url = "http://127.0.0.1:8081"
+# api_key = "…"          # a hosted server only
+# model   = "whisper-1"  # the default; whisper-server ignores it
+```
+
+Press F5 or click the mic in the prompt, speak, and press F5 again: Puri records through PipeWire,
+sends the clip to the server, and types what it heard at the cursor, for you to send with Return.
+Escape drops it. On a CPU even a short clip takes some 7 s with `small`; a smaller model, more
+threads (`-t`) or the GPU (`libggml0-backend-vulkan`) make it faster. Any OpenAI-style transcription
+server answers the same; with a hosted one, your voice leaves your machine.
+
+Your desktop's own dictation key types into Puri like into any other field: Myna on Ubuntu,
+`ibus-speech-to-text` on Fedora.
+
 To open Puri from a global shortcut, install it for your user:
 
 ```sh
