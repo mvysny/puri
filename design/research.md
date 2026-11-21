@@ -30,6 +30,9 @@ Screenshots:
 - The first answer appears whole; follow-ups seem to stream, too fast to tell. **[unverified]**
 - Up in the pill brings back the previous question, shell-style; the first question or the last
   follow-up is unchecked. **[verified 2026-11-11]**
+- Voice starts only on a key or a click: the dictation key (F5) types into the pill's field; the
+  mic turns the pill into a glowing orb that listens, shows no transcript, then answers.
+  **[verified 2026-11-21]**
 - After Escape, Cmd-Space brings an empty pill, not the conversation; the app's *Opens To* setting
   doesn't apply to the pill. **[verified 2026-11-11]**
 - Escape closes the card; a click outside doesn't. The empty pill does close on a click outside.
