@@ -1,4 +1,4 @@
-# Research — Siri on macOS 27, the reference; GTK4 and its bindings, the stack
+# Research — Siri on macOS 27, the reference; GTK4 and its bindings, the stack; the map services
 
 What the things we don't own actually do. About *them*, never us: a sentence starting "we chose"
 is a `D_`. `## R_<slug> — <title>`, one claim per bullet, one provenance marker per claim —
@@ -177,3 +177,81 @@ timed by watching screenshots or logs, not instrumented.
 - A search turn thinks 10–20 s before each step; a Brave search takes ~1.3 s, a
   `web_read_cached` read nothing measurable; an answer after two searches takes 30–57 s.
   **[verified 2026-11-15]**
+
+## R_gnome_maps — GNOME Maps 49.3 answers no queries
+
+Ubuntu 26.04's package, its JavaScript read out of the GResource.
+
+- No GNOME Shell search provider; on the session bus only GApplication actions: `search(s)`,
+  `osm-account-setup`, `shortcuts`, `quit`. `search` shows results in its window and returns
+  nothing. **[verified 2026-11-21]**
+- `geo:lat,lon` opens a nameless pin; `maps:q=…` or `--search` a search. No URI opens a route.
+  **[src]**
+- Handed an `https://www.openstreetmap.org/node/<id>` URL (or `way`, `relation`) as a file, it
+  fetches the object from Overpass and shows it as a place, name and details; one with
+  `mlat`/`mlon` and `zoom` gives a point. **[src]** Its desktop file runs `gapplication launch
+  org.gnome.Maps %U`. **[verified 2026-11-21]**
+- It geocodes through GraphHopper with a key in its source, finds categories through Overpass,
+  routes with GraphHopper and Transitous, and draws `tile.openstreetmap.org`. **[src]**
+- Its position comes from GeoClue **[src]**; Ubuntu's `geoclue.conf` sets no Wi-Fi geolocation
+  URL. **[verified 2026-11-21]**
+
+## R_osm_services — OpenStreetMap's free geocoders and routers
+
+Tried from Vantaa on 2026-11-21; the specs' fixtures are these answers.
+
+- Photon (`photon.komoot.io`): no key, no stated limit, throttles "extensive usage". **[docs]** It
+  needs a bias point: "Prisma" alone finds Bolivia's; near Jumbo's `lat`/`lon`, Jumbo's. A name plus
+  address finds the place itself; an address alone whichever business ranks first there.
+  **[verified]**
+- Photon finds no category near a point ("cafe" matches names 5–15 km off; "coffee" US counties),
+  and returns no hours, phone or website, though OSM has them. **[verified]**
+- Nominatim: a request a second, an identifying User-Agent, answers cached. **[docs]** Its
+  structured `amenity=` in a bounded `viewbox` finds a kind of place, whatever its key (`cafe`,
+  `supermarket`, `hotel`, `charging_station`), unsorted, with `extratags` hours; `lookup` by OSM id
+  adds hours and website to many at once. **[verified]**
+- Overpass `around:` finds the same, but calls an app relying on its public instance problematic.
+  **[docs]**
+- FOSSGIS's OSRM (`routing.openstreetmap.de`; car, bike, foot): a request a second, a User-Agent,
+  non-commercial, a "fix the map" link shown. **[docs]** Its `table` gives distances and times to
+  many points in one request; 6.3 km takes 8.8 min, where FOSSGIS's Valhalla says 12.7.
+  **[verified]**
+- Transitous (public transport): open-source, non-commercial apps, a User-Agent with name, version
+  and contact. GraphHopper's free plan: 500 credits a day, non-commercial. **[docs]** None of these
+  is in apt. **[verified]**
+- openstreetmap.org in a browser shows `?mlat=…&mlon=…&zoom=17` as a marker, and `/node/<id>` as
+  the object's page: highlighted on the map, its raw tags beside it. **[verified]**
+
+## R_shumate — libshumate 1.6~beta from Ruby, and OSM's tiles
+
+OSM's [tile usage policy](https://operations.osmfoundation.org/policies/tiles/); the rest on
+Broadway, Ruby-GNOME 4.3.4.
+
+- `gir1.2-shumate-1.0` loads through GObject Introspection, as Adw does; `SimpleMap` draws zoom
+  buttons, a scale and the source's license line, a `MarkerLayer` takes any widget, a `Button`'s
+  click works, and a `PathLayer` draws a line. **[verified 2026-11-21]**
+- `RasterRenderer.new(template)` takes a URL template, and fractional zoom levels. A `file://`
+  template loads nothing; an HTTP server on 127.0.0.1 does. **[verified 2026-11-21]**
+- No call fits the view to a set of points: `center_on` and a zoom level only. **[verified
+  2026-11-21]**
+- The inner `Map` zooms on the wheel through an `EventControllerScroll`; set to propagation phase
+  none, the wheel reaches an enclosing `ScrolledWindow`. **[verified 2026-11-21]**
+- The tile downloader sends `libshumate/1.6.beta` whatever `Shumate.set_user_agent` says: it
+  hard-codes the string, and main still does (2026-11-12). **[src]** Tiles reached a local server
+  so; `tile.openstreetmap.org` serves that User-Agent. **[verified 2026-11-21]**
+- OSM allows a map a human views; an app sends its own User-Agent, a library's default may be
+  blocked; caching headers honoured, no prefetch, the attribution visible, the tile URL not
+  hard-coded. **[docs]**
+
+## R_siri_maps — Siri's places on macOS 27
+
+On the owner's Mac, macOS 27.2.1.
+
+- "Where is Vantaan Musiikki?" answers one street address, wrong: Kielotie 4, where OSM has
+  Peltolantie 2. Under it a map, then "Call" and a car glyph with "Directions". **[verified
+  2026-11-21]**
+- Directions opens Apple Maps on the route from "My Location", behind the Siri card, which stays
+  open. **[verified 2026-11-21]**
+- "Coffee near me" asks nothing and uses the Mac's location: a map of two cafés, then a
+  full-width pill per place — name, opening hours, a photo — with a car glyph opening directions.
+  **[verified 2026-11-21]**

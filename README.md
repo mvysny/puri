@@ -14,18 +14,20 @@ warm.
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."
 
-**Status:** the UI is done, and the model answers through pikuri. It can search the web and
-read your Thunderbird mail, contacts and calendar, and search, read and take notes in your
-documents. `exe/puri --dummy` runs a canned backend instead, with no config and no model:
-`search`, `note`, `table`, `long`, `fail`, `mail`, or `calendar` plus `reschedule` in a question
-walk the paths the tools will take. The plan lives in `design/ideas/`.
+**Status:** the UI is done, and the model answers through pikuri. It can search the web, read
+your Thunderbird mail, contacts and calendar, search, read and take notes in your documents, and
+find places and car routes on OpenStreetMap, with a map under the answer. `exe/puri --dummy` runs
+a canned backend instead, with no config and no model: `search`, `note`, `table`, `long`,
+`coffee`, `drive`, `fail`, `mail`, or `calendar` plus `reschedule` in a question walk the paths
+the tools will take. The plan lives in `design/ideas/`.
 
 ## Install and run
 
-Linux and GNOME only. GTK4 and libadwaita come from apt, never from gems:
+Linux and GNOME only. GTK4, libadwaita and libshumate, the map widget, come from apt, never from
+gems:
 
 ```sh
-sudo apt install ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw-1 libgtk-4-bin ripgrep
+sudo apt install ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep
 bundle config set --local path vendor/bundle
 bundle install
 exe/puri
@@ -130,6 +132,23 @@ container when podman or docker is installed: office files, EPUB, RTF and PDF. W
 reads only PDFs, in-process. Puri writes
 only in the folder's `Notes/`, without asking, and keeps what you ask it to remember in
 `Notes/PURI.md`.
+
+To let Puri find places and drive routes, add the table with a map tile server:
+
+```toml
+[maps]
+tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+```
+
+Puri then answers "where is …", "what's near …" and "how far by car …" from OpenStreetMap's
+public services: [Photon](https://photon.komoot.io) finds a place by name,
+[Nominatim](https://nominatim.org) what's nearby and its opening hours, and
+[FOSSGIS's OSRM](https://routing.openstreetmap.de) the drive. What you ask for leaves your machine
+for them, your home address included when you ask what's near you; Puri asks for that address
+once and remembers it in `Notes/PURI.md`. Under the answer it draws the places on a map, whose
+tiles come from the server above; a click on a pin opens the place in GNOME Maps, or on
+openstreetmap.org when Maps isn't installed. Without the table Puri has no place tools and draws
+no map.
 
 To open Puri from a global shortcut, install it for your user:
 

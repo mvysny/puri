@@ -19,7 +19,7 @@ module Puri
       # @return [Hash{Class => Class}] the row for each kind of block
       ROWS = { Protocol::UserMessage => UserMessageRow, Protocol::Reply => ReplyView,
                Protocol::ToolLine => ToolLineRow, Protocol::Confirmation => ConfirmationRow,
-               Protocol::Notice => NoticeRow }.freeze
+               Protocol::Notice => NoticeRow, Protocol::Map => PlaceMap }.freeze
 
       # @return [Integer] pixels from the bottom that still count as "at the bottom"
       STICKY = 48

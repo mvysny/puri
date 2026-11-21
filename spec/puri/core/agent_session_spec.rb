@@ -35,6 +35,13 @@ RSpec.describe Puri::Core::AgentSession do
       assert_includes prompt(documents: false), "You can't read the user's files or notes"
       assert prompt.start_with?('You are Puri')
     end
+
+    it 'tells of the place tools, and the home address they need, only when it has them' do
+      with = described_class::Initializer.system_prompt(web: true, documents: true, places: true)
+      assert_includes with, 'place_search finds a place'
+      assert_includes with, 'If your memory has none, ask the user for it'
+      refute_includes prompt, 'place_search'
+    end
   end
 
   describe 'Initializer.time_zone' do
@@ -111,6 +118,19 @@ RSpec.describe Puri::Core::AgentSession do
     it 'wires no Thunderbird tool when [thunderbird] is off' do
       built = agent(nil)
       assert_empty built.tools.map(&:name).grep(/thunderbird/)
+    ensure
+      built&.close
+    end
+
+    it 'wires the place tools on one notebook, given OSM to ask' do
+      config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil)
+      notebook = Puri::Core::Places::Notebook.new(tiles: 'https://tile.example/{z}/{x}/{y}.png')
+      initializer = described_class::Initializer.new(config, conversation, lock:, cache_dir: @cache,
+                                                                           osm: Puri::Core::Places::Osm.new, notebook:)
+      built = Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport { nil },
+                                system_prompt: initializer.system_prompt(nil)) { initializer.configure(_1, nil) }
+      assert_equal %w[calculator place_search route], built.tools.map(&:name)
+      assert_includes built.system_prompt, 'place_search finds a place'
     ensure
       built&.close
     end

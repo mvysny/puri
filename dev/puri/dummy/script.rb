@@ -12,10 +12,34 @@ module Puri
     #   mail                       asks to hand a draft to the mail app (a harmless confirmation)
     #   table                      an answer with a table and a code block
     #   long                       a long answer, for scrolling and Escape while it streams
+    #   coffee                     a place search, then cafés on a map under the answer
+    #   drive                      a route, then the road on a map
     #   fail                       streams a little, then the turn fails
     module Script
       # @return [Array<String>]
       WEEKDAYS = %w[Monday Tuesday Wednesday Thursday Friday Saturday Sunday].freeze
+
+      # @return [Puri::Protocol::Pin] where {CAFES} were searched from
+      SHOP = Protocol::Pin.new(label: nil, name: 'Musiikki Silfverberg Oy Vantaan Musiikki, Peltolantie 2',
+                               lat: 60.2931102, lon: 25.0307498, url: 'https://www.openstreetmap.org/node/9444805490')
+
+      # @return [Array<Puri::Protocol::Pin>]
+      CAFES = [['1', 'Teehetki Teahouseshop (cafe), Neilikkatie 17a', 60.2908706, 25.0331958, 14_062_506_557],
+               ['2', 'Cafe Silkki (cafe), Tikkurilantie 44', 60.2891746, 25.0370343, 10_253_894_367],
+               ['3', 'Tiksin Sea Cafe (cafe), Läntinen Valkoisenlähteentie 50', 60.2989261, 25.0303820, 1_412_396_183]]
+              .map do |label, name, lat, lon, node|
+                Protocol::Pin.new(label:, name:, lat:, lon:, url: "https://www.openstreetmap.org/node/#{node}")
+              end.freeze
+
+      # @return [Array<Array<Float>>] OSRM's road from Jumbo to the shop
+      ROAD = [[60.29159, 24.96685], [60.29223, 24.96675], [60.29267, 24.96523], [60.29283, 24.96186],
+              [60.29211, 24.96182], [60.29206, 24.96082], [60.29316, 24.96011], [60.29336, 24.96317],
+              [60.29306, 24.96542], [60.29241, 24.96779], [60.28901, 24.97614], [60.28759, 24.9819],
+              [60.28714, 24.98513], [60.28696, 24.9883], [60.28735, 24.99936], [60.28714, 25.00312],
+              [60.2866, 25.00794], [60.2858, 25.01265], [60.28366, 25.02096], [60.2824, 25.0291],
+              [60.28188, 25.02951], [60.28156, 25.02858], [60.28255, 25.02858], [60.2838, 25.02969],
+              [60.2867, 25.03134], [60.2871, 25.03078], [60.28979, 25.0306], [60.29286, 25.0323],
+              [60.29291, 25.03073]].freeze
 
       module_function
 
@@ -30,6 +54,8 @@ module Puri
         elsif said.call('note') then note(turn)
         elsif said.call('table') then table(turn)
         elsif said.call('long') then long(turn)
+        elsif said.call('coffee') then coffee(turn)
+        elsif said.call('drive') then drive(turn)
         elsif said.call('fail') then failure(turn)
         else plain(turn)
         end
@@ -57,7 +83,7 @@ module Puri
 
           Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
           incididunt ut labore et *dolore magna aliqua*. Try a question with `search`, `note`,
-          `table`, `long`, `fail`, `mail`, or `reschedule` plus `calendar` in it.
+          `table`, `long`, `coffee`, `drive`, `fail`, `mail`, or `reschedule` plus `calendar` in it.
         MD
       end
 
@@ -180,6 +206,34 @@ module Puri
             'exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.'
         end
         turn.stream(paragraphs.join("\n\n"))
+      end
+
+      # @param turn [Puri::Dummy::Turn]
+      # @return [void]
+      def coffee(turn)
+        turn.think('Thinking…')
+        turn.think('Looking up places…')
+        turn.tool('📍 Looked up: cafe near Peltolantie 2, Vantaa')
+        turn.stream(<<~MD)
+          Three cafés near **Peltolantie 2**:
+
+          - **[1] Teehetki Teahouseshop**, Neilikkatie 17a — 430 m.
+          - **[2] Cafe Silkki**, Tikkurilantie 44 — 880 m.
+          - **[3] Tiksin Sea Cafe**, Läntinen Valkoisenlähteentie 50 — 1.1 km.
+        MD
+        turn.map([SHOP, *CAFES])
+      end
+
+      # @param turn [Puri::Dummy::Turn]
+      # @return [void]
+      def drive(turn)
+        turn.think('Thinking…')
+        turn.think('Finding a route…')
+        turn.tool('🚗 Route: Jumbo Vantaa → Peltolantie 2, Vantaa')
+        turn.stream('From **Jumbo** to **Vantaan Musiikki** is **6.3 km** by car, about **9 minutes** without traffic.')
+        jumbo = Protocol::Pin.new(label: '1', name: 'Jumbo (mall), Vantaanportinkatu 3', lat: 60.2915942,
+                                  lon: 24.9656777, url: 'https://www.openstreetmap.org/way/25373590')
+        turn.map([jumbo, SHOP.with(label: '2')], line: ROAD, note: Core::Places::RouteTool::NOTE)
       end
 
       # @param turn [Puri::Dummy::Turn]

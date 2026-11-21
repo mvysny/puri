@@ -17,6 +17,7 @@ module Puri
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
+    #   config.maps          # => MapsTable(tiles:), or nil without the table
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -50,6 +51,9 @@ module Puri
     #
     #   [documents]                      # optional; omitted, the agent has no files
     #   folder = "~/Documents"           # optional, the default; notes go in its Notes/
+    #
+    #   [maps]                           # optional; omitted, the agent has no place tools
+    #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
     #
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -239,6 +243,18 @@ module Puri
         def initialize(folder: '~/Documents') = super
       end
 
+      # The `[maps]` table, which turns on `place_search`, `route` and the map under an answer.
+      # Their services are fixed, OSM's own; the tiles are a setting, as OSM's terms ask an app not
+      # to hard-code its tile server.
+      #
+      # @!attribute [r] tiles
+      #   @return [String] the tile server's URL template, with `{z}`, `{x}` and `{y}` in it
+      class MapsTable < Data.define(:tiles)
+        extend Typemap::Constrain
+
+        constrain :tiles, not_blank: true
+      end
+
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
       # through the desktop's own file index, bounded to this folder.
       #
@@ -267,7 +283,9 @@ module Puri
       #   @return [ThunderbirdTable, nil] the `[thunderbird]` table
       # @!attribute [r] documents
       #   @return [DocumentsTable, nil] the `[documents]` table
-      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird, :documents)
+      # @!attribute [r] maps
+      #   @return [MapsTable, nil] the `[maps]` table
+      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird, :documents, :maps)
         extend Typemap::Constrain
 
         constrain :server, unique_by: :id
@@ -279,7 +297,9 @@ module Puri
         # @param search [SearchTable, nil]
         # @param thunderbird [ThunderbirdTable, nil]
         # @param documents [DocumentsTable, nil]
-        def initialize(server: [], llm: [], titler: nil, search: nil, thunderbird: nil, documents: nil) = super
+        # @param maps [MapsTable, nil]
+        def initialize(server: [], llm: [], titler: nil, search: nil, thunderbird: nil, documents: nil,
+                       maps: nil) = super
       end
 
       # A file that loads: Ornith 1.5 on a local llama-server, and the same model with its
@@ -309,6 +329,10 @@ module Puri
         # Web search, through Brave or Exa; without a key, the agent has no web tools.
         # [search]
         # brave_key = "…"
+
+        # Places, routes by car, and a map under the answer, on OpenStreetMap's public services.
+        # [maps]
+        # tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       TOML
 
       # The file's name, and its directory under each XDG config root.
@@ -348,7 +372,7 @@ module Puri
         llms = root.llm.map { |table| resolve_llm(table, servers) }
         new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
             search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird),
-            documents: root.documents && resolve_documents(root.documents))
+            documents: root.documents && resolve_documents(root.documents), maps: root.maps && resolve_maps(root.maps))
       end
 
       # @param llms [Array<Puri::Core::Config::Llm>] never empty
@@ -359,13 +383,15 @@ module Puri
       # @param thunderbird [Puri::Core::Config::ThunderbirdTable, nil] an enabled `[thunderbird]`,
       #   or nil; nil by default, so a config built in code reads no profile unless it says which
       # @param documents [Puri::Core::Config::Documents, nil] the `[documents]` folder, or nil
-      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil, documents: nil)
+      # @param maps [Puri::Core::Config::MapsTable, nil] the `[maps]` table, or nil
+      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil, documents: nil, maps: nil)
         @llms = llms.freeze
         @servers = servers.freeze
         @titler_llm = titler_llm
         @search = search
         @thunderbird = thunderbird
         @documents = documents
+        @maps = maps
         freeze
       end
 
@@ -390,6 +416,10 @@ module Puri
       # @return [Puri::Core::Config::Documents, nil] the folder the agent searches, reads and keeps
       #   its notes in; nil without a `[documents]` table, and the agent has no files
       attr_reader :documents
+
+      # @return [Puri::Core::Config::MapsTable, nil] the tiles the map under an answer draws; nil
+      #   without a `[maps]` table, and the agent has no place tools
+      attr_reader :maps
 
       # @return [Puri::Core::Config::Llm] where conversations run: the first `[[llm]]`
       def primary_llm = @llms.first
@@ -522,6 +552,17 @@ module Puri
         Documents.new(folder:)
       end
 
+      # @param table [Puri::Core::Config::MapsTable]
+      # @return [Puri::Core::Config::MapsTable] `table`
+      # @raise [Error] when `tiles` lacks a placeholder or isn't http(s)
+      def self.resolve_maps(table)
+        missing = %w[{z} {x} {y}].reject { table.tiles.include?(_1) }
+        raise Error, "maps.tiles: #{table.tiles} has no #{missing.join(', ')}" unless missing.empty?
+        raise Error, "maps.tiles: #{table.tiles} is no http(s) URL" unless table.tiles.match?(%r{\Ahttps?://}i)
+
+        table
+      end
+
       # @param env [#[]]
       # @return [String] where to write the config, and what
       def self.write_example(env)
@@ -530,7 +571,7 @@ module Puri
 
       private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
                            :resolve_llm, :resolve_titler, :resolve_search, :resolve_thunderbird,
-                           :resolve_documents, :write_example
+                           :resolve_documents, :resolve_maps, :write_example
     end
   end
 end

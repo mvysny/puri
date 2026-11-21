@@ -51,7 +51,9 @@ module Puri
         'file_list' => Wording.new('Listing a folder…', '🗂 Listed'),
         'write' => Wording.new('Writing a note…', '📝 Wrote'),
         'edit' => Wording.new('Editing a note…', '📝 Edited'),
-        'calculator' => Wording.new('Calculating…', '🧮 Calculated')
+        'calculator' => Wording.new('Calculating…', '🧮 Calculated'),
+        'place_search' => Wording.new('Looking up places…', '📍 Looked up'),
+        'route' => Wording.new('Finding a route…', '🚗 Route')
       }.freeze
 
       # Whose argument a line leaves out.

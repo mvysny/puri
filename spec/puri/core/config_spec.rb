@@ -202,6 +202,30 @@ RSpec.describe Puri::Core::Config do
     end
   end
 
+  describe '[maps]' do
+    it 'is off without the table' do
+      write(@home, minimal)
+      assert_nil load.maps
+    end
+
+    it 'takes the tiles' do
+      write(@home, %(#{minimal}[maps]\ntiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"\n))
+      assert_equal 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', load.maps.tiles
+    end
+
+    it 'rejects a tile URL missing a placeholder, or not over HTTP' do
+      write(@home, %(#{minimal}[maps]\ntiles = "https://tile.example/{z}/{x}.png"\n))
+      assert_rejected('maps.tiles: .* has no \{y\}')
+      write(@home, %(#{minimal}[maps]\ntiles = "file:///tiles/{z}/{x}/{y}.png"\n))
+      assert_rejected('maps.tiles: .* is no http\(s\) URL')
+    end
+
+    it 'requires the tiles in the table' do
+      write(@home, %(#{minimal}[maps]\n))
+      assert_rejected('maps.tiles')
+    end
+  end
+
   describe 'connections' do
     it "resolves an [[llm]]'s server id into that [[server]]'s URL and key" do
       write(@home, <<~TOML)

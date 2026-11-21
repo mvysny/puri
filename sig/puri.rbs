@@ -7,13 +7,22 @@
 # calls {require_gtk} first.
 module Puri
   LOADER: Zeitwerk::Loader
+  USER_AGENT: String
 
-  # Loads GTK4 and libadwaita. libadwaita has no Ruby package, so it comes through GObject
-  # Introspection, which is not a Zeitwerk-shaped file. Safe to call twice.
+  # Loads GTK4, libadwaita and libshumate, the map widget. Neither of the last two has a Ruby
+  # package, so each comes through GObject Introspection, which is not a Zeitwerk-shaped file.
+  # Safe to call twice.
   # 
   # `require 'gtk4'` runs `gtk_init`, so `GDK_BACKEND` and the display must already be in the
   # environment.
   def self.require_gtk: () -> void
+
+  # _@param_ `namespace` — a typelib's, and the module it loads into
+  # 
+  # _@param_ `version`
+  # 
+  # _@return_ — whether it was loaded already
+  def self.introspect: (String namespace, String version) -> bool
 
   # Appends apt's +name+ gem and its runtime dependencies to the load path, so Bundler, which hides
   # every gem not in the lockfile, can't hide them.
@@ -52,6 +61,7 @@ module Puri
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
+    #   config.maps          # => MapsTable(tiles:), or nil without the table
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -85,6 +95,9 @@ module Puri
     # 
     #   [documents]                      # optional; omitted, the agent has no files
     #   folder = "~/Documents"           # optional, the default; notes go in its Notes/
+    # 
+    #   [maps]                           # optional; omitted, the agent has no place tools
+    #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
     # 
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -126,13 +139,16 @@ module Puri
       # _@param_ `thunderbird` — an enabled `[thunderbird]`, or nil; nil by default, so a config built in code reads no profile unless it says which
       # 
       # _@param_ `documents` — the `[documents]` folder, or nil
+      # 
+      # _@param_ `maps` — the `[maps]` table, or nil
       def initialize: (
                         llms: ::Array[Puri::Core::Config::Llm],
                         servers: ::Array[Puri::Core::Config::Server],
                         titler_llm: Puri::Core::Config::Llm,
                         ?search: Puri::Core::Config::SearchTable?,
                         ?thunderbird: Puri::Core::Config::ThunderbirdTable?,
-                        ?documents: Puri::Core::Config::Documents?
+                        ?documents: Puri::Core::Config::Documents?,
+                        ?maps: Puri::Core::Config::MapsTable?
                       ) -> void
 
       # _@return_ — where conversations run: the first `[[llm]]`
@@ -202,6 +218,11 @@ module Puri
       # _@param_ `table`
       def self.resolve_documents: (Puri::Core::Config::DocumentsTable table) -> Puri::Core::Config::Documents
 
+      # _@param_ `table`
+      # 
+      # _@return_ — `table`
+      def self.resolve_maps: (Puri::Core::Config::MapsTable table) -> Puri::Core::Config::MapsTable
+
       # _@param_ `env`
       # 
       # _@return_ — where to write the config, and what
@@ -228,6 +249,10 @@ module Puri
       # _@return_ — the folder the agent searches, reads and keeps
       # its notes in; nil without a `[documents]` table, and the agent has no files
       attr_reader documents: Puri::Core::Config::Documents?
+
+      # _@return_ — the tiles the map under an answer draws; nil
+      # without a `[maps]` table, and the agent has no place tools
+      attr_reader maps: Puri::Core::Config::MapsTable?
 
       # Raised for a missing, unreadable, malformed or incomplete config; the message names the
       # file or the offending key, and says what to write.
@@ -487,6 +512,19 @@ module Puri
         attr_reader folder: String
       end
 
+      # The `[maps]` table, which turns on `place_search`, `route` and the map under an answer.
+      # Their services are fixed, OSM's own; the tiles are a setting, as OSM's terms ask an app not
+      # to hard-code its tile server.
+      # 
+      # @!attribute [r] tiles
+      #   @return [String] the tile server's URL template, with `{z}`, `{x}` and `{y}` in it
+      class MapsTable
+        extend Typemap::Constrain
+
+        # _@return_ — the tile server's URL template, with `{z}`, `{x}` and `{y}` in it
+        attr_reader tiles: String
+      end
+
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
       # through the desktop's own file index, bounded to this folder.
       # 
@@ -518,6 +556,8 @@ module Puri
       #   @return [ThunderbirdTable, nil] the `[thunderbird]` table
       # @!attribute [r] documents
       #   @return [DocumentsTable, nil] the `[documents]` table
+      # @!attribute [r] maps
+      #   @return [MapsTable, nil] the `[maps]` table
       class Root
         extend Typemap::Constrain
 
@@ -532,13 +572,16 @@ module Puri
         # _@param_ `thunderbird`
         # 
         # _@param_ `documents`
+        # 
+        # _@param_ `maps`
         def initialize: (
                           ?server: ::Array[Server],
                           ?llm: ::Array[LlmTable],
                           ?titler: TitlerTable?,
                           ?search: SearchTable?,
                           ?thunderbird: ThunderbirdTable?,
-                          ?documents: DocumentsTable?
+                          ?documents: DocumentsTable?,
+                          ?maps: MapsTable?
                         ) -> void
 
         # _@return_ — the `[[server]]` entries, ids unique
@@ -558,6 +601,9 @@ module Puri
 
         # _@return_ — the `[documents]` table
         attr_reader documents: DocumentsTable?
+
+        # _@return_ — the `[maps]` table
+        attr_reader maps: MapsTable?
       end
     end
 
@@ -619,18 +665,745 @@ module Puri
       end
     end
 
+    # Where a place is, what's near it, how far by car: the `place_search` and `route` tools, on
+    # OpenStreetMap's public services, and the map under the answer (`D_places`).
+    # 
+    #   osm = Places::Osm.new                                  # one per process: it paces requests
+    #   notebook = Places::Notebook.new(tiles: config.maps.tiles)   # one per conversation
+    #   configurator.add_tools([Places::SearchTool.new(osm:, notebook:), Places::RouteTool.new(osm:, notebook:)])
+    #   notebook.map_for(tool_result.content)                  # => the Protocol::Map that call drew
+    # 
+    # Every place a tool finds gets a number in the {Notebook}, the handle the model passes back.
+    # Each call also draws its map there, keyed by the text the model got, so {TurnListener} and
+    # {Replay} find a call's map from its result alone.
+    module Places
+      LICENSE: String
+
+      # OpenStreetMap's public services, the ones GNOME Maps asks too: Photon finds a place by its
+      # name, Nominatim what's nearby by its kind, its opening hours, and the address at a point,
+      # and FOSSGIS's OSRM drives between points.
+      # 
+      #   osm = Osm.new
+      #   jumbo = osm.search('Jumbo Vantaa').first
+      #   shop = osm.search('Vantaan Musiikki', near: jumbo).first
+      #   osm.route(jumbo, shop)            # => Route(distance: 6315.1, duration: 530.4, line: […])
+      #   cafes = osm.nearby('cafe', near: shop)
+      #   osm.drives(shop, cafes)           # => [Route(distance: 939.4, …), …], one per café
+      # 
+      # Every call may raise {Http::Error}, and takes the turn's `cancellable`, which a wait for the
+      # host's turn honours.
+      # 
+      # Thread-safe.
+      class Osm
+        PHOTON: String
+        NOMINATIM: String
+        OSRM: String
+        TYPES: ::Hash[String, String]
+
+        # _@param_ `http` — shared, so its pacing covers every caller
+        # 
+        # _@param_ `photon` — a spec points these at its own server
+        # 
+        # _@param_ `nominatim`
+        # 
+        # _@param_ `osrm`
+        def initialize: (
+                          ?http: Puri::Core::Places::Http,
+                          ?photon: String,
+                          ?nominatim: String,
+                          ?osrm: String
+                        ) -> void
+
+        # Places matching `query`, likeliest first: a name, an address, or both. Without `near`,
+        # "Prisma" finds Bolivia's.
+        # 
+        # _@param_ `query`
+        # 
+        # _@param_ `near` — what the likeliest is near
+        # 
+        # _@param_ `limit`
+        # 
+        # _@param_ `cancellable`
+        def search: (
+                      String query,
+                      ?near: Puri::Core::Places::Place?,
+                      ?limit: Integer,
+                      ?cancellable: Pikuri::Agent::Control::Cancellable
+                    ) -> ::Array[Puri::Core::Places::Place]
+
+        # Places of one kind within about `radius` metres of `near`, in no order, with their opening
+        # hours and websites.
+        # 
+        # _@param_ `kind` — OSM's type: "cafe", "pharmacy", "supermarket"…
+        # 
+        # _@param_ `near`
+        # 
+        # _@param_ `radius` — metres, each way: a box, not a circle
+        # 
+        # _@param_ `limit`
+        # 
+        # _@param_ `cancellable`
+        def nearby: (
+                      String kind,
+                      near: Puri::Core::Places::Place,
+                      ?radius: Integer,
+                      ?limit: Integer,
+                      ?cancellable: Pikuri::Agent::Control::Cancellable
+                    ) -> ::Array[Puri::Core::Places::Place]
+
+        # `places` with their opening hours and websites, in one Nominatim lookup. A bare point, or
+        # a place Nominatim doesn't return, comes back as it was.
+        # 
+        # _@param_ `places`
+        # 
+        # _@param_ `cancellable`
+        # 
+        # _@return_ — in the same order
+        def details: (::Array[Puri::Core::Places::Place] places, ?cancellable: Pikuri::Agent::Control::Cancellable) -> ::Array[Puri::Core::Places::Place]
+
+        # The address at a point, for coordinates the user gave. The point stays where it was given,
+        # nameless: a shop at the address would be a guess.
+        # 
+        # _@param_ `lat`
+        # 
+        # _@param_ `lon`
+        # 
+        # _@param_ `cancellable`
+        # 
+        # _@return_ — with no address where Nominatim knows none
+        def reverse: (Float lat, Float lon, ?cancellable: Pikuri::Agent::Control::Cancellable) -> Puri::Core::Places::Place
+
+        # Driving from one place to another.
+        # 
+        # _@param_ `from`
+        # 
+        # _@param_ `to`
+        # 
+        # _@param_ `cancellable`
+        def route: (Puri::Core::Places::Place from, Puri::Core::Places::Place to, ?cancellable: Pikuri::Agent::Control::Cancellable) -> Puri::Core::Places::Route
+
+        # Driving from one place to each of several, in one request.
+        # 
+        # _@param_ `from`
+        # 
+        # _@param_ `places`
+        # 
+        # _@param_ `cancellable`
+        # 
+        # _@return_ — one per place, nil where no road leads; their
+        # lines empty
+        def drives: (Puri::Core::Places::Place from, ::Array[Puri::Core::Places::Place] places, ?cancellable: Pikuri::Agent::Control::Cancellable) -> ::Array[Puri::Core::Places::Route?]
+
+        # _@param_ `base` — up to the query
+        # 
+        # _@param_ `params`
+        # 
+        # _@param_ `cancellable`
+        def get: (String base, ::Hash[Symbol, Object] params, Pikuri::Agent::Control::Cancellable cancellable) -> (::Hash[String, Object] | ::Array[Object])
+
+        # _@param_ `places`
+        # 
+        # _@return_ — OSRM's "lon,lat;lon,lat"
+        def points: (*::Array[Puri::Core::Places::Place] places) -> String
+
+        # _@param_ `near`
+        # 
+        # _@param_ `radius` — metres
+        # 
+        # _@return_ — Nominatim's "left,top,right,bottom"
+        def viewbox: (Puri::Core::Places::Place near, Integer radius) -> String
+
+        # _@param_ `feature` — one of Photon's GeoJSON features
+        def photon_place: (::Hash[String, Object] feature) -> Puri::Core::Places::Place
+
+        # _@param_ `found` — one of Nominatim's `jsonv2` results
+        def nominatim_place: (::Hash[String, Object] found) -> Puri::Core::Places::Place
+
+        # _@param_ `place`
+        # 
+        # _@param_ `tags` — Nominatim's `extratags`
+        def detailed: (Puri::Core::Places::Place place, ::Hash[String, Object] tags) -> Puri::Core::Places::Place
+
+        # _@param_ `parts` — Nominatim's `address`
+        # 
+        # _@return_ — "Peltolantie 2, 01300 Vantaa"
+        def address: (::Hash[String, Object] parts) -> String
+
+        # _@param_ `value` — an OSM value, "musical_instrument"
+        # 
+        # _@return_ — "musical instrument"; nil for OSM's "yes", which says nothing
+        def readable: (String? value) -> String?
+      end
+
+      # Turns what the model wrote for a route's end, or for where a search is near, into a place:
+      # 
+      #   Ends.resolve('3', osm:, notebook:)                        # place [3] a search found
+      #   Ends.resolve('60.2931, 25.0307', osm:, notebook:)         # the address at that point
+      #   Ends.resolve('Kielotie 4, Vantaa', osm:, notebook:, near:) # Photon's likeliest, near `near`
+      # 
+      # Each comes back numbered in the notebook, so the result can name it "[5] …" and the model
+      # can pass 5 next time.
+      module Ends
+        HANDLE: Regexp
+        COORDINATES: Regexp
+
+        # _@param_ `text`
+        # 
+        # _@param_ `osm`
+        # 
+        # _@param_ `notebook`
+        # 
+        # _@param_ `near` — what an address is looked up near
+        # 
+        # _@param_ `cancellable`
+        # 
+        # _@return_ — its number, and the place
+        def resolve: (
+                       String text,
+                       osm: Puri::Core::Places::Osm,
+                       notebook: Puri::Core::Places::Notebook,
+                       ?near: Puri::Core::Places::Place?,
+                       ?cancellable: Pikuri::Agent::Control::Cancellable
+                     ) -> [Integer, Puri::Core::Places::Place]
+
+        # _@param_ `text`
+        # 
+        # _@param_ `osm`
+        # 
+        # _@param_ `notebook`
+        # 
+        # _@param_ `near` — what an address is looked up near
+        # 
+        # _@param_ `cancellable`
+        # 
+        # _@return_ — its number, and the place
+        def self.resolve: (
+                            String text,
+                            osm: Puri::Core::Places::Osm,
+                            notebook: Puri::Core::Places::Notebook,
+                            ?near: Puri::Core::Places::Place?,
+                            ?cancellable: Pikuri::Agent::Control::Cancellable
+                          ) -> [Integer, Puri::Core::Places::Place]
+
+        # _@param_ `number`
+        # 
+        # _@param_ `notebook`
+        def handle: (Integer number, Puri::Core::Places::Notebook notebook) -> Puri::Core::Places::Place
+
+        # _@param_ `number`
+        # 
+        # _@param_ `notebook`
+        def self.handle: (Integer number, Puri::Core::Places::Notebook notebook) -> Puri::Core::Places::Place
+
+        # _@param_ `lat`
+        # 
+        # _@param_ `lon`
+        # 
+        # _@param_ `osm`
+        # 
+        # _@param_ `cancellable`
+        def point: (
+                     Float lat,
+                     Float lon,
+                     Puri::Core::Places::Osm osm,
+                     Pikuri::Agent::Control::Cancellable cancellable
+                   ) -> Puri::Core::Places::Place
+
+        # _@param_ `lat`
+        # 
+        # _@param_ `lon`
+        # 
+        # _@param_ `osm`
+        # 
+        # _@param_ `cancellable`
+        def self.point: (
+                          Float lat,
+                          Float lon,
+                          Puri::Core::Places::Osm osm,
+                          Pikuri::Agent::Control::Cancellable cancellable
+                        ) -> Puri::Core::Places::Place
+
+        # _@param_ `text`
+        # 
+        # _@param_ `osm`
+        # 
+        # _@param_ `near`
+        # 
+        # _@param_ `cancellable`
+        def address: (
+                       String text,
+                       Puri::Core::Places::Osm osm,
+                       Puri::Core::Places::Place? near,
+                       Pikuri::Agent::Control::Cancellable cancellable
+                     ) -> Puri::Core::Places::Place
+
+        # _@param_ `text`
+        # 
+        # _@param_ `osm`
+        # 
+        # _@param_ `near`
+        # 
+        # _@param_ `cancellable`
+        def self.address: (
+                            String text,
+                            Puri::Core::Places::Osm osm,
+                            Puri::Core::Places::Place? near,
+                            Pikuri::Agent::Control::Cancellable cancellable
+                          ) -> Puri::Core::Places::Place
+
+        # The model's text names nothing: a number no search gave, coordinates off the globe, an
+        # address nothing matches. The message is for the model, to correct itself.
+        class Unresolved < StandardError
+        end
+      end
+
+      # GETs JSON from OpenStreetMap's public services as their terms ask: Puri's own User-Agent,
+      # at most one request a second to each host, and answers cached.
+      # 
+      #   http = Http.new
+      #   http.get_json('https://photon.komoot.io/api/?q=Jumbo', cancellable:)   # => {"features" => […]}
+      # 
+      # A cached answer costs no request and no wait. A request to a host asked less than an
+      # interval ago waits its turn on `cancellable`, so a cancel lands during the wait.
+      # 
+      # Thread-safe: one per process, or two agents would each send their own one a second.
+      class Http
+        # _@param_ `interval` — seconds between two requests to one host
+        # 
+        # _@param_ `cache_size` — answers kept, the least recently used dropped first
+        # 
+        # _@param_ `timeout` — seconds to connect, and again to read
+        def initialize: (?interval: Float, ?cache_size: Integer, ?timeout: Integer) -> void
+
+        # _@param_ `url`
+        # 
+        # _@param_ `cancellable` — the turn's
+        # 
+        # _@return_ — the parsed JSON
+        def get_json: (String url, ?cancellable: Pikuri::Agent::Control::Cancellable) -> (::Hash[String, Object] | ::Array[Object])
+
+        # Books the host's next free slot, so two callers waiting at once go a second apart.
+        # 
+        # _@param_ `host`
+        # 
+        # _@return_ — when this request may go, on the monotonic clock
+        def reserve: (String host) -> Float
+
+        # _@param_ `uri`
+        def fetch: (URI::HTTP uri) -> (::Hash[String, Object] | ::Array[Object])
+
+        # OSRM and Nominatim say what was wrong in a JSON `message` or `error`.
+        # 
+        # _@param_ `body`
+        # 
+        # _@return_ — ": the message", or "" for none
+        def reason: (String? body) -> String
+
+        # _@param_ `url`
+        # 
+        # _@return_ — moved to the most recently used
+        def hit: (String url) -> (::Hash[String, Object] | ::Array[Object])?
+
+        # _@param_ `url`
+        # 
+        # _@param_ `json`
+        def remember: (String url, (::Hash[String, Object] | ::Array[Object]) json) -> void
+
+        def now: () -> Float
+
+        # A request that failed: the network, a timeout, a status other than 200, or a body that
+        # isn't JSON. Its message says which host, and why.
+        class Error < StandardError
+        end
+      end
+
+      # A place a service found, or a point given as coordinates.
+      # 
+      #   place.label   # => "Vantaan Musiikki (musical instrument), Peltolantie 2, 01300 Vantaa"
+      #   place.url     # => "https://www.openstreetmap.org/node/9444805490"
+      #   place.pin(3)  # => Protocol::Pin(label: "3", …), for the map
+      # 
+      # @!attribute [r] name
+      #   @return [String, nil] nil for an address or a bare point
+      # @!attribute [r] category
+      #   @return [String, nil] OSM's type of it, readable: "musical instrument", "cafe"
+      # @!attribute [r] address
+      #   @return [String] street, number, postcode and town, as far as known; "" for none
+      # @!attribute [r] lat
+      #   @return [Float]
+      # @!attribute [r] lon
+      #   @return [Float]
+      # @!attribute [r] osm
+      #   @return [String, nil] the OSM object, "node/9444805490"; nil for a bare point
+      # @!attribute [r] hours
+      #   @return [String, nil] its `opening_hours`, OSM's syntax verbatim
+      # @!attribute [r] website
+      #   @return [String, nil]
+      class Place
+        # _@param_ `name`
+        # 
+        # _@param_ `lat`
+        # 
+        # _@param_ `lon`
+        # 
+        # _@param_ `category`
+        # 
+        # _@param_ `address`
+        # 
+        # _@param_ `osm`
+        # 
+        # _@param_ `hours`
+        # 
+        # _@param_ `website`
+        def initialize: (
+                          name: String?,
+                          lat: Float,
+                          lon: Float,
+                          ?category: String?,
+                          ?address: String,
+                          ?osm: String?,
+                          ?hours: String?,
+                          ?website: String?
+                        ) -> void
+
+        # _@return_ — "name (category), address", as much as is known; the coordinates for a
+        # bare point
+        def label: () -> String
+
+        # _@return_ — "60.29311, 25.03075"
+        def coordinates: () -> String
+
+        # _@return_ — the OSM object's page, or a marker on the point; GNOME Maps opens both
+        def url: () -> String
+
+        # _@param_ `number` — what the pin shows; nil draws a dot
+        def pin: (Integer? number) -> Puri::Protocol::Pin
+
+        # _@param_ `other`
+        # 
+        # _@return_ — metres in a straight line, along the Earth's surface
+        def distance_to: (Puri::Core::Places::Place other) -> Float
+
+        # _@param_ `text`
+        # 
+        # _@return_ — nil for blank
+        def blank: (String? text) -> String?
+
+        # _@return_ — nil for an address or a bare point
+        attr_reader name: String?
+
+        # _@return_ — OSM's type of it, readable: "musical instrument", "cafe"
+        attr_reader category: String?
+
+        # _@return_ — street, number, postcode and town, as far as known; "" for none
+        attr_reader address: String
+
+        attr_reader lat: Float
+
+        attr_reader lon: Float
+
+        # _@return_ — the OSM object, "node/9444805490"; nil for a bare point
+        attr_reader osm: String?
+
+        # _@return_ — its `opening_hours`, OSM's syntax verbatim
+        attr_reader hours: String?
+
+        attr_reader website: String?
+      end
+
+      # A drive OSRM worked out: how far, how long, and the road it takes.
+      # 
+      #   route.words   # => "6.3 km, 9 min"
+      # 
+      # @!attribute [r] distance
+      #   @return [Float] metres
+      # @!attribute [r] duration
+      #   @return [Float] seconds, without traffic
+      # @!attribute [r] line
+      #   @return [Array<Array<Float>>] the road's `[lat, lon]` points, simplified; empty when only
+      #     the distance was asked
+      class Route
+        # _@return_ — "850 m, 2 min", "6.3 km, 9 min", "42 km, 1 h 5 min"
+        def words: () -> String
+
+        def distance_words: () -> String
+
+        def duration_words: () -> String
+
+        # _@return_ — metres
+        attr_reader distance: Float
+
+        # _@return_ — seconds, without traffic
+        attr_reader duration: Float
+
+        # _@return_ — the road's `[lat, lon]` points, simplified; empty when only
+        # the distance was asked
+        attr_reader line: ::Array[::Array[Float]]
+      end
+
+      # What one conversation's place tools found: a number for each place, the handle the model
+      # passes back, and the map each call drew. Saved with the conversation, so after a restart a
+      # number still means its place and an old answer redraws its map.
+      # 
+      #   notebook = Notebook.new(tiles: config.maps.tiles)
+      #   notebook.number(place)                  # => 3: numbers count up through the conversation
+      #   notebook[3]                             # => that place
+      #   notebook.draw(result.content, pins:)    # the call's map, under the text the model got
+      #   notebook.map_for(event.content)         # => that Protocol::Map; nil for any other tool's
+      #   store.save(…, extra: { 'places' => notebook.to_h })
+      #   Notebook.new(tiles:, saved: entry.extra['places'])
+      # 
+      # A place found twice keeps its first number. Without tiles — no `[maps]` table — it still
+      # keeps what it saved, but draws no map.
+      # 
+      # Thread-safe.
+      class Notebook
+        LOGGER: Logger
+
+        # _@param_ `tiles` — the `[maps]` tile URL template; nil draws no map
+        # 
+        # _@param_ `saved` — what {#to_h} saved, as `meta.json` read it back; nil for a new conversation. One that doesn't read is logged and dropped.
+        def initialize: (tiles: String?, ?saved: Object?) -> void
+
+        # _@param_ `place`
+        # 
+        # _@return_ — its number, the one it had if it was found before
+        def number: (Puri::Core::Places::Place place) -> Integer
+
+        # _@param_ `number`
+        def []: (Integer number) -> Puri::Core::Places::Place?
+
+        # Keeps a call's map under the text its result gave the model.
+        # 
+        # _@param_ `content` — the result's `content`
+        # 
+        # _@param_ `pins`
+        # 
+        # _@param_ `line`
+        # 
+        # _@param_ `note` — Pango markup
+        def draw: (
+                    String content,
+                    pins: ::Array[Puri::Protocol::Pin],
+                    ?line: ::Array[::Array[Float]],
+                    ?note: String?
+                  ) -> void
+
+        # _@param_ `content` — a tool result's `content`, live or saved
+        # 
+        # _@return_ — the map that call drew, with no id; nil for a call that
+        # drew none, or with no tiles
+        def map_for: (String content) -> Puri::Protocol::Map?
+
+        # _@return_ — whether it holds nothing to save
+        def empty?: () -> bool
+
+        # _@return_ — JSON-able, for `meta.json`
+        def to_h: () -> ::Hash[String, Object]
+
+        # _@param_ `saved`
+        def load: (Object saved) -> void
+
+        # _@param_ `known`
+        # 
+        # _@param_ `place`
+        def same?: (Puri::Core::Places::Place known, Puri::Core::Places::Place place) -> bool
+
+        # _@param_ `content`
+        def key: (String content) -> String
+
+        # _@param_ `fields`
+        def stringify: (::Hash[Symbol, Object] fields) -> ::Hash[String, Object]
+
+        # A map as drawn, before it knows its tiles.
+        # 
+        # @!attribute [r] pins
+        #   @return [Array<Puri::Protocol::Pin>]
+        # @!attribute [r] line
+        #   @return [Array<Array<Float>>]
+        # @!attribute [r] note
+        #   @return [String, nil] Pango markup
+        class Drawing
+          attr_reader pins: ::Array[Puri::Protocol::Pin]
+
+          attr_reader line: ::Array[::Array[Float]]
+
+          # _@return_ — Pango markup
+          attr_reader note: String?
+        end
+      end
+
+      # `route`: how far and how long by car from one place to another, through FOSSGIS's OSRM.
+      # Each end is a number a search gave, an address, or coordinates, and the result names what
+      # each turned out to be, so a wrong match shows. Draws its map: both ends and the road.
+      # 
+      #   RouteTool.new(osm:, notebook:).run('from' => '1', 'to' => 'Peltolantie 2, Vantaa').content
+      #   # => From: [1] Jumbo (mall), Vantaanportinkatu 3, 01510 Vantaa
+      #   #    To: [2] Peltolantie 2, 01300 Vantaa
+      #   #    By car: 6.3 km, 9 min, without traffic.
+      # 
+      # An address is looked up near the other end, or "Prisma" could be Bolivia's.
+      # 
+      # Sharing: P_one_agent, through its {Notebook}, which is one conversation's.
+      class RouteTool < Pikuri::Tool
+        NOTE: String
+        DESCRIPTION: String
+
+        # _@param_ `osm`
+        # 
+        # _@param_ `notebook` — the conversation's
+        def initialize: (osm: Puri::Core::Places::Osm, notebook: Puri::Core::Places::Notebook) -> void
+
+        # _@param_ `arguments` — the model's
+        # 
+        # _@return_ — "1 → Peltolantie 2, Vantaa"
+        def describe_call: (::Hash[untyped, untyped] arguments) -> String
+
+        # _@param_ `from`
+        # 
+        # _@param_ `to`
+        # 
+        # _@param_ `cancellable`
+        def route: (String from, String to, Pikuri::Agent::Control::Cancellable cancellable) -> Pikuri::Tool::Result
+
+        # Resolves a number or coordinates first, so an address at the other end has a place to be
+        # looked up near.
+        # 
+        # _@param_ `from`
+        # 
+        # _@param_ `to`
+        # 
+        # _@param_ `cancellable`
+        def ends: (String from, String to, Pikuri::Agent::Control::Cancellable cancellable) -> [[Integer, Puri::Core::Places::Place], [Integer, Puri::Core::Places::Place]]
+
+        # _@param_ `text`
+        # 
+        # _@return_ — whether it is a number or coordinates, which need no place to be near
+        def fixed?: (String text) -> bool
+      end
+
+      # `place_search`: where a place is, or what's of one kind near a place, each hit numbered,
+      # with its distance and time by car, its opening hours and website. Draws its map: the hits
+      # as numbered pins, the point it searched near as a dot.
+      # 
+      #   tool = SearchTool.new(osm:, notebook:)
+      #   tool.run('query' => 'Vantaan Musiikki', 'near' => 'Jumbo Vantaa').content
+      #   # => Near: [1] Jumbo (mall), Vantaanportinkatu 3, 01510 Vantaa
+      #   #
+      #   #    [2] Musiikki Silfverberg Oy Vantaan Musiikki (musical instrument), Peltolantie 2, 01300 Vantaa
+      #   #        — 6.3 km, 9 min by car. Opening hours: Mo-Fr 10:00-17:00. …
+      # 
+      # A name goes to Photon, then one Nominatim lookup adds the hits' hours; a category goes to
+      # Nominatim, which has them; one OSRM request drives to every hit. Where OSRM fails, a hit's
+      # distance is the straight line.
+      # 
+      # Sharing: P_one_agent, through its {Notebook}, which is one conversation's.
+      class SearchTool < Pikuri::Tool
+        CATEGORIES: ::Array[String]
+        DESCRIPTION: String
+
+        # _@param_ `osm`
+        # 
+        # _@param_ `notebook` — the conversation's
+        def initialize: (osm: Puri::Core::Places::Osm, notebook: Puri::Core::Places::Notebook) -> void
+
+        # _@param_ `arguments` — the model's
+        # 
+        # _@return_ — "cafe near Kielotie 4, Vantaa"
+        def describe_call: (::Hash[untyped, untyped] arguments) -> String
+
+        # _@param_ `near`
+        # 
+        # _@param_ `query`
+        # 
+        # _@param_ `category`
+        # 
+        # _@param_ `context`
+        def search: (
+                      near: String,
+                      query: String?,
+                      category: String?,
+                      context: Pikuri::Tool::ExecuteContext
+                    ) -> Pikuri::Tool::Result
+
+        # _@param_ `query`
+        # 
+        # _@param_ `category`
+        # 
+        # _@param_ `origin`
+        # 
+        # _@param_ `cancellable`
+        # 
+        # _@return_ — each hit
+        # and the drive to it; a category's nearest by road first
+        def find: (
+                    String? query,
+                    String? category,
+                    Puri::Core::Places::Place origin,
+                    Pikuri::Agent::Control::Cancellable cancellable
+                  ) -> ::Array[[Puri::Core::Places::Place, Puri::Core::Places::Route, NilClass]]
+
+        # _@param_ `origin`
+        # 
+        # _@param_ `places`
+        # 
+        # _@param_ `cancellable`
+        def drives: (Puri::Core::Places::Place origin, ::Array[Puri::Core::Places::Place] places, Pikuri::Agent::Control::Cancellable cancellable) -> ::Array[Puri::Core::Places::Route?]
+
+        # _@param_ `origin_number`
+        # 
+        # _@param_ `origin`
+        # 
+        # _@param_ `hits`
+        # 
+        # _@param_ `asked` — the query or the category
+        def answer: (
+                      Integer origin_number,
+                      Puri::Core::Places::Place origin,
+                      ::Array[[Puri::Core::Places::Place, Puri::Core::Places::Route, NilClass]] hits,
+                      String asked
+                    ) -> Pikuri::Tool::Result
+
+        # _@param_ `number`
+        # 
+        # _@param_ `place`
+        # 
+        # _@param_ `drive`
+        # 
+        # _@param_ `origin`
+        def line: (
+                    Integer number,
+                    Puri::Core::Places::Place place,
+                    Puri::Core::Places::Route? drive,
+                    Puri::Core::Places::Place origin
+                  ) -> String
+
+        # _@param_ `origin`
+        # 
+        # _@param_ `place`
+        # 
+        # _@return_ — "1.2 km"
+        def straight: (Puri::Core::Places::Place origin, Puri::Core::Places::Place place) -> String
+      end
+    end
+
     # A saved conversation's blocks, rebuilt from its pikuri history:
     # 
-    #   Replay.blocks(store.history(id))   # => [UserMessage, ToolLine, Reply, UserMessage, Reply]
+    #   Replay.blocks(store.history(id), notebook:)   # => [UserMessage, ToolLine, Reply, Map, UserMessage, Reply]
     # 
     # Each user message becomes a {Protocol::UserMessage}, each assistant message with text a
     # {Protocol::Reply}, as {TurnListener} renders one when it finishes, so a reloaded reply gets
     # today's renderer; each tool answer becomes the {Protocol::ToolLine} {ToolWording} words for
-    # its call, as it did live. What never became a message is gone: notices, and the partial
-    # reply a cancel cut off. The blocks' ids are nil, for {Conversation#restore} to assign.
+    # its call, as it did live. The map of a turn's last place tool closes the turn, as live, once
+    # an answer followed it. What never became a message is gone: notices, and the partial reply a
+    # cancel cut off. The blocks' ids are nil, for {Conversation#restore} to assign.
     module Replay
       # _@param_ `history`
-      def self.blocks: (Pikuri::Agent::History history) -> ::Array[(Puri::Protocol::UserMessage | Puri::Protocol::Reply | Puri::Protocol::ToolLine)]
+      # 
+      # _@param_ `notebook` — where a place tool's map is found
+      # 
+      # _@return_ — user messages, replies, tool lines and maps
+      def self.blocks: (Pikuri::Agent::History history, ?notebook: Puri::Core::Places::Notebook?) -> ::Array[Puri::Protocol::Block]
     end
 
     # The `[documents]` folder, for every conversation at once: the `Notes/` folder the agent
@@ -773,7 +1546,7 @@ module Puri
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
       # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
-      # builds that folder's {Library}. Also sets each
+      # builds that folder's {Library}; with `[maps]`, the place tools. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -821,12 +1594,15 @@ module Puri
       # _@param_ `store` — where conversations are saved
       # 
       # _@param_ `library` — the documents folder every agent searches
+      # 
+      # _@param_ `osm` — what every agent's place tools ask, with `[maps]`; one for all, so its pacing covers them all
       def initialize: (
                         config: Puri::Core::Config,
                         models: Puri::Core::Models,
                         titler: Pikuri::Conversations::Titler,
                         store: Pikuri::Conversations::Store,
-                        ?library: Puri::Core::Library?
+                        ?library: Puri::Core::Library?,
+                        ?osm: Puri::Core::Places::Osm?
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
@@ -1179,10 +1955,11 @@ module Puri
     #   session.cancel
     #   session.delete                         # closes it, and removes it from disk
     # 
-    # Every turn is saved once it ends, a cancelled or failed one too; a save that fails ends in an
-    # error notice. The gem titles a conversation opened `untitled:` after its first turn, and the
-    # title is saved too. The conversation's {Protocol::Status} follows the model picked and the
-    # tokens each reply reports, through a {ContextReadout}.
+    # Every turn is saved once it ends, a cancelled or failed one too, the {Places::Notebook} of
+    # what its place tools found with it; a save that fails ends in an error notice. The gem
+    # titles a conversation opened `untitled:` after its first turn, and the title is saved too.
+    # The conversation's {Protocol::Status} follows the model picked and the tokens each reply
+    # reports, through a {ContextReadout}.
     # 
     # == Threading
     # 
@@ -1214,6 +1991,8 @@ module Puri
       # _@param_ `saved` — whether the store holds this conversation already
       # 
       # _@param_ `library` — the `[documents]` folder its agents search
+      # 
+      # _@param_ `osm` — what its place tools ask; nil wires none
       def initialize: (
                         Puri::Core::Conversation conversation,
                         entry: Pikuri::Conversations::Store::Entry,
@@ -1224,7 +2003,8 @@ module Puri
                         config: Puri::Core::Config,
                         lock: Monitor,
                         saved: bool,
-                        ?library: Puri::Core::Library?
+                        ?library: Puri::Core::Library?,
+                        ?osm: Puri::Core::Places::Osm?
                       ) -> void
 
       # Fills a saved conversation's blocks from its history, the first time only; the agent
@@ -1324,7 +2104,9 @@ module Puri
         # _@param_ `web` — whether the agent has the web tools
         # 
         # _@param_ `documents` — whether it has the documents folder
-        def self.system_prompt: (web: bool, documents: bool) -> String
+        # 
+        # _@param_ `places` — whether it has the place tools
+        def self.system_prompt: (web: bool, documents: bool, ?places: bool) -> String
 
         # _@param_ `config`
         # 
@@ -1335,12 +2117,18 @@ module Puri
         # _@param_ `library` — the `[documents]` folder; nil without one
         # 
         # _@param_ `cache_dir` — where each agent's Thunderbird snapshots go, in a folder of their own
+        # 
+        # _@param_ `osm` — what the place tools ask; nil wires none
+        # 
+        # _@param_ `notebook` — the conversation's places, which the place tools number and draw in
         def initialize: (
                           Puri::Core::Config config,
                           Puri::Core::Conversation conversation,
                           lock: Monitor,
                           ?library: Puri::Core::Library?,
-                          ?cache_dir: String
+                          ?cache_dir: String,
+                          ?osm: Puri::Core::Places::Osm?,
+                          ?notebook: Puri::Core::Places::Notebook?
                         ) -> void
 
         # The machine's time zone, for the prompt:
@@ -1363,9 +2151,9 @@ module Puri
         # extensions' own fragments
         def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
-        # Adds the calculator, the web tools, the Thunderbird extension, and the documents' search
-        # and file tools. An extension is built afresh for each agent as pikuri asks, and one that
-        # asks before it acts takes {#confirmer}.
+        # Adds the calculator, the web tools, the place tools, the Thunderbird extension, and the
+        # documents' search and file tools. An extension is built afresh for each agent as pikuri
+        # asks, and one that asks before it acts takes {#confirmer}.
         # 
         # _@param_ `configurator`
         # 
@@ -1414,13 +2202,14 @@ module Puri
     #   Assistant                 → that Reply, rendered whole from the final text
     #   ToolCall                  → ActivityChanged(working, "Searching the web…")
     #   ToolResult                → a ToolLine; ActivityChanged(working, "Thinking…")
-    #   TurnEnded                 → a Notice when cancelled or failed
+    #   TurnEnded                 → a Notice when cancelled or failed; when completed, the Map of
+    #                               the turn's last place tool, under its answer
     #   ModelSwitched             → nothing shown; a later failure names the new server
     # 
     # It renders every delta it gets, so it sits behind the gem's limiter, which coalesces them:
     # 
-    #   listener = Pikuri::Conversations::RateLimitedListener.new(TurnListener.new(conversation, server:), fps: 15)
-    #   conversations.open(id:, transport:, listener:)
+    #   listener = TurnListener.new(conversation, server:, notebook:)
+    #   conversations.open(id:, transport:, listener: Pikuri::Conversations::RateLimitedListener.new(listener, fps: 15))
     # 
     # Going idle is not an event's: {AgentSession} asks the gem whether work is under way. Each
     # step goes through {Conversation#step}, so a cancelled turn says "Cancelling…" until it ends.
@@ -1438,7 +2227,9 @@ module Puri
       # _@param_ `conversation`
       # 
       # _@param_ `server` — the model's `api_base`, which a failure names
-      def initialize: (Puri::Core::Conversation conversation, server: String?) -> void
+      # 
+      # _@param_ `notebook` — where a place tool's map is found
+      def initialize: (Puri::Core::Conversation conversation, server: String?, ?notebook: Puri::Core::Places::Notebook?) -> void
 
       # _@param_ `event` — a `Pikuri::Agent::Event` or `Pikuri::Conversations::Event` variant, or an extension's own
       def on_event: (Object event) -> void
@@ -1699,6 +2490,86 @@ module Puri
       def self.install: () -> void
     end
 
+    # A {Protocol::Map} under an answer: its tiles, a numbered pin per place, a dot where a search
+    # started, a route's line, the view fitted to all of them, and the map's note under it.
+    # 
+    #   PlaceMap.new(block)                              # a pin click opens the place in GNOME Maps
+    #   PlaceMap.new(block) { |url| opened << url }      # a spec's
+    # 
+    # The wheel scrolls the answer, never zooms the map; a drag pans it, its buttons zoom.
+    class PlaceMap < Gtk::Box
+      HEIGHT: Integer
+      ASSUMED_WIDTH: Integer
+      COPYRIGHT: String
+      ROUTE: Gdk::RGBA
+
+      # _@param_ `block`
+      def initialize: (Puri::Protocol::Map block) ?{ (String url) -> void } -> void
+
+      # _@param_ `block`
+      def block=: (Puri::Protocol::Map block) -> void
+
+      # _@return_ — one per pin, in the block's order
+      def pins: () -> ::Array[Gtk::Button]
+
+      # The center and zoom that show every point with a margin around them, on a Web Mercator
+      # map of `tile_size` tiles. The zoom is fractional, as libshumate takes it, so the points
+      # fill the view.
+      # 
+      #   PlaceMap.fit([[60.2916, 24.9657], [60.2931, 25.0307]], width: 600, height: 280)
+      #   # => [60.29236…, 24.99821…, 12.98…]
+      # 
+      # _@param_ `points` — `[lat, lon]`, at least one
+      # 
+      # _@param_ `width` — pixels
+      # 
+      # _@param_ `height` — pixels
+      # 
+      # _@param_ `tile_size` — pixels
+      # 
+      # _@param_ `margin` — pixels kept free on each side, for the pins and the zoom buttons
+      # 
+      # _@param_ `max_zoom` — for a single place, or places metres apart
+      # 
+      # _@return_ — latitude, longitude, zoom level
+      def self.fit: (
+                      ::Array[::Array[Float]] points,
+                      width: Integer,
+                      height: Integer,
+                      ?tile_size: Integer,
+                      ?margin: Integer,
+                      ?max_zoom: Float
+                    ) -> [Float, Float, Float]
+
+      # _@param_ `lat`
+      # 
+      # _@return_ — 0 at the top of the world map, 1 at the bottom
+      def self.mercator_y: (Float lat) -> Float
+
+      # _@param_ `block`
+      def source: (Puri::Protocol::Map block) -> Shumate::RasterRenderer
+
+      # libshumate zooms on the wheel; switched off, the event bubbles up to the transcript.
+      def let_the_wheel_scroll: () -> void
+
+      # _@param_ `points`
+      def line_layer: (::Array[::Array[Float]] points) -> Shumate::PathLayer
+
+      # _@param_ `pins`
+      def pin_layer: (::Array[Puri::Protocol::Pin] pins) -> Shumate::MarkerLayer
+
+      # _@param_ `width`
+      def look: (Integer width) -> void
+
+      # The real width is known only once laid out, at the first frame.
+      def refit_once_sized: () -> void
+
+      attr_reader map: Shumate::SimpleMap
+
+      # _@return_ — the block's note
+      attr_reader note: Gtk::Label
+    end
+
     # A {Protocol::Code} part of a reply: monospace on a tinted background, scrolling sideways
     # rather than wrapping.
     class CodeBlock < Gtk::ScrolledWindow
@@ -1939,6 +2810,21 @@ module Puri
       def recall_question: () -> bool
 
       def submit: () -> void
+    end
+
+    # Opens a place's openstreetmap.org URL where the user can look around it: in GNOME Maps,
+    # which reads the URL and shows the place itself, or in the browser where Maps isn't installed.
+    # 
+    #   MapsLauncher.open('https://www.openstreetmap.org/node/9444805490')
+    # 
+    # Maps by its desktop file, never as the URL's default handler, which is the browser.
+    module MapsLauncher
+      MAPS: String
+
+      # A failure is printed, never raised: a click has no one to tell.
+      # 
+      # _@param_ `url`
+      def self.open: (String url) -> void
     end
 
     # A {Protocol::ToolLine}: one dimmed line, red when the step failed.
@@ -2304,6 +3190,80 @@ module Puri
     # _@param_ `tree` — the whole object, for the error
     def self.message_class: (Object tag, ::Hash[untyped, untyped] tree) -> Class
 
+    # Transcript block: a map under a turn's answer, of what its last place tool found — the
+    # places, or a route. Core decides what is on it and which tiles draw it; Desktop fits the
+    # view to the pins and the line.
+    # 
+    #   Map.new(id: 'b5', tiles: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    #           license: '© OpenStreetMap contributors',
+    #           pins: [Pin.new(label: '1', name: 'Jumbo (mall)', lat: 60.2916, lon: 24.9657, url: '…'), …],
+    #           line: [[60.291592, 24.966851], [60.292234, 24.96675], …],
+    #           note: 'Route by <a href="https://routing.openstreetmap.de/">FOSSGIS</a> · …')
+    # 
+    # @!attribute [r] id
+    #   @return [String] unique within its conversation
+    # @!attribute [r] tiles
+    #   @return [String] the tile server's URL template, with `{z}`, `{x}` and `{y}` in it
+    # @!attribute [r] license
+    #   @return [String] the tiles' attribution, plain text, which stays visible on the map
+    # @!attribute [r] pins
+    #   @return [Array<Puri::Protocol::Pin>]
+    # @!attribute [r] line
+    #   @return [Array<Array<Float>>] a route's `[lat, lon]` points, in order; empty for none
+    # @!attribute [r] note
+    #   @return [String, nil] Pango markup under the map, its links clickable
+    class Map
+      include Puri::Protocol::Block
+
+      # _@return_ — unique within its conversation
+      attr_reader id: String
+
+      # _@return_ — the tile server's URL template, with `{z}`, `{x}` and `{y}` in it
+      attr_reader tiles: String
+
+      # _@return_ — the tiles' attribution, plain text, which stays visible on the map
+      attr_reader license: String
+
+      attr_reader pins: ::Array[Puri::Protocol::Pin]
+
+      # _@return_ — a route's `[lat, lon]` points, in order; empty for none
+      attr_reader line: ::Array[::Array[Float]]
+
+      # _@return_ — Pango markup under the map, its links clickable
+      attr_reader note: String?
+    end
+
+    # One place on a {Map}: a pin showing the place's number, or a dot for the point a search
+    # started from.
+    # 
+    #   Pin.new(label: '3', name: 'Vantaan Musiikki (musical instrument), Peltolantie 2, 01300 Vantaa',
+    #           lat: 60.2931102, lon: 25.0307498, url: 'https://www.openstreetmap.org/node/9444805490')
+    # 
+    # @!attribute [r] label
+    #   @return [String, nil] what the pin shows, the place's number; nil draws a dot
+    # @!attribute [r] name
+    #   @return [String] what the place is, plain text, for its tooltip
+    # @!attribute [r] lat
+    #   @return [Float]
+    # @!attribute [r] lon
+    #   @return [Float]
+    # @!attribute [r] url
+    #   @return [String] the place on openstreetmap.org, which a click opens
+    class Pin
+      # _@return_ — what the pin shows, the place's number; nil draws a dot
+      attr_reader label: String?
+
+      # _@return_ — what the place is, plain text, for its tooltip
+      attr_reader name: String
+
+      attr_reader lat: Float
+
+      attr_reader lon: Float
+
+      # _@return_ — the place on openstreetmap.org, which a click opens
+      attr_reader url: String
+    end
+
     # Part of a {Reply}: a fenced code block.
     # 
     # @!attribute [r] text
@@ -2313,8 +3273,8 @@ module Puri
       attr_reader text: String
     end
 
-    # What every transcript block is: {UserMessage}, {Reply}, {ToolLine}, {Confirmation} or
-    # {Notice}. Each has an `id`, unique within its conversation, which {BlockChanged} and
+    # What every transcript block is: {UserMessage}, {Reply}, {ToolLine}, {Confirmation}, {Notice}
+    # or {Map}. Each has an `id`, unique within its conversation, which {BlockChanged} and
     # {BlockRemoved} address it by. A type name only, with nothing to share.
     module Block
     end

@@ -556,6 +556,65 @@ RSpec.describe Puri::Core::PikuriCore do
     end
   end
 
+  describe 'places' do
+    let(:osm) { FakeOsm.new }
+    let(:config) do
+      maps = Puri::Core::Config::MapsTable.new(tiles: 'https://tile.example/{z}/{x}/{y}.png')
+      Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil, maps:)
+    end
+    let(:script) do
+      ->(llm) { llm.tool_call('place_search', query: 'Vantaan Musiikki', near: 'Jumbo Vantaa').stream('It is [2].') }
+    end
+    let(:core) do
+      described_class.new(config:, models:, titler:, store:, osm: osm.places) { |event| events << p.round_trip(event) }
+    end
+
+    before do
+      osm.answer('/api/', 'photon-jumbo.json', q: 'Jumbo Vantaa')
+      osm.answer('/api/', 'photon-vantaan-musiikki.json', q: 'Vantaan Musiikki')
+      osm.answer('/lookup', 'nominatim-lookup.json')
+      osm.answer('/table/', 'osrm-table.json')
+      osm.answer('/route/', 'osrm-route.json')
+    end
+
+    after { osm.close }
+
+    it 'maps what the turn found under its answer, and again after a restart, where its numbers still hold' do
+      id = core.ask(nil, 'where is Vantaan Musiikki?')
+      blocks = finished(id).blocks
+      assert_equal [p::UserMessage, p::ToolLine, p::Reply, p::Map], blocks.map(&:class)
+      assert_equal '📍 Looked up: Vantaan Musiikki near Jumbo Vantaa', blocks[1].text
+      assert_equal [nil, '2', '3', '4', '5'], blocks.last.pins.map(&:label)
+
+      core.close
+      routed = Pikuri::Testing.fake_transport { |llm| llm.tool_call('route', from: '1', to: '2').stream('6.3 km.') }
+      @restarted = described_class.new(config:, models: Puri::Core::Models.new([Puri::Core::Models::Choice.new(
+        name: 'Fake', transport: routed
+      )]),
+                                       titler:, store: Pikuri::Conversations::Store.new(root: @root, shell: 'puri'),
+                                       osm: osm.places) { nil }
+      assert_equal [p::UserMessage, p::ToolLine, p::Reply, p::Map], @restarted.load_conversation(id).blocks.map(&:class)
+      searched = osm.requests.size
+      @restarted.ask(id, 'how far is it by car from Jumbo?')
+      route = finished(id, @restarted).blocks.last
+      assert_equal %w[1 2], route.pins.map(&:label)
+      assert_equal 29, route.line.size
+      assert_equal ['/route/v1/driving/24.965678,60.291594;25.03075,60.29311'],
+                   osm.requests.drop(searched).map(&:path)
+    end
+
+    it 'wires no place tools without [maps]' do
+      plain = described_class.new(config: Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil), models:,
+                                  titler:, store:, osm: osm.places) { nil }
+      id = plain.ask(nil, 'where is Vantaan Musiikki?')
+      transcript = finished(id, plain)
+      assert_empty osm.requests
+      assert_empty transcript.blocks.grep(p::Map)
+    ensure
+      plain&.close
+    end
+  end
+
   describe 'saving' do
     # Closes the core, and starts another on the same directory, as Puri starting again would.
     #

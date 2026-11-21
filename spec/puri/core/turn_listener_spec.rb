@@ -196,4 +196,35 @@ RSpec.describe Puri::Core::TurnListener do
       assert_equal [Puri::Protocol::UserMessage], blocks.map(&:class)
     end
   end
+
+  describe 'a place tool' do
+    let(:notebook) { Puri::Core::Places::Notebook.new(tiles: 'https://tile.example/{z}/{x}/{y}.png') }
+    let(:listener) { described_class.new(conversation, server: 'http://llm/v1', notebook:) }
+    let(:pin) { Puri::Protocol::Pin.new(label: '1', name: 'Jumbo (mall)', lat: 60.29, lon: 24.97, url: 'https://osm/1') }
+
+    before do
+      notebook.draw('Near: [1] Jumbo', pins: [pin])
+      listener.on_event(e::ToolCall.new(tool_call_id: 't1', name: 'place_search', arguments: {},
+                                        display_name: 'PlaceSearch', argument: 'Jumbo near home'))
+      listener.on_event(e::ToolResult.new(tool_call_id: 't1', name: 'place_search', content: 'Near: [1] Jumbo',
+                                          summary: 'Found 1 place'))
+      listener.on_event(e::Assistant.new(content: '[1] Jumbo is in Vantaa.'))
+    end
+
+    it 'closes a completed turn with its map, under the answer' do
+      listener.on_event(c::TurnEnded.new(outcome: :completed, error: nil, restarting: false))
+      assert_equal [Puri::Protocol::UserMessage, Puri::Protocol::ToolLine, Puri::Protocol::Reply, Puri::Protocol::Map],
+                   blocks.map(&:class)
+      assert_equal [pin], blocks.last.pins
+      assert_equal '📍 Looked up: Jumbo near home', blocks[1].text
+    end
+
+    it 'shows no map under a cancelled turn, nor under the next' do
+      listener.on_event(c::TurnEnded.new(outcome: :cancelled, error: nil, restarting: false))
+      listener.on_event(c::TurnStarted.new(user_message: 'And?', attachments: []))
+      listener.on_event(e::Assistant.new(content: 'Nothing more.'))
+      listener.on_event(c::TurnEnded.new(outcome: :completed, error: nil, restarting: false))
+      assert_empty blocks.grep(Puri::Protocol::Map)
+    end
+  end
 end

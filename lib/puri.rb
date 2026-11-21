@@ -16,20 +16,40 @@ module Puri
   LOADER = Zeitwerk::Loader.for_gem
   LOADER.setup
 
-  # Loads GTK4 and libadwaita. libadwaita has no Ruby package, so it comes through GObject
-  # Introspection, which is not a Zeitwerk-shaped file. Safe to call twice.
+  # What every request to OpenStreetMap's services and tile servers sends, whose terms want the
+  # app named, with a contact. libshumate 1.6 still sends its own on tiles (`R_shumate`).
+  #
+  # @return [String]
+  USER_AGENT = 'Puri (+https://github.com/mvysny/puri)'
+
+  # Loads GTK4, libadwaita and libshumate, the map widget. Neither of the last two has a Ruby
+  # package, so each comes through GObject Introspection, which is not a Zeitwerk-shaped file.
+  # Safe to call twice.
   #
   # `require 'gtk4'` runs `gtk_init`, so `GDK_BACKEND` and the display must already be in the
   # environment.
   #
   # @return [void]
+  # @raise [LoadError] when apt's `ruby-gtk4`, `gir1.2-adw-1` or `gir1.2-shumate-1.0` is missing
   def self.require_gtk
     add_apt_gem('gtk4', apt_gem_specs)
     require 'gtk4'
-    return if Object.const_defined?(:Adw)
+    introspect('Adw', '1')
+    return if introspect('Shumate', '1.0')
 
-    GObjectIntrospection::Repository.default.require('Adw', '1')
-    GObjectIntrospection::Loader.load('Adw', Object.const_set(:Adw, Module.new))
+    Shumate.set_user_agent(USER_AGENT)
+  end
+
+  # @param namespace [String] a typelib's, and the module it loads into
+  # @param version [String]
+  # @return [Boolean] whether it was loaded already
+  # @raise [LoadError] when the typelib isn't installed: Ruby-GNOME's `RepositoryError` is one
+  def self.introspect(namespace, version)
+    return true if Object.const_defined?(namespace)
+
+    GObjectIntrospection::Repository.default.require(namespace, version)
+    GObjectIntrospection::Loader.load(namespace, Object.const_set(namespace, Module.new))
+    false
   end
 
   # Appends apt's +name+ gem and its runtime dependencies to the load path, so Bundler, which hides
@@ -64,5 +84,5 @@ module Puri
        .filter_map { |file| Gem::Specification.load(file) }
        .group_by(&:name).transform_values { |all| all.max_by(&:version) }
   end
-  private_class_method :add_apt_gem, :apt_gem_specs
+  private_class_method :introspect, :add_apt_gem, :apt_gem_specs
 end

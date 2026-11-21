@@ -26,6 +26,16 @@ module Puri
         .puri-table label { padding: 5px 12px; }
         .puri-table label.header { font-weight: bold; background: alpha(currentColor, 0.05); }
         .puri-tool { font-size: 0.9em; }
+        .puri-map { border-radius: 12px; }
+        .puri-map-note { font-size: 0.85em; opacity: 0.7; }
+        button.puri-pin {
+          min-width: 16px; min-height: 22px; padding: 1px 6px; border-radius: 12px; font-weight: bold;
+          background: @accent_bg_color; color: @accent_fg_color; box-shadow: 0 1px 3px alpha(black, 0.45);
+        }
+        button.puri-pin-dot {
+          min-width: 10px; min-height: 10px; padding: 0; border-radius: 8px;
+          background: @accent_bg_color; border: 2px solid white; box-shadow: 0 1px 3px alpha(black, 0.45);
+        }
         .puri-notice { font-style: italic; }
         .puri-confirmation { padding: 14px; }
         .puri-confirmation button { padding: 4px 18px; }

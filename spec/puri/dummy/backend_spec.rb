@@ -74,6 +74,19 @@ RSpec.describe Puri::Dummy::Backend do
     assert_equal '🔍 Searched: "avocado tips"', tool.text
   end
 
+  it 'maps the cafés it found under the answer, on tiles from this machine' do
+    blocks = finished(core.ask(nil, 'coffee near me')).blocks
+    assert_equal [p::UserMessage, p::ToolLine, p::Reply, p::Map], blocks.map(&:class)
+    assert_equal [nil, '1', '2', '3'], blocks.last.pins.map(&:label)
+    assert_match(%r{\Ahttp://127\.0\.0\.1:\d+/\{z\}/\{x\}/\{y\}\.png\z}, blocks.last.tiles)
+  end
+
+  it 'maps a drive, its road and the router’s note' do
+    map = finished(core.ask(nil, 'drive from Jumbo')).blocks.last
+    assert_operator map.line.size, :>, 10
+    assert_includes map.note, 'Fix the map'
+  end
+
   context 'with a confirmation pending' do
     let(:id) { core.ask(nil, 'reschedule my dentist in the calendar') }
     let!(:confirmation) { pending_confirmation(id) }

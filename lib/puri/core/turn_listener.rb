@@ -12,13 +12,14 @@ module Puri
     #   Assistant                 → that Reply, rendered whole from the final text
     #   ToolCall                  → ActivityChanged(working, "Searching the web…")
     #   ToolResult                → a ToolLine; ActivityChanged(working, "Thinking…")
-    #   TurnEnded                 → a Notice when cancelled or failed
+    #   TurnEnded                 → a Notice when cancelled or failed; when completed, the Map of
+    #                               the turn's last place tool, under its answer
     #   ModelSwitched             → nothing shown; a later failure names the new server
     #
     # It renders every delta it gets, so it sits behind the gem's limiter, which coalesces them:
     #
-    #   listener = Pikuri::Conversations::RateLimitedListener.new(TurnListener.new(conversation, server:), fps: 15)
-    #   conversations.open(id:, transport:, listener:)
+    #   listener = TurnListener.new(conversation, server:, notebook:)
+    #   conversations.open(id:, transport:, listener: Pikuri::Conversations::RateLimitedListener.new(listener, fps: 15))
     #
     # Going idle is not an event's: {AgentSession} asks the gem whether work is under way. Each
     # step goes through {Conversation#step}, so a cancelled turn says "Cancelling…" until it ends.
@@ -36,13 +37,16 @@ module Puri
 
       # @param conversation [Puri::Core::Conversation]
       # @param server [String, nil] the model's `api_base`, which a failure names
-      def initialize(conversation, server:)
+      # @param notebook [Puri::Core::Places::Notebook, nil] where a place tool's map is found
+      def initialize(conversation, server:, notebook: nil)
         super()
         @conversation = conversation
         @server = server
+        @notebook = notebook
         @reply = nil
         @stream = nil
         @calls = {}
+        @map = nil
       end
 
       # @param event [Object] a `Pikuri::Agent::Event` or `Pikuri::Conversations::Event` variant,
@@ -67,6 +71,7 @@ module Puri
       # @param text [String, nil] nil for a turn that only delivers what was sent during the last
       # @return [void]
       def started(text)
+        @map = nil
         @conversation.add(Protocol::UserMessage.new(id: nil, text:)) if text
         @conversation.activity = THINKING
       end
@@ -93,7 +98,9 @@ module Puri
         case event.outcome
         when :cancelled then @conversation.add(Protocol::Notice.new(id: nil, text: 'Cancelled', error: false))
         when :failed then @conversation.add(Protocol::Notice.new(id: nil, text: failure(event.error), error: true))
+        when :completed then @conversation.add(@map) if @map
         end
+        @map = nil
       end
 
       # @param event [Pikuri::Agent::Event::ToolCall]
@@ -111,6 +118,7 @@ module Puri
         call = @calls.delete(event.tool_call_id) or return
 
         @conversation.add(ToolWording.line(call, content: event.content, summary: event.summary))
+        @map = @notebook&.map_for(event.content.to_s) || @map
         @conversation.step(THINKING)
       end
 

@@ -95,6 +95,17 @@ module Puri
         @conversation.add(Protocol::ToolLine.new(id: nil, text:, error:))
       end
 
+      # Closes the turn's answer with a map, as Core does once a turn with a place tool ends.
+      #
+      # @param pins [Array<Puri::Protocol::Pin>]
+      # @param line [Array<Array<Float>>]
+      # @param note [String, nil] Pango markup
+      # @return [void]
+      def map(pins, line: [], note: nil)
+        @conversation.add(Protocol::Map.new(id: nil, tiles: TileServer.url, license: Core::Places::LICENSE, pins:,
+                                            line:, note:))
+      end
+
       # Streams Markdown into a new {Protocol::Reply}, a word at a time.
       #
       # @param markdown [String]

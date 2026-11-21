@@ -167,3 +167,32 @@ office file stays unread, its text still in the desktop index for the documents 
 the sandbox. The price: a docker whose daemon doesn't answer still takes the container's place, and
 pikuri-extractors then falls back to the host's parsers after all; podman, picked first, has no
 daemon to be down.
+
+## D_places — Why place and route tools of Puri's own, on OpenStreetMap's public services, rather than asking GNOME Maps, or waiting for pikuri?
+
+GNOME Maps answers no queries (`R_gnome_maps`), so Puri asks the services Maps itself asks: Photon
+finds a place by name, Nominatim what's nearby by kind and its opening hours, which Photon can't,
+and FOSSGIS's OSRM the drive, every hit's in one `table` request (`R_osm_services`). They are free,
+keyless, and their terms are met: Puri's User-Agent with the repository as contact (owner,
+2026-11-21), a request a second per host, answers cached. Not self-hosted, and no leave-by times
+from the calendar (owner, 2026-11-21). The tools live here against *a gap is a missing pikuri
+primitive* (owner, 2026-11-21), to settle first; their home is probably pikuri-workshop. Each
+place found is numbered, `[3]`, up through the conversation, and `route` takes a number, an
+address or coordinates: a small model copies a number where it slips on ten digits of an OSM id
+or four of coordinates, and each end comes back as "name (category), address", so a wrong match
+shows. No `home` keyword: the model passes the address it keeps in `Notes/PURI.md`, which it asks
+for when it isn't there. The numbers and each call's map are saved in `meta.json`, so both outlive
+a restart.
+
+## D_place_map — Why a map under the answer with clickable pins and nothing else, rather than Siri's buttons and rows?
+
+Siri draws a map under a place answer, a Directions button and a row per place (`R_siri_maps`);
+Puri keeps the map alone (owner, 2026-11-21). It is libshumate, GNOME Maps' own widget, from apt
+like Adw (`R_shumate`). Rows would repeat the answer, which names each place by its pin's number; a
+car button would have to ask the model for the route, half a minute a click
+(`R_llama_server_turns`); Linux can't call. A pin opens its place's openstreetmap.org URL in GNOME
+Maps, which shows the place itself, or in the browser without Maps: the human's click, so *Search,
+never fetch* holds. The wheel scrolls the answer: a map zooming under a scrolling transcript traps
+it. Tiles load on view with no click, the same class of egress as a search's query; OSM's terms want
+Puri's User-Agent, the attribution on the map, and the tile server a setting, hence `[maps] tiles`,
+which turns the feature on. No photo: OSM rarely has one, and its URL would be a stranger's to fetch.

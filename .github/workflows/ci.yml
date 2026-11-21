@@ -23,12 +23,13 @@ jobs:
       # The install spec runs a private session bus, gapplication, gsettings over GNOME's
       # keybinding schemas, and desktop-file-validate.
       # ripgrep backs pikuri-workspace's glob tool, which the [documents] specs configure.
+      # gir1.2-shumate-1.0 is the map under a place answer; its specs draw a local tile server's.
       - name: Install the apt stack
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             ruby ruby-bundler ruby-dev build-essential \
-            ruby-gtk4 gir1.2-adw-1 libgtk-4-bin ripgrep \
+            ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
             dbus-daemon libglib2.0-bin desktop-file-utils \
             gsettings-desktop-schemas gnome-settings-daemon-common \
             git ca-certificates

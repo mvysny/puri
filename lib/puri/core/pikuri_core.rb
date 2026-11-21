@@ -44,7 +44,7 @@ module Puri
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
       # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
-      # builds that folder's {Library}. Also sets each
+      # builds that folder's {Library}; with `[maps]`, the place tools. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -67,8 +67,9 @@ module Puri
         unless config.search
           LOGGER.error('[search] in config.toml sets no Brave or Exa key: the agent has no web tools')
         end
+        LOGGER.info('no [maps] in config.toml: the agent has no place tools') unless config.maps
         library = config.documents && Library.new(config.documents)
-        new(config:, models: Models.from_config(config), titler:, store:, library:, &)
+        new(config:, models: Models.from_config(config), titler:, store:, library:, osm: Places::Osm.new, &)
       end
 
       # Plugs the document extractors into pikuri's registry, process-wide, so `read`,
@@ -119,9 +120,11 @@ module Puri
       # @param titler [Pikuri::Conversations::Titler] names each new conversation from its first message
       # @param store [Pikuri::Conversations::Store] where conversations are saved
       # @param library [Puri::Core::Library, nil] the documents folder every agent searches
+      # @param osm [Puri::Core::Places::Osm, nil] what every agent's place tools ask, with `[maps]`;
+      #   one for all, so its pacing covers them all
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(config:, models:, titler:, store:, library: nil, &listener)
+      def initialize(config:, models:, titler:, store:, library: nil, osm: nil, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @models = models
@@ -129,6 +132,7 @@ module Puri
         @store = store
         @config = config
         @library = library
+        @osm = osm
         @listener = listener
         @lock = Monitor.new
         @conversations = {}
@@ -257,7 +261,7 @@ module Puri
       def agent_session(conversation, entry, saved:)
         AgentSession.new(conversation, entry:, store: @store, conversations: @live,
                                        transport: start_on(entry, saved:).transport, models: @models,
-                                       config: @config, lock: @lock, saved:, library: @library)
+                                       config: @config, lock: @lock, saved:, library: @library, osm: @osm)
       end
 
       # @param entry [Pikuri::Conversations::Store::Entry]

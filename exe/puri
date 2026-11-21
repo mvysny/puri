@@ -15,7 +15,8 @@ begin
   Puri.require_gtk
 rescue LoadError => e
   abort "#{e.message}\n" \
-        'Puri needs GTK4 and libadwaita from apt: sudo apt install ruby ruby-bundler ruby-gtk4 gir1.2-adw-1'
+        'Puri needs GTK4, libadwaita and libshumate from apt: ' \
+        'sudo apt install ruby ruby-bundler ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0'
 end
 Puri::LOADER.eager_load
 

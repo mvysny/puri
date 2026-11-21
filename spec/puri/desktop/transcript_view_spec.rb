@@ -56,6 +56,13 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
     assert_equal '2', table.grid.get_child_at(1, 1).text
   end
 
+  it 'draws a map under an answer' do
+    pin = p::Pin.new(label: '1', name: 'Jumbo', lat: 60.29, lon: 24.97, url: 'https://www.openstreetmap.org/way/1')
+    view.upsert(p::Map.new(id: 'b1', tiles: Puri::Dummy::TileServer.url, license: '© OSM', pins: [pin], line: [],
+                           note: nil))
+    assert_kind_of Puri::Desktop::PlaceMap, view.row('b1')
+  end
+
   it 'drops a removed block, and ignores one it never showed' do
     view.upsert(p::UserMessage.new(id: 'b1', text: 'hi'))
     view.remove('b1')

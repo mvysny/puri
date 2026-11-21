@@ -15,10 +15,11 @@ module Puri
     #   session.cancel
     #   session.delete                         # closes it, and removes it from disk
     #
-    # Every turn is saved once it ends, a cancelled or failed one too; a save that fails ends in an
-    # error notice. The gem titles a conversation opened `untitled:` after its first turn, and the
-    # title is saved too. The conversation's {Protocol::Status} follows the model picked and the
-    # tokens each reply reports, through a {ContextReadout}.
+    # Every turn is saved once it ends, a cancelled or failed one too, the {Places::Notebook} of
+    # what its place tools found with it; a save that fails ends in an error notice. The gem
+    # titles a conversation opened `untitled:` after its first turn, and the title is saved too.
+    # The conversation's {Protocol::Status} follows the model picked and the tokens each reply
+    # reports, through a {ContextReadout}.
     #
     # == Threading
     #
@@ -56,10 +57,12 @@ module Puri
         #
         # @param web [Boolean] whether the agent has the web tools
         # @param documents [Boolean] whether it has the documents folder
+        # @param places [Boolean] whether it has the place tools
         # @return [String]
-        def self.system_prompt(web:, documents:)
-          %W[puri.txt #{web ? 'web.txt' : 'offline.txt'} #{documents ? 'documents.txt' : 'no-documents.txt'}]
-            .map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
+        def self.system_prompt(web:, documents:, places: false)
+          files = %W[puri.txt #{web ? 'web.txt' : 'offline.txt'} #{documents ? 'documents.txt' : 'no-documents.txt'}]
+          files << 'places.txt' if places
+          files.map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
         end
 
         # @return [Confirmer, nil] the latest agent's; nil until one has booted
@@ -70,12 +73,18 @@ module Puri
         # @param lock [Monitor] the core's
         # @param library [Puri::Core::Library, nil] the `[documents]` folder; nil without one
         # @param cache_dir [String] where each agent's Thunderbird snapshots go, in a folder of their own
-        def initialize(config, conversation, lock:, library: nil, cache_dir: PikuriCore.cache_dir)
+        # @param osm [Puri::Core::Places::Osm, nil] what the place tools ask; nil wires none
+        # @param notebook [Puri::Core::Places::Notebook, nil] the conversation's places, which the
+        #   place tools number and draw in
+        def initialize(config, conversation, lock:, library: nil, cache_dir: PikuriCore.cache_dir, osm: nil,
+                       notebook: nil)
           @config = config
           @conversation = conversation
           @lock = lock
           @library = library
           @cache_dir = cache_dir
+          @osm = notebook && osm
+          @notebook = notebook
           @confirmer = nil
         end
 
@@ -103,14 +112,14 @@ module Puri
         #   extensions' own fragments
         def system_prompt(_conversation)
           now = Time.now
-          "#{Initializer.system_prompt(web: !@config.search.nil?, documents: !@library.nil?)}\n\n" \
+          "#{Initializer.system_prompt(web: !@config.search.nil?, documents: !@library.nil?, places: !@osm.nil?)}\n\n" \
             "Today is #{now.strftime('%A, %-d %B %Y')}; the time zone is #{Initializer.time_zone(now)}." \
             "#{library_prompt}"
         end
 
-        # Adds the calculator, the web tools, the Thunderbird extension, and the documents' search
-        # and file tools. An extension is built afresh for each agent as pikuri asks, and one that
-        # asks before it acts takes {#confirmer}.
+        # Adds the calculator, the web tools, the place tools, the Thunderbird extension, and the
+        # documents' search and file tools. An extension is built afresh for each agent as pikuri
+        # asks, and one that asks before it acts takes {#confirmer}.
         #
         # @param configurator [Pikuri::Agent::Configurator]
         # @param _conversation [Pikuri::Conversations::Conversation] this session's
@@ -119,6 +128,10 @@ module Puri
           @confirmer = Confirmer.new(@conversation, lock: @lock)
           configurator.add_tool(Pikuri::Tool::CALCULATOR)
           configurator.add_tools(web_tools)
+          if @osm
+            configurator.add_tools([Places::SearchTool.new(osm: @osm, notebook: @notebook),
+                                    Places::RouteTool.new(osm: @osm, notebook: @notebook)])
+          end
           configurator.add_extension(thunderbird(configurator)) if @config.thunderbird
           return unless @library
 
@@ -201,8 +214,9 @@ module Puri
       # @param lock [Monitor] the core's
       # @param saved [Boolean] whether the store holds this conversation already
       # @param library [Puri::Core::Library, nil] the `[documents]` folder its agents search
+      # @param osm [Puri::Core::Places::Osm, nil] what its place tools ask; nil wires none
       def initialize(conversation, entry:, store:, conversations:, transport:, models:, config:, lock:, saved:,
-                     library: nil)
+                     library: nil, osm: nil)
         super()
         @conversation = conversation
         @entry = entry
@@ -210,13 +224,16 @@ module Puri
         @conversations = conversations
         @transport = transport
         @models = models
+        # Kept without [maps] too, so a save never drops the places an earlier run found.
+        @notebook = Places::Notebook.new(tiles: config.maps&.tiles, saved: (entry.extra['places'] if saved))
         # self.class's: a spec's subclass brings an Initializer that adds what Puri doesn't wire.
-        @initializer = self.class::Initializer.new(config, conversation, lock:, library:)
+        @initializer = self.class::Initializer.new(config, conversation, lock:, library:,
+                                                                         osm: (osm if config.maps), notebook: @notebook)
         @lock = lock
         @saved = saved
         @untitled = !saved || store.stamp_titled?(entry) || entry.title == Conversation::NEW_TITLE
         @display = Pikuri::Conversations::RateLimitedListener.new(
-          TurnListener.new(conversation, server: transport.api_base), fps: 15
+          TurnListener.new(conversation, server: transport.api_base, notebook: @notebook), fps: 15
         )
         @live = nil
         @history = nil
@@ -236,7 +253,7 @@ module Puri
 
         @saved = false
         @history = @store.history(@entry)
-        @conversation.restore(Replay.blocks(@history))
+        @conversation.restore(Replay.blocks(@history, notebook: @notebook))
       rescue Pikuri::Conversations::HistoryFile::Error => e
         @unreadable = true
         @conversation.add(Protocol::Notice.new(id: nil, text: "Can't read this conversation: #{e.message}",
@@ -310,6 +327,7 @@ module Puri
           summary = @conversation.summary
           extra = { 'last_question' => summary.last_question,
                     'asked_at' => summary.asked_at && Time.iso8601(summary.asked_at).utc.iso8601 }
+          extra['places'] = @notebook.to_h unless @notebook.empty?
           on = @live.status.model
           @store.save(@entry, history, model: on.model, server: on.api_base, extra:)
         end

@@ -15,6 +15,7 @@ module Puri
   end
 end
 
+require_relative 'dummy/tile_server'
 require_relative 'dummy/script'
 require_relative 'dummy/turn'
 require_relative 'dummy/session'

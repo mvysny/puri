@@ -16,7 +16,7 @@ warm.
 ## Promises
 
 - **Local first.** The model runs on this machine whenever it can; a hosted provider is an explicit opt-in, and pikuri's *Privacy first* holds at this layer.
-- **Search, never fetch.** The agent talks only to the configured search engines and never opens a URL; every other outbound leg — a mail, an invite — waits on the human.
+- **Search, never fetch.** The agent talks only to the configured search engines and map services and never opens a URL; every other outbound leg — a mail, an invite, a place opened from the map — waits on the human.
 - **One window.** The popup, the running conversation and every earlier one live in one app; nothing needs a second app to find an old answer.
 - **A desktop UI and nothing else.** Loop, tools, transport, and every prompt their code depends on, stay pikuri's; a behaviour implemented on both sides drifts. The system prompts are ours, mixing our own text with the fragments pikuri's extensions bring (`D_own_prompts`).
 
@@ -28,7 +28,7 @@ warm.
 | `AGENTS.md` (this) | promises, invariants, the module map, conventions, commands | every turn |
 | `design/architecture.md` | how the pieces compose — wiring, dependency direction, threads, the flows; normative | lazy |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |
-| `design/research.md` | what Siri and the GTK stack actually do — `R_` entries, each claim with provenance | lazy |
+| `design/research.md` | what Siri, the GTK stack and the map services actually do — `R_` entries, each claim with provenance | lazy |
 | `design/ideas/` | not yet decided — one file per idea, `ls` is the index, deleted on graduation | transient |
 | doc comments | what one symbol does and why it is shaped so | at the symbol |
 
@@ -45,16 +45,16 @@ Every fact lives in exactly one of these; the others link to it.
 - `lib/puri/core/` — `Puri::Core`, the backend on `pikuri-conversations`: conversations, their display, the agent's tools; never GTK.
 - `lib/puri/protocol/` — `Puri::Protocol`: the `Backend` methods Desktop calls, and the JSON-able `Data` they and Core's events carry.
 - `lib/puri/desktop/` — `Puri::Desktop`, the GTK4 widgets and `BackendClient`, nothing else.
-- `exe/puri` — the composition root: loads GTK and Adw, wires Core to Desktop.
+- `exe/puri` — the composition root: loads GTK, Adw and Shumate, wires Core to Desktop.
 - `dev/` — development only, loaded by `exe/puri --dummy` and the specs, never otherwise: `Puri::Dummy`, the canned backend the GTK specs drive. Code a dev-only mode loads, never loose scripts.
 
 ## Conventions
 
 - **Linux and GNOME only, Wayland first.** No macOS or Windows code paths; X11 works only where it comes for free.
-- **Ruby, GTK4 and libadwaita from distro packages** — apt's `ruby` (pikuri needs ≥ 3.3), `ruby-gtk4`, `gir1.2-adw-1` loaded through GObject Introspection; a gem or binary apt does not ship waits on the owner.
+- **Ruby, GTK4, libadwaita and libshumate from distro packages** — apt's `ruby` (pikuri needs ≥ 3.3), `ruby-gtk4`, `gir1.2-adw-1` and `gir1.2-shumate-1.0` loaded through GObject Introspection; a gem or binary apt does not ship waits on the owner.
 - **`gtk4` stays out of the Gemfile:** Bundler would compile it from source, while `require 'gtk4'` finds apt's copy under `bundle exec` anyway; the gtk4-dev skill has the details.
 - **Desktop only draws:** ordering, titling, wording a tool line or a confirmation, rendering Markdown are Core's, and Desktop keeps view state only (`D_ruby_gtk4`); a feature that grows Desktop belongs in Core.
-- **A gap is a missing pikuri primitive**, never a workaround here: a tool, a prompt or a listener event goes upstream, and whatever this app shares with pikuri-tui or pikuri-web lives in pikuri or its workshop, never in a copy; hosting conversations is `pikuri-conversations`' (`D_port_pikuri_web`).
+- **A gap is a missing pikuri primitive**, never a workaround here: a tool, a prompt or a listener event goes upstream, and whatever this app shares with pikuri-tui or pikuri-web lives in pikuri or its workshop, never in a copy; hosting conversations is `pikuri-conversations`' (`D_port_pikuri_web`). The place tools are the one exception, until they move (`D_places`).
 
 ## Commands
 
