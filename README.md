@@ -268,6 +268,14 @@ mkdir -p ~/.config/llama-server
 (umask 077; openssl rand -hex 32 > ~/.config/llama-server/api-key)
 ```
 
+llama-server's web page, `https://box.tailXXXX.ts.net/llama/`, still opens without the key too,
+but nothing on it works: the scripts and stylesheet it loads want the key like the API does, a
+browser can't send one, and the page stays a dead form that says JavaScript is off. That is as it
+should be, since a chat UI that worked without the key would be the hole the key closes. Ubuntu's
+`llama.cpp-tools` serves its UI from a directory, which upstream keeps behind the key on purpose
+([llama.cpp#22038](https://github.com/ggml-org/llama.cpp/pull/22038)); only the page itself slips
+through.
+
 whisper-server takes no key yet
 ([whisper.cpp#4197](https://github.com/ggml-org/whisper.cpp/issues/4197)), so `[dictation]` has
 none, and whoever reaches the server can transcribe on it. If others share your tailnet, a grant
