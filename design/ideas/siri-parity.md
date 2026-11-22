@@ -11,20 +11,6 @@ read and create, contacts, places and car routes, playing music, dictation, the 
 
 ## Cheap: Siri does it, Linux has it, no promise at stake
 
-### Weather
-
-"What's the weather like in San Francisco?" [docs]; Siri passed it in the 27.2 test of 62
-tasks [unverified]. Today Puri can only web-search it.
-
-- Open-Meteo (free, no key) or MET Norway, which GNOME Weather reads through libgweather
-  (its `met-no` provider, in apt's libgweather-4). The place leaves like a Photon query does,
-  the home address from `Notes/PURI.md` included.
-- A small card under the answer, as the map is (`D_place_map`)?
-- `Q_weather_home`: a tool goes upstream, to pikuri-workshop, unless it's another `D_places`
-  exception.
-- `Q_weather_service`: Open-Meteo or MET Norway? MET's terms want an identifying User-Agent,
-  the same snag as Transitous (`routes-by-bike-foot-and-bus.md`): Puri has no version yet.
-
 ### Time zones and unit conversions
 
 "What time is it in London?", "How many centimetres are in an inch?", "What's 18 per cent of
@@ -186,10 +172,12 @@ The tools should already compose these; try each before building anything.
   attendees, then `mail_compose`.
 - "Summarize the details in a note" [unverified]: a read, then `write` in `Notes/`.
 - "What tasks do I have today?" [unverified]: the calendar, until Reminders exist.
+- "What's the weather going to be like on my trip to Lisbon?": the calendar's dates, then
+  `weather` (`weather.md`).
 
 ## Proposed order (not decided)
 
-Weather; the pill's Open; ask about the selection; timers; changing an event. Each is cheap or
+Weather (`weather.md`); the pill's Open; ask about the selection; timers; changing an event. Each is cheap or
 closes a gap the UI already shows, and together they cover the most of what Cmd-Space gets used
 for.
 
