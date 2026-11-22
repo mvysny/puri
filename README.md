@@ -68,7 +68,8 @@ llm = "Ornith 1.5, no thinking"
 Conversations run on the first `[[llm]]`. `[titler]` names the connection that titles them; the
 same model with its thinking switched off writes a title in about a second rather than thirty.
 `chmod 600` the file if it holds a key. Conversations are saved under
-`~/.local/state/puri/conversations/`.
+`~/.local/state/puri/conversations/`. To run the model on a home server instead, see
+[A home server over Tailscale](#a-home-server-over-tailscale).
 
 To let Puri search the web, add a [Brave Search](https://api-dashboard.search.brave.com) or
 [Exa](https://exa.ai) key:
@@ -214,6 +215,50 @@ once. `AUTOSTART=1` also starts it at login, so even the first press is instant.
 `bundle exec rake uninstall` removes it all.
 
 `bundle exec rake` runs the specs, rubocop, the type signatures and the doc checks, as CI does.
+
+## A home server over Tailscale
+
+The recommended setup: one machine at home runs both llama-server and whisper-server, and
+[Tailscale](https://tailscale.com) carries them over HTTPS to each machine you run Puri on, under
+one name on port 443, llama-server at `/llama` and whisper-server at `/whisper`.
+
+On the server, leave both on their defaults, which listen on 127.0.0.1 only: llama-server on 8080,
+whisper-server on 8081 as in the dictation section above. With them as systemd user units, let your
+user linger, so they start at boot rather than at your login:
+
+```sh
+sudo loginctl enable-linger $USER
+```
+
+Install [Tailscale](https://tailscale.com/download/linux) on the server and on each machine that
+runs Puri, and log them all into one tailnet. On the admin console's DNS page, turn on MagicDNS,
+then HTTPS Certificates; that publishes your machine names and the tailnet's name in a public
+certificate ledger, so give the server a name that says nothing. Then, on the server:
+
+```sh
+sudo tailscale serve --bg --https=443 --set-path=/llama   http://127.0.0.1:8080
+sudo tailscale serve --bg --https=443 --set-path=/whisper http://127.0.0.1:8081
+tailscale serve status
+```
+
+`--bg` keeps both across reboots; `status` prints the server's name, `box.tailXXXX.ts.net` here.
+Tailscale drops `/llama` and `/whisper` before passing a request on, so each server sees the paths
+it would see locally: `https://box.tailXXXX.ts.net/llama/health` answers what
+`http://127.0.0.1:8080/health` does on the server. In Puri's config, both URLs carry their path,
+and each `[[llm]]` names `server = "home"`:
+
+```toml
+[[server]]
+id  = "home"
+url = "https://box.tailXXXX.ts.net/llama"
+
+[dictation]
+url = "https://box.tailXXXX.ts.net/whisper"
+```
+
+Neither server needs a key: Serve answers your tailnet only, never the internet. Tailscale checks
+no key or password itself, so if you share the tailnet with others, the lock is a grant in its
+access policy that lets only your own devices reach the server's port 443.
 
 ## License
 

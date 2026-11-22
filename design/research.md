@@ -348,3 +348,22 @@ Ubuntu 26.04's whisper.cpp 1.8.3, `ggml-small.en.bin` on 4 CPU threads of a Ryze
   was no faster and lost the punctuation. **[verified]**
 - `pw-record --raw --rate 16000 --channels 1 --format s16 -` streams the PCM to stdout as it
   records, 32 KB/s. **[verified 2026-11-21]**
+
+## R_tailscale_serve — Tailscale Serve in front of llama-server and whisper-server
+
+Tailscale's `main` and its docs (kb 1242, 1312, 1153), read 2026-11-22; nothing run yet.
+
+- A proxy mount drops its path before forwarding: `/llama/v1/x` reaches `http://127.0.0.1:8080`
+  as `/v1/x`. The longest mount wins, and a bare `/llama` is proxied, never redirected.
+  **[src]** (`ipnlocal/serve.go`, tailscale#6571)
+- Neither the proxy nor its server sets a timeout, so a long turn ends only when one side closes.
+  **[src]**
+- No password, basic auth or bearer check of its own: the tailnet's access policy gates it, per
+  port, and it hands the backend `Tailscale-User-Login` and friends, none for a tagged device.
+  **[docs]**
+- HTTPS needs MagicDNS and HTTPS Certificates on, which publish the machine names and the
+  tailnet's name to the public CT ledger; `--bg` survives a reboot. **[docs]**
+- pikuri keeps a server URL's path: `…/llama` dials `…/llama/v1/…` and probes `…/llama/props`.
+  **[src]**
+- llama-server's `--api-prefix` and whisper-server's `--request-path` serve under a path of their
+  own, which a proxy that strips the path doesn't need. **[src]**
