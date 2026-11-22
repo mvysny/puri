@@ -226,6 +226,32 @@ RSpec.describe Puri::Core::Config do
     end
   end
 
+  describe '[weather]' do
+    let(:maps) { %([maps]\ntiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"\n) }
+
+    it 'is off without the table' do
+      write(@home, "#{minimal}#{maps}")
+      assert_nil load.weather
+    end
+
+    it "is on with an empty table, asking Open-Meteo's public API" do
+      write(@home, "#{minimal}#{maps}[weather]\n")
+      assert_equal 'https://api.open-meteo.com', load.weather.url
+    end
+
+    it 'takes a self-hosted Open-Meteo, over HTTP only' do
+      write(@home, %(#{minimal}#{maps}[weather]\nurl = "http://127.0.0.1:8080"\n))
+      assert_equal 'http://127.0.0.1:8080', load.weather.url
+      write(@home, %(#{minimal}#{maps}[weather]\nurl = "127.0.0.1:8080"\n))
+      assert_rejected('weather.url: .* is no http\(s\) URL')
+    end
+
+    it 'needs [maps], which finds its places' do
+      write(@home, "#{minimal}[weather]\n")
+      assert_rejected('\[weather\] needs \[maps\]')
+    end
+  end
+
   describe '[dictation]' do
     it 'is off without the table' do
       write(@home, minimal)

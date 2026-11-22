@@ -33,7 +33,7 @@ module Puri
         # @return [Hash{String => String}]
         TYPES = { 'N' => 'node', 'W' => 'way', 'R' => 'relation' }.freeze
 
-        # @param http [Puri::Core::Places::Http] shared, so its pacing covers every caller
+        # @param http [Puri::Core::Http] shared, so its pacing covers every caller
         # @param photon [String] a spec points these at its own server
         # @param nominatim [String]
         # @param osrm [String]
@@ -52,7 +52,7 @@ module Puri
         # @param limit [Integer]
         # @param cancellable [Pikuri::Agent::Control::Cancellable]
         # @return [Array<Puri::Core::Places::Place>]
-        # @raise [Puri::Core::Places::Http::Error]
+        # @raise [Puri::Core::Http::Error]
         def search(query, near: nil, limit: 5, cancellable: Pikuri::Agent::Control::Cancellable::NEVER)
           params = { q: query, limit: }
           params.merge!(lat: near.lat, lon: near.lon) if near
@@ -68,7 +68,7 @@ module Puri
         # @param limit [Integer]
         # @param cancellable [Pikuri::Agent::Control::Cancellable]
         # @return [Array<Puri::Core::Places::Place>]
-        # @raise [Puri::Core::Places::Http::Error]
+        # @raise [Puri::Core::Http::Error]
         def nearby(kind, near:, radius: 1500, limit: 10, cancellable: Pikuri::Agent::Control::Cancellable::NEVER)
           params = { amenity: kind, viewbox: viewbox(near, radius), bounded: 1, format: 'jsonv2', addressdetails: 1,
                      extratags: 1, limit: }
@@ -81,7 +81,7 @@ module Puri
         # @param places [Array<Puri::Core::Places::Place>]
         # @param cancellable [Pikuri::Agent::Control::Cancellable]
         # @return [Array<Puri::Core::Places::Place>] in the same order
-        # @raise [Puri::Core::Places::Http::Error]
+        # @raise [Puri::Core::Http::Error]
         def details(places, cancellable: Pikuri::Agent::Control::Cancellable::NEVER)
           ids = places.filter_map(&:osm).uniq.first(50).map { |osm| osm[0].upcase + osm[%r{/(\d+)\z}, 1] }
           return places if ids.empty?
@@ -98,7 +98,7 @@ module Puri
         # @param lon [Float]
         # @param cancellable [Pikuri::Agent::Control::Cancellable]
         # @return [Puri::Core::Places::Place] with no address where Nominatim knows none
-        # @raise [Puri::Core::Places::Http::Error]
+        # @raise [Puri::Core::Http::Error]
         def reverse(lat, lon, cancellable: Pikuri::Agent::Control::Cancellable::NEVER)
           found = get("#{@nominatim}/reverse", { lat:, lon:, format: 'jsonv2', addressdetails: 1 }, cancellable)
           Place.new(name: nil, lat:, lon:, address: address(found['address'] || {}))
@@ -110,7 +110,7 @@ module Puri
         # @param to [Puri::Core::Places::Place]
         # @param cancellable [Pikuri::Agent::Control::Cancellable]
         # @return [Puri::Core::Places::Route]
-        # @raise [Puri::Core::Places::Http::Error] also when no road joins them
+        # @raise [Puri::Core::Http::Error] also when no road joins them
         def route(from, to, cancellable: Pikuri::Agent::Control::Cancellable::NEVER)
           found = get("#{@osrm}/route/v1/driving/#{points(from, to)}",
                       { overview: 'simplified', geometries: 'geojson' }, cancellable)
@@ -126,7 +126,7 @@ module Puri
         # @param cancellable [Pikuri::Agent::Control::Cancellable]
         # @return [Array<Puri::Core::Places::Route, nil>] one per place, nil where no road leads; their
         #   lines empty
-        # @raise [Puri::Core::Places::Http::Error]
+        # @raise [Puri::Core::Http::Error]
         def drives(from, places, cancellable: Pikuri::Agent::Control::Cancellable::NEVER)
           return [] if places.empty?
 

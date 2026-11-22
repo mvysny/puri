@@ -81,6 +81,12 @@ RSpec.describe Puri::Dummy::Backend do
     assert_match(%r{\Ahttp://127\.0\.0\.1:\d+/\{z\}/\{x\}/\{y\}\.png\z}, blocks.last.tiles)
   end
 
+  it 'tells the weather, its step crediting Open-Meteo with a link' do
+    tool = finished(core.ask(nil, 'weather in Vantaa?')).blocks.grep(p::ToolLine).first
+    assert_equal '🌦 Weather from Open-Meteo: Vantaa', tool.text
+    assert_includes tool.markup, '<a href="https://open-meteo.com/">Open-Meteo</a>'
+  end
+
   it 'maps a drive, its road and the router’s note' do
     map = finished(core.ask(nil, 'drive from Jumbo')).blocks.last
     assert_operator map.line.size, :>, 10

@@ -135,6 +135,34 @@ RSpec.describe Puri::Core::AgentSession do
       built&.close
     end
 
+    it 'wires weather beside the place tools, given Open-Meteo to ask, and tells of it' do
+      config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil)
+      notebook = Puri::Core::Places::Notebook.new(tiles: 'https://tile.example/{z}/{x}/{y}.png')
+      http = Puri::Core::Http.new
+      open_meteo = Puri::Core::Weather::OpenMeteo.new(http:)
+      initializer = described_class::Initializer.new(config, conversation, lock:, cache_dir: @cache,
+                                                                           osm: Puri::Core::Places::Osm.new(http:),
+                                                                           notebook:, open_meteo:)
+      built = Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport { nil },
+                                system_prompt: initializer.system_prompt(nil)) { initializer.configure(_1, nil) }
+      assert_equal %w[calculator place_search route weather], built.tools.map(&:name)
+      assert_includes built.system_prompt, 'For a trip or an event, find its place and dates'
+    ensure
+      built&.close
+    end
+
+    it 'wires no weather tool without the place tools' do
+      config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil)
+      open_meteo = Puri::Core::Weather::OpenMeteo.new(http: Puri::Core::Http.new)
+      initializer = described_class::Initializer.new(config, conversation, lock:, cache_dir: @cache, open_meteo:)
+      built = Pikuri::Agent.new(transport: Pikuri::Testing.fake_transport { nil },
+                                system_prompt: initializer.system_prompt(nil)) { initializer.configure(_1, nil) }
+      assert_equal %w[calculator], built.tools.map(&:name)
+      refute_includes built.system_prompt, 'weather'
+    ensure
+      built&.close
+    end
+
     it 'wires play_music, given Rhythmbox' do
       config = Puri::Core::Config.new(llms: [], servers: [], titler_llm: nil)
       initializer = described_class::Initializer.new(config, conversation, lock:, cache_dir: @cache,

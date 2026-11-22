@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Puri::Core::Places::Http do
+RSpec.describe Puri::Core::Http do
   let(:osm) { FakeOsm.new }
   let(:http) { described_class.new(interval: 0) }
 
@@ -30,6 +30,20 @@ RSpec.describe Puri::Core::Places::Http do
     assert_equal(%w[1 2 3 2], osm.requests.map { _1.query['q'] })
   end
 
+  it 'asks again once a cached answer is older than its max_age' do
+    osm.answer('/x', body: '{}')
+    seconds = 100.0
+    timed = described_class.new(interval: 0, clock: -> { seconds })
+    timed.get_json("#{osm.url}/x", max_age: 60)
+    seconds += 60
+    timed.get_json("#{osm.url}/x", max_age: 60)
+    assert_equal 1, osm.requests.size
+    seconds += 1
+    timed.get_json("#{osm.url}/x", max_age: 60)
+    timed.get_json("#{osm.url}/x")
+    assert_equal 2, osm.requests.size, 'a fresh answer is cached anew; no max_age takes any'
+  end
+
   it 'keeps a second apart, or what it is given, between two requests to one host' do
     osm.answer('/x', body: '{}')
     paced = described_class.new(interval: 0.3)
@@ -55,6 +69,12 @@ RSpec.describe Puri::Core::Places::Http do
     osm.answer('/x', status: 400, body: '{"code":"InvalidQuery","message":"Query string malformed"}')
     error = assert_raises(described_class::Error) { http.get_json("#{osm.url}/x") }
     assert_equal '127.0.0.1 answered HTTP 400: Query string malformed', error.message
+  end
+
+  it 'says what Open-Meteo said was wrong, beside its "error": true' do
+    osm.answer('/x', status: 400, body: '{"error":true,"reason":"Forecast days is invalid."}')
+    error = assert_raises(described_class::Error) { http.get_json("#{osm.url}/x") }
+    assert_equal '127.0.0.1 answered HTTP 400: Forecast days is invalid.', error.message
   end
 
   it 'fails on a body that is no JSON, and caches nothing' do

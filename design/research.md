@@ -225,6 +225,22 @@ Tried from Vantaa on 2026-11-21; the specs' fixtures are these answers.
 - openstreetmap.org in a browser shows `?mlat=…&mlon=…&zoom=17` as a marker, and `/node/<id>` as
   the object's page: highlighted on the map, its raw tags beside it. **[verified]**
 
+## R_open_meteo — Open-Meteo's forecast API
+
+Tried from Vantaa on 2026-11-22; the specs' fixture is that answer.
+
+- One GET, `api.open-meteo.com/v1/forecast`, `current`, `daily` and `hourly` variables by name,
+  `timezone=auto` for the place's own days; `forecast_days` 0–16, `past_days` 0–92. The answer is
+  columns, one array per variable. No key, no User-Agent asked; under 10,000 calls a day,
+  non-commercial; server AGPLv3, self-hostable. **[docs]**
+- Data CC BY 4.0, plus its own terms: "You must include a link next to any location Open-Meteo data
+  are displayed". **[docs]** CC BY's legal code asks credit only when you share "to the public".
+  **[docs]**
+- The sixteenth day comes back all nulls, its first hours aside: the models stop. **[verified]**
+- A bad request is HTTP 400 `{"error": true, "reason": "…"}`, readable: "start_date is out of
+  allowed range from 2026-08-21 to 2026-12-07". **[verified]**
+- Its geocoder is GeoNames: towns and postcodes, no street addresses. **[docs]**
+
 ## R_shumate — libshumate 1.6~beta from Ruby, and OSM's tiles
 
 OSM's [tile usage policy](https://operations.osmfoundation.org/policies/tiles/); the rest on

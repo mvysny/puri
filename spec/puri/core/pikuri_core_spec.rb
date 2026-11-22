@@ -371,6 +371,11 @@ RSpec.describe Puri::Core::PikuriCore do
       assert_includes Pikuri.log_io.string, 'sets no Brave or Exa key: the agent has no web tools'
     end
 
+    it 'logs that the agent has no weather tool, without [weather]' do
+      core
+      assert_includes Pikuri.log_io.string, 'no [weather] in config.toml: the agent has no weather tool'
+    end
+
     context 'with a Brave key' do
       let(:config) do
         main = c::Llm.new(name: 'Main', server: 'http://127.0.0.1:9', model: 'x')

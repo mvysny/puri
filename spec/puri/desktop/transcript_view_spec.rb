@@ -63,6 +63,17 @@ RSpec.describe 'Puri::Desktop::TranscriptView' do
     assert_kind_of Puri::Desktop::PlaceMap, view.row('b1')
   end
 
+  it "draws a tool line's markup, so its credit is a link, and a plain line as text" do
+    view.upsert(p::ToolLine.new(id: 'b1', text: '🌦 Weather from Open-Meteo: x <y>', error: false,
+                                markup: '🌦 Weather from <a href="https://open-meteo.com/">Open-Meteo</a>: x &lt;y&gt;'))
+    row = view.row('b1')
+    assert_equal '🌦 Weather from Open-Meteo: x <y>', row.text
+    assert row.use_markup?
+    view.upsert(p::ToolLine.new(id: 'b1', text: '🔍 Searched: "<b>"', error: false))
+    assert_equal '🔍 Searched: "<b>"', row.text
+    refute row.use_markup?
+  end
+
   it 'drops a removed block, and ignores one it never showed' do
     view.upsert(p::UserMessage.new(id: 'b1', text: 'hi'))
     view.remove('b1')

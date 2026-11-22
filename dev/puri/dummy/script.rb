@@ -14,6 +14,7 @@ module Puri
     #   long                       a long answer, for scrolling and Escape while it streams
     #   coffee                     a place search, then cafés on a map under the answer
     #   drive                      a route, then the road on a map
+    #   weather                    a forecast, its step crediting Open-Meteo with a link
     #   fail                       streams a little, then the turn fails
     module Script
       # @return [Array<String>]
@@ -56,6 +57,7 @@ module Puri
         elsif said.call('long') then long(turn)
         elsif said.call('coffee') then coffee(turn)
         elsif said.call('drive') then drive(turn)
+        elsif said.call('weather') then weather(turn)
         elsif said.call('fail') then failure(turn)
         else plain(turn)
         end
@@ -83,7 +85,8 @@ module Puri
 
           Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
           incididunt ut labore et *dolore magna aliqua*. Try a question with `search`, `note`,
-          `table`, `long`, `coffee`, `drive`, `fail`, `mail`, or `reschedule` plus `calendar` in it.
+          `table`, `long`, `coffee`, `drive`, `weather`, `fail`, `mail`, or `reschedule` plus `calendar`
+          in it.
         MD
       end
 
@@ -234,6 +237,22 @@ module Puri
         jumbo = Protocol::Pin.new(label: '1', name: 'Jumbo (mall), Vantaanportinkatu 3', lat: 60.2915942,
                                   lon: 24.9656777, url: 'https://www.openstreetmap.org/way/25373590')
         turn.map([jumbo, SHOP.with(label: '2')], line: ROAD, note: Core::Places::RouteTool::NOTE)
+      end
+
+      # @param turn [Puri::Dummy::Turn]
+      # @return [void]
+      def weather(turn)
+        turn.think('Thinking…')
+        turn.think('Checking the weather…')
+        credit = Core::Weather::CREDIT
+        turn.tool("🌦 Weather from #{credit}: Vantaa",
+                  markup: %(🌦 Weather from <a href="#{Core::Weather::CREDIT_URL}">#{credit}</a>: Vantaa))
+        turn.stream(<<~MD)
+          In **Vantaa** it's **0 °C** and partly cloudy, feeling like −5 °C in the wind.
+
+          - **Tomorrow:** light drizzle, 1 to 2 °C.
+          - **Then:** overcast and colder, down to −6 °C by Saturday.
+        MD
       end
 
       # @param turn [Puri::Dummy::Turn]

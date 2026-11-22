@@ -18,6 +18,7 @@ module Puri
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
     #   config.maps          # => MapsTable(tiles:), or nil without the table
+    #   config.weather       # => WeatherTable(url:), or nil without the table
     #   config.dictation     # => DictationTable(url:, api_key:, model:), or nil without the table
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
@@ -55,6 +56,9 @@ module Puri
     #
     #   [maps]                           # optional; omitted, the agent has no place tools
     #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
+    #
+    #   [weather]                        # optional, and only with [maps]; omitted, no weather tool
+    #   url = "https://api.open-meteo.com"   # optional, the default; a self-hosted Open-Meteo
     #
     #   [dictation]                      # optional; omitted, the prompt has no mic
     #   url     = "http://127.0.0.1:8081"  # required; an OpenAI-style transcription server
@@ -261,6 +265,21 @@ module Puri
         constrain :tiles, not_blank: true
       end
 
+      # The `[weather]` table, which turns on the `weather` tool (`D_weather`). It finds its place
+      # through the place tools, so it needs `[maps]` too. The forecast is Open-Meteo's, whose server
+      # is open source, so the URL is a setting.
+      #
+      # @!attribute [r] url
+      #   @return [String] the API's base, without `/v1`
+      class WeatherTable < Data.define(:url)
+        extend Typemap::Constrain
+
+        constrain :url, not_blank: true
+
+        # @param url [String]
+        def initialize(url: Weather::OpenMeteo::URL) = super
+      end
+
       # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): an
       # OpenAI-style transcription server of the user's own, whisper.cpp's `whisper-server` on
       # this machine unless they opt into a hosted one. Its own URL, not a `[[server]]` id: those
@@ -313,9 +332,12 @@ module Puri
       #   @return [DocumentsTable, nil] the `[documents]` table
       # @!attribute [r] maps
       #   @return [MapsTable, nil] the `[maps]` table
+      # @!attribute [r] weather
+      #   @return [WeatherTable, nil] the `[weather]` table
       # @!attribute [r] dictation
       #   @return [DictationTable, nil] the `[dictation]` table
-      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird, :documents, :maps, :dictation)
+      class Root < Data.define(:server, :llm, :titler, :search, :thunderbird, :documents, :maps, :weather,
+                               :dictation)
         extend Typemap::Constrain
 
         constrain :server, unique_by: :id
@@ -328,9 +350,10 @@ module Puri
         # @param thunderbird [ThunderbirdTable, nil]
         # @param documents [DocumentsTable, nil]
         # @param maps [MapsTable, nil]
+        # @param weather [WeatherTable, nil]
         # @param dictation [DictationTable, nil]
         def initialize(server: [], llm: [], titler: nil, search: nil, thunderbird: nil, documents: nil,
-                       maps: nil, dictation: nil) = super
+                       maps: nil, weather: nil, dictation: nil) = super
       end
 
       # A file that loads: Ornith 1.5 on a local llama-server, and the same model with its
@@ -365,6 +388,9 @@ module Puri
         # [maps]
         # tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 
+        # The weather, from Open-Meteo (weather data by Open-Meteo.com, CC BY 4.0); needs [maps].
+        # [weather]
+
         # The mic in the prompt (F5), transcribed by your own whisper-server; see the README.
         # [dictation]
         # url = "http://127.0.0.1:8081"
@@ -389,7 +415,8 @@ module Puri
       #   their own
       # @return [Puri::Core::Config]
       # @raise [Error] when no file exists, a file can't be read or parsed, a value breaks the
-      #   schema, no `[[llm]]` or `[titler]` is defined, or `[search]` names an engine it can't use
+      #   schema, no `[[llm]]` or `[titler]` is defined, `[search]` names an engine it can't use, or
+      #   `[weather]` comes without `[maps]`
       def self.load(env: ENV)
         files = candidate_paths(env).select { |path| File.file?(path) }
         raise Error, "no config file found. #{write_example(env)}" if files.empty?
@@ -408,6 +435,7 @@ module Puri
         new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
             search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird),
             documents: root.documents && resolve_documents(root.documents), maps: root.maps && resolve_maps(root.maps),
+            weather: root.weather && resolve_weather(root.weather, root.maps),
             dictation: root.dictation && resolve_dictation(root.dictation))
       end
 
@@ -420,9 +448,10 @@ module Puri
       #   or nil; nil by default, so a config built in code reads no profile unless it says which
       # @param documents [Puri::Core::Config::Documents, nil] the `[documents]` folder, or nil
       # @param maps [Puri::Core::Config::MapsTable, nil] the `[maps]` table, or nil
+      # @param weather [Puri::Core::Config::WeatherTable, nil] the `[weather]` table, or nil
       # @param dictation [Puri::Core::Config::DictationTable, nil] the `[dictation]` table, or nil
       def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil, documents: nil, maps: nil,
-                     dictation: nil)
+                     weather: nil, dictation: nil)
         @llms = llms.freeze
         @servers = servers.freeze
         @titler_llm = titler_llm
@@ -430,6 +459,7 @@ module Puri
         @thunderbird = thunderbird
         @documents = documents
         @maps = maps
+        @weather = weather
         @dictation = dictation
         freeze
       end
@@ -459,6 +489,10 @@ module Puri
       # @return [Puri::Core::Config::MapsTable, nil] the tiles the map under an answer draws; nil
       #   without a `[maps]` table, and the agent has no place tools
       attr_reader :maps
+
+      # @return [Puri::Core::Config::WeatherTable, nil] where the forecast comes from; nil without a
+      #   `[weather]` table, and the agent has no weather tool
+      attr_reader :weather
 
       # @return [Puri::Core::Config::DictationTable, nil] the server the mic's clips go to; nil
       #   without a `[dictation]` table, and the prompt has no mic
@@ -608,6 +642,17 @@ module Puri
         table
       end
 
+      # @param table [Puri::Core::Config::WeatherTable]
+      # @param maps [Puri::Core::Config::MapsTable, nil] the `[maps]` table, which it needs
+      # @return [Puri::Core::Config::WeatherTable] `table`
+      # @raise [Error] without `[maps]`, or when `url` isn't http(s)
+      def self.resolve_weather(table, maps)
+        raise Error, '[weather] needs [maps]: the weather tool finds its place on OpenStreetMap' unless maps
+        raise Error, "weather.url: #{table.url} is no http(s) URL" unless table.url.match?(%r{\Ahttps?://}i)
+
+        table
+      end
+
       # @param table [Puri::Core::Config::DictationTable]
       # @return [Puri::Core::Config::DictationTable] `table`
       # @raise [Error] when `url` isn't http(s)
@@ -625,7 +670,7 @@ module Puri
 
       private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
                            :resolve_llm, :resolve_titler, :resolve_search, :resolve_thunderbird,
-                           :resolve_documents, :resolve_maps, :resolve_dictation, :write_example
+                           :resolve_documents, :resolve_maps, :resolve_weather, :resolve_dictation, :write_example
     end
   end
 end

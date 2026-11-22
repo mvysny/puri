@@ -199,6 +199,20 @@ as a search's query; OSM's terms want Puri's User-Agent, the attribution on the 
 server a setting, hence `[maps] tiles`, which turns the feature on. No photo: OSM rarely has one,
 and its URL would be a stranger's to fetch.
 
+## D_weather — Why a weather tool of Puri's own, on Open-Meteo, its credit on the tool line, rather than MET Norway, or a card?
+
+Open-Meteo is free, keyless and asks for no User-Agent; MET Norway, as solid, wants one naming a
+version Puri lacks (owner, 2026-11-22; `R_open_meteo`). It lives here against *a gap is a missing
+pikuri primitive*, like the place tools (owner), and needs `[maps]`: Photon finds the place, a
+street address included, which Open-Meteo's GeoNames can't, and `Places::Ends` numbers it for
+`route`. Only the point leaves for Open-Meteo, rounded to 0.01°. Dates are the model's only by
+choice: no dates gives a week, a line a day with its weekday, so "this weekend" is a line to read,
+not sums a small model slips on; the description names the last date, today + 14, as the sixteenth
+day comes back empty. Text only, no card (owner). Open-Meteo's terms want a link beside its data,
+which in a desktop window CC BY alone doesn't (`R_open_meteo`); the tool line carries it, "Weather
+from Open-Meteo" linked (owner), costing a `markup` on `ToolLine` rather than a widget. Units are
+GNOME's `org.gnome.GWeather4` (owner), so Puri says what GNOME Weather says.
+
 ## D_music — Why play music in Rhythmbox alone, over its D-Bus, rather than in the default player, or in Puri itself?
 
 No standard can ask "the default player" for an artist, and GNOME Music can't be handed a track

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'cgi'
+
 module Puri
   module Core
     # How a tool call reads in the transcript: the status under the progress bar while it runs,
@@ -7,6 +9,8 @@ module Puri
     #
     #   ToolWording.status(call)                          # => "Searching the web…"
     #   ToolWording.line(call, content:, summary:)        # => ToolLine(text: '🔍 Searched: "avocado"')
+    #   ToolWording.line(weather, content:, summary:).markup
+    #   # => '🌦 Weather from <a href="https://open-meteo.com/">Open-Meteo</a>: Lisbon', its {CREDITS} linked
     #
     # `call` is the live `Pikuri::Agent::Event::ToolCall` or the saved
     # `Pikuri::Agent::History::ToolCall`, so {TurnListener} and {Replay} word a line alike. Only the
@@ -54,8 +58,15 @@ module Puri
         'calculator' => Wording.new('Calculating…', '🧮 Calculated'),
         'place_search' => Wording.new('Looking up places…', '📍 Looked up'),
         'route' => Wording.new('Finding a route…', '🚗 Route'),
-        'play_music' => Wording.new('Looking for the music…', '🎵 Music')
+        'play_music' => Wording.new('Looking for the music…', '🎵 Music'),
+        'weather' => Wording.new('Checking the weather…', "🌦 Weather from #{Weather::CREDIT}")
       }.freeze
+
+      # The credit a tool's line links, by tool: a data source whose terms want a link beside its
+      # data. The text must be in the line.
+      #
+      # @return [Hash{String => Array(String, String)}] the credit's text, and its URL
+      CREDITS = { 'weather' => [Weather::CREDIT, Weather::CREDIT_URL] }.freeze
 
       # Whose argument a line leaves out.
       #
@@ -88,8 +99,21 @@ module Puri
         outcome = summary.to_s if error || summary == Pikuri::Agent::INTERRUPTED_SUMMARY ||
                                   (SUMMED.include?(call.name) && !summary.to_s.empty?)
         text = Pikuri::Sanitizer.sanitize(Pikuri::Tool.one_line(text(call, outcome))).text
-        Protocol::ToolLine.new(id: nil, text:, error:)
+        Protocol::ToolLine.new(id: nil, text:, error:, markup: markup(call, text))
       end
+
+      # @param call [Pikuri::Agent::Event::ToolCall, Pikuri::Agent::History::ToolCall]
+      # @param text [String] its line
+      # @return [String, nil] the line as Pango markup with its {CREDITS} linked; nil for a tool
+      #   with none
+      def markup(call, text)
+        credit, url = CREDITS[call.name]
+        return nil unless credit
+
+        link = %(<a href="#{CGI.escapeHTML(url)}">#{CGI.escapeHTML(credit)}</a>)
+        CGI.escapeHTML(text).sub(CGI.escapeHTML(credit)) { link }
+      end
+      private_class_method :markup
 
       # @param call [Pikuri::Agent::Event::ToolCall, Pikuri::Agent::History::ToolCall]
       # @param outcome [String, nil] the tool's summary of a call that failed or was cut short, or

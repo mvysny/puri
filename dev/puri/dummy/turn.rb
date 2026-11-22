@@ -90,9 +90,10 @@ module Puri
 
       # @param text [String] the step, worded
       # @param error [Boolean]
+      # @param markup [String, nil] the same line as Pango markup, a credit linked
       # @return [void]
-      def tool(text, error: false)
-        @conversation.add(Protocol::ToolLine.new(id: nil, text:, error:))
+      def tool(text, error: false, markup: nil)
+        @conversation.add(Protocol::ToolLine.new(id: nil, text:, error:, markup:))
       end
 
       # Closes the turn's answer with a map, as Core does once a turn with a place tool ends.

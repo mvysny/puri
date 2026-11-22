@@ -49,6 +49,83 @@ module Puri
   # Core never names Gtk, Adw, GLib, Gio or {Desktop}, so it loads and runs without GTK and could
   # move into its own process unchanged; `spec/boundaries_spec.rb` holds it to that.
   module Core
+    # GETs JSON from the public services the agent's tools ask, OpenStreetMap's and Open-Meteo's,
+    # as their terms ask: Puri's own User-Agent, at most one request a second to each host, and
+    # answers cached.
+    # 
+    #   http = Http.new
+    #   http.get_json('https://photon.komoot.io/api/?q=Jumbo', cancellable:)   # => {"features" => […]}
+    #   http.get_json(forecast_url, max_age: 900, cancellable:)                # asked again after 15 min
+    # 
+    # A cached answer costs no request and no wait. A request to a host asked less than an
+    # interval ago waits its turn on `cancellable`, so a cancel lands during the wait.
+    # 
+    # Thread-safe: one per process, or two agents would each send their own one a second.
+    class Http
+      MONOTONIC: Proc
+
+      # _@param_ `interval` — seconds between two requests to one host
+      # 
+      # _@param_ `cache_size` — answers kept, the least recently used dropped first
+      # 
+      # _@param_ `timeout` — seconds to connect, and again to read
+      # 
+      # _@param_ `clock` — monotonic seconds; a spec's moves at will
+      def initialize: (
+                        ?interval: Float,
+                        ?cache_size: Integer,
+                        ?timeout: Integer,
+                        ?clock: Proc
+                      ) -> void
+
+      # _@param_ `url`
+      # 
+      # _@param_ `max_age` — seconds a cached answer stays good; nil keeps it until the cache drops it
+      # 
+      # _@param_ `cancellable` — the turn's
+      # 
+      # _@return_ — the parsed JSON
+      def get_json: (String url, ?max_age: Float?, ?cancellable: Pikuri::Agent::Control::Cancellable) -> (::Hash[String, Object] | ::Array[Object])
+
+      # Books the host's next free slot, so two callers waiting at once go a second apart.
+      # 
+      # _@param_ `host`
+      # 
+      # _@return_ — when this request may go, on the monotonic clock
+      def reserve: (String host) -> Float
+
+      # _@param_ `uri`
+      def fetch: (URI::HTTP uri) -> (::Hash[String, Object] | ::Array[Object])
+
+      # OSRM and Nominatim say what was wrong in a JSON `message` or `error`, Open-Meteo in a
+      # `reason` beside `"error": true`.
+      # 
+      # _@param_ `body`
+      # 
+      # _@return_ — ": the message", or "" for none
+      def reason: (String? body) -> String
+
+      # _@param_ `url`
+      # 
+      # _@param_ `max_age`
+      # 
+      # _@return_ — moved to the most recently used; nil
+      # for none, or one older than `max_age`
+      def hit: (String url, Float? max_age) -> (::Hash[String, Object] | ::Array[Object])?
+
+      # _@param_ `url`
+      # 
+      # _@param_ `json`
+      def remember: (String url, (::Hash[String, Object] | ::Array[Object]) json) -> void
+
+      def now: () -> Float
+
+      # A request that failed: the network, a timeout, a status other than 200, or a body that
+      # isn't JSON. Its message says which host, and why.
+      class Error < StandardError
+      end
+    end
+
     # "Play my favourite music": the `play_music` tool, which finds an artist, an album, a song or
     # a genre in Rhythmbox's library and plays it there (`D_music`).
     # 
@@ -380,6 +457,7 @@ module Puri
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
     #   config.maps          # => MapsTable(tiles:), or nil without the table
+    #   config.weather       # => WeatherTable(url:), or nil without the table
     #   config.dictation     # => DictationTable(url:, api_key:, model:), or nil without the table
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
@@ -417,6 +495,9 @@ module Puri
     # 
     #   [maps]                           # optional; omitted, the agent has no place tools
     #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
+    # 
+    #   [weather]                        # optional, and only with [maps]; omitted, no weather tool
+    #   url = "https://api.open-meteo.com"   # optional, the default; a self-hosted Open-Meteo
     # 
     #   [dictation]                      # optional; omitted, the prompt has no mic
     #   url     = "http://127.0.0.1:8081"  # required; an OpenAI-style transcription server
@@ -466,6 +547,8 @@ module Puri
       # 
       # _@param_ `maps` — the `[maps]` table, or nil
       # 
+      # _@param_ `weather` — the `[weather]` table, or nil
+      # 
       # _@param_ `dictation` — the `[dictation]` table, or nil
       def initialize: (
                         llms: ::Array[Puri::Core::Config::Llm],
@@ -475,6 +558,7 @@ module Puri
                         ?thunderbird: Puri::Core::Config::ThunderbirdTable?,
                         ?documents: Puri::Core::Config::Documents?,
                         ?maps: Puri::Core::Config::MapsTable?,
+                        ?weather: Puri::Core::Config::WeatherTable?,
                         ?dictation: Puri::Core::Config::DictationTable?
                       ) -> void
 
@@ -552,6 +636,13 @@ module Puri
 
       # _@param_ `table`
       # 
+      # _@param_ `maps` — the `[maps]` table, which it needs
+      # 
+      # _@return_ — `table`
+      def self.resolve_weather: (Puri::Core::Config::WeatherTable table, Puri::Core::Config::MapsTable? maps) -> Puri::Core::Config::WeatherTable
+
+      # _@param_ `table`
+      # 
       # _@return_ — `table`
       def self.resolve_dictation: (Puri::Core::Config::DictationTable table) -> Puri::Core::Config::DictationTable
 
@@ -585,6 +676,10 @@ module Puri
       # _@return_ — the tiles the map under an answer draws; nil
       # without a `[maps]` table, and the agent has no place tools
       attr_reader maps: Puri::Core::Config::MapsTable?
+
+      # _@return_ — where the forecast comes from; nil without a
+      # `[weather]` table, and the agent has no weather tool
+      attr_reader weather: Puri::Core::Config::WeatherTable?
 
       # _@return_ — the server the mic's clips go to; nil
       # without a `[dictation]` table, and the prompt has no mic
@@ -861,6 +956,22 @@ module Puri
         attr_reader tiles: String
       end
 
+      # The `[weather]` table, which turns on the `weather` tool (`D_weather`). It finds its place
+      # through the place tools, so it needs `[maps]` too. The forecast is Open-Meteo's, whose server
+      # is open source, so the URL is a setting.
+      # 
+      # @!attribute [r] url
+      #   @return [String] the API's base, without `/v1`
+      class WeatherTable
+        extend Typemap::Constrain
+
+        # _@param_ `url`
+        def initialize: (?url: String) -> void
+
+        # _@return_ — the API's base, without `/v1`
+        attr_reader url: String
+      end
+
       # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): an
       # OpenAI-style transcription server of the user's own, whisper.cpp's `whisper-server` on
       # this machine unless they opt into a hosted one. Its own URL, not a `[[server]]` id: those
@@ -925,6 +1036,8 @@ module Puri
       #   @return [DocumentsTable, nil] the `[documents]` table
       # @!attribute [r] maps
       #   @return [MapsTable, nil] the `[maps]` table
+      # @!attribute [r] weather
+      #   @return [WeatherTable, nil] the `[weather]` table
       # @!attribute [r] dictation
       #   @return [DictationTable, nil] the `[dictation]` table
       class Root
@@ -944,6 +1057,8 @@ module Puri
         # 
         # _@param_ `maps`
         # 
+        # _@param_ `weather`
+        # 
         # _@param_ `dictation`
         def initialize: (
                           ?server: ::Array[Server],
@@ -953,6 +1068,7 @@ module Puri
                           ?thunderbird: ThunderbirdTable?,
                           ?documents: DocumentsTable?,
                           ?maps: MapsTable?,
+                          ?weather: WeatherTable?,
                           ?dictation: DictationTable?
                         ) -> void
 
@@ -976,6 +1092,9 @@ module Puri
 
         # _@return_ — the `[maps]` table
         attr_reader maps: MapsTable?
+
+        # _@return_ — the `[weather]` table
+        attr_reader weather: WeatherTable?
 
         # _@return_ — the `[dictation]` table
         attr_reader dictation: DictationTable?
@@ -1083,7 +1202,7 @@ module Puri
         # 
         # _@param_ `osrm`
         def initialize: (
-                          ?http: Puri::Core::Places::Http,
+                          ?http: Puri::Core::Http,
                           ?photon: String,
                           ?nominatim: String,
                           ?osrm: String
@@ -1329,66 +1448,6 @@ module Puri
         # The model's text names nothing: a number no search gave, coordinates off the globe, an
         # address nothing matches. The message is for the model, to correct itself.
         class Unresolved < StandardError
-        end
-      end
-
-      # GETs JSON from OpenStreetMap's public services as their terms ask: Puri's own User-Agent,
-      # at most one request a second to each host, and answers cached.
-      # 
-      #   http = Http.new
-      #   http.get_json('https://photon.komoot.io/api/?q=Jumbo', cancellable:)   # => {"features" => […]}
-      # 
-      # A cached answer costs no request and no wait. A request to a host asked less than an
-      # interval ago waits its turn on `cancellable`, so a cancel lands during the wait.
-      # 
-      # Thread-safe: one per process, or two agents would each send their own one a second.
-      class Http
-        # _@param_ `interval` — seconds between two requests to one host
-        # 
-        # _@param_ `cache_size` — answers kept, the least recently used dropped first
-        # 
-        # _@param_ `timeout` — seconds to connect, and again to read
-        def initialize: (?interval: Float, ?cache_size: Integer, ?timeout: Integer) -> void
-
-        # _@param_ `url`
-        # 
-        # _@param_ `cancellable` — the turn's
-        # 
-        # _@return_ — the parsed JSON
-        def get_json: (String url, ?cancellable: Pikuri::Agent::Control::Cancellable) -> (::Hash[String, Object] | ::Array[Object])
-
-        # Books the host's next free slot, so two callers waiting at once go a second apart.
-        # 
-        # _@param_ `host`
-        # 
-        # _@return_ — when this request may go, on the monotonic clock
-        def reserve: (String host) -> Float
-
-        # _@param_ `uri`
-        def fetch: (URI::HTTP uri) -> (::Hash[String, Object] | ::Array[Object])
-
-        # OSRM and Nominatim say what was wrong in a JSON `message` or `error`.
-        # 
-        # _@param_ `body`
-        # 
-        # _@return_ — ": the message", or "" for none
-        def reason: (String? body) -> String
-
-        # _@param_ `url`
-        # 
-        # _@return_ — moved to the most recently used
-        def hit: (String url) -> (::Hash[String, Object] | ::Array[Object])?
-
-        # _@param_ `url`
-        # 
-        # _@param_ `json`
-        def remember: (String url, (::Hash[String, Object] | ::Array[Object]) json) -> void
-
-        def now: () -> Float
-
-        # A request that failed: the network, a timeout, a status other than 200, or a body that
-        # isn't JSON. Its message says which host, and why.
-        class Error < StandardError
         end
       end
 
@@ -1815,6 +1874,485 @@ module Puri
       attr_reader file_index_tools: ::Array[Pikuri::Tool]
     end
 
+    # "What's the weather like in Lisbon?": the `weather` tool, a forecast from Open-Meteo at a
+    # place OpenStreetMap finds, in GNOME's units (`D_weather`).
+    # 
+    #   open_meteo = Weather::OpenMeteo.new(http:)   # one per process, on the place tools' Http
+    #   configurator.add_tool(Weather::ForecastTool.new(open_meteo:, osm:, notebook:, units: Weather::Units.gnome,
+    #                                                   today: Date.today))
+    # 
+    # {OpenMeteo} asks for the whole forecast and reads it into a {Forecast}; {ForecastTool}
+    # finds the place through the place tools' `Places::Ends`, cuts the days asked for out of it
+    # and words them.
+    module Weather
+      CREDIT: String
+      CREDIT_URL: String
+
+      # What a forecast is shown in: GNOME's choice, so Puri says what GNOME Weather and the
+      # shell's clock say.
+      # 
+      #   Units.gnome   # => Units(temperature: :celsius, wind: :kmh, precipitation: :mm) on a metric desktop
+      #   units.wind_label        # => "km/h"
+      #   units.wind_speed(17.24) # => 17; with wind: :bft, Open-Meteo's 9.2 m/s => force 5
+      # 
+      # GNOME keeps temperature and wind in `org.gnome.GWeather4`; precipitation follows its
+      # distance unit, miles meaning inches. Each key's `default` follows the locale's
+      # `LC_MEASUREMENT`: imperial gives °F, mph and inches, anything else °C, km/h and mm.
+      # 
+      # @!attribute [r] temperature
+      #   @return [Symbol] `:celsius` or `:fahrenheit`
+      # @!attribute [r] wind
+      #   @return [Symbol] `:kmh`, `:ms`, `:mph`, `:kn` or `:bft`
+      # @!attribute [r] precipitation
+      #   @return [Symbol] `:mm` or `:inch`
+      class Units
+        LOGGER: Logger
+        SCHEMA: String
+        WINDS: ::Hash[String, Symbol]
+        WIND_LABELS: ::Hash[Symbol, String]
+        BEAUFORT: ::Array[Float]
+
+        # _@param_ `settings` — the `temperature-unit`, `speed-unit` and `distance-unit` keys, as `gsettings get` prints them, quotes stripped; a key missing is `default`
+        # 
+        # _@param_ `imperial` — whether the locale measures in imperial units
+        def self.from: (::Hash[String, String] settings, imperial: bool) -> Puri::Core::Weather::Units
+
+        # This desktop's units. A machine without GNOME's schema, or without `gsettings`, gets the
+        # locale's.
+        def self.gnome: () -> Puri::Core::Weather::Units
+
+        # _@param_ `key`
+        # 
+        # _@return_ — its value, quotes stripped; nil when it can't be read
+        def self.gsetting: (String key) -> String?
+
+        # _@return_ — whether `LC_MEASUREMENT` says imperial: glibc's `measurement=2`
+        def self.imperial_locale?: () -> bool
+
+        # _@return_ — "°C" or "°F"
+        def temperature_label: () -> String
+
+        # _@return_ — "km/h", "m/s", "mph", "kn" or "Bft"
+        def wind_label: () -> String
+
+        # _@return_ — "mm" or "in"
+        def precipitation_label: () -> String
+
+        # _@return_ — Open-Meteo's `temperature_unit`
+        def open_meteo_temperature: () -> String
+
+        # _@return_ — Open-Meteo's `wind_speed_unit`; Beaufort, which it lacks, comes as m/s
+        def open_meteo_wind: () -> String
+
+        # _@return_ — Open-Meteo's `precipitation_unit`
+        def open_meteo_precipitation: () -> String
+
+        # _@param_ `speed` — as Open-Meteo answered it
+        # 
+        # _@return_ — rounded in these units: m/s become a Beaufort force
+        def wind_speed: (Float? speed) -> Integer?
+
+        # _@param_ `metres_per_second`
+        # 
+        # _@return_ — 0 to 12
+        def beaufort: (Float metres_per_second) -> Integer
+
+        # _@return_ — `:celsius` or `:fahrenheit`
+        attr_reader temperature: Symbol
+
+        # _@return_ — `:kmh`, `:ms`, `:mph`, `:kn` or `:bft`
+        attr_reader wind: Symbol
+
+        # _@return_ — `:mm` or `:inch`
+        attr_reader precipitation: Symbol
+      end
+
+      # One place's weather as Open-Meteo answered it, in the place's own time and in the
+      # {Units} asked for: now, a line a day, and each hour.
+      # 
+      #   forecast = open_meteo.forecast(lat: 38.72, lon: -9.14, units:)
+      #   forecast.today              # => #<Date 2026-11-22>, the place's
+      #   forecast.days.last.date     # => #<Date 2026-12-06>: the last day with data, 14 or 15 ahead
+      #   forecast.hours_of(forecast.today).first.clock   # => "00:00"
+      # 
+      # Any value but a time may be nil, where the weather models have none.
+      # 
+      # @!attribute [r] timezone
+      #   @return [String] the place's, "Europe/Lisbon"
+      # @!attribute [r] now
+      #   @return [Puri::Core::Weather::Forecast::Now]
+      # @!attribute [r] days
+      #   @return [Array<Puri::Core::Weather::Forecast::Day>] in order, past days first
+      # @!attribute [r] hours
+      #   @return [Array<Puri::Core::Weather::Forecast::Hour>] in order, over the same days
+      class Forecast
+        # _@return_ — the place's today, which may not be the machine's
+        def today: () -> Date
+
+        # _@param_ `date`
+        def day: (Date date) -> Puri::Core::Weather::Forecast::Day?
+
+        # _@param_ `date`
+        def hours_of: (Date date) -> ::Array[Puri::Core::Weather::Forecast::Hour]
+
+        # _@return_ — the place's, "Europe/Lisbon"
+        attr_reader timezone: String
+
+        attr_reader now: Puri::Core::Weather::Forecast::Now
+
+        # _@return_ — in order, past days first
+        attr_reader days: ::Array[Puri::Core::Weather::Forecast::Day]
+
+        # _@return_ — in order, over the same days
+        attr_reader hours: ::Array[Puri::Core::Weather::Forecast::Hour]
+
+        # The weather at the moment, from Open-Meteo's 15-minute data.
+        # 
+        # @!attribute [r] time
+        #   @return [String] local, "2026-11-22T15:15"
+        # @!attribute [r] condition
+        #   @return [String, nil] "overcast"
+        # @!attribute [r] temperature
+        #   @return [Float, nil]
+        # @!attribute [r] feels_like
+        #   @return [Float, nil]
+        # @!attribute [r] wind
+        #   @return [Integer, nil] in {Units#wind_label}
+        class Now
+          def date: () -> Date
+
+          # _@return_ — "15:15"
+          def clock: () -> String
+
+          # _@return_ — local, "2026-11-22T15:15"
+          attr_reader time: String
+
+          # _@return_ — "overcast"
+          attr_reader condition: String?
+
+          attr_reader temperature: Float?
+
+          attr_reader feels_like: Float?
+
+          # _@return_ — in {Units#wind_label}
+          attr_reader wind: Integer?
+        end
+
+        # @!attribute [r] date
+        #   @return [Date]
+        # @!attribute [r] condition
+        #   @return [String, nil] the day's most significant weather, "slight rain showers"
+        # @!attribute [r] high
+        #   @return [Float, nil]
+        # @!attribute [r] low
+        #   @return [Float, nil]
+        # @!attribute [r] precipitation
+        #   @return [Float, nil] rain and snow together, as water
+        # @!attribute [r] chance
+        #   @return [Integer, nil] the likeliest hour's chance of any, in per cent
+        # @!attribute [r] wind
+        #   @return [Integer, nil] the strongest, in {Units#wind_label}
+        # @!attribute [r] sunrise
+        #   @return [String, nil] "07:39"
+        # @!attribute [r] sunset
+        #   @return [String, nil] "16:04"
+        class Day
+          attr_reader date: Date
+
+          # _@return_ — the day's most significant weather, "slight rain showers"
+          attr_reader condition: String?
+
+          attr_reader high: Float?
+
+          attr_reader low: Float?
+
+          # _@return_ — rain and snow together, as water
+          attr_reader precipitation: Float?
+
+          # _@return_ — the likeliest hour's chance of any, in per cent
+          attr_reader chance: Integer?
+
+          # _@return_ — the strongest, in {Units#wind_label}
+          attr_reader wind: Integer?
+
+          # _@return_ — "07:39"
+          attr_reader sunrise: String?
+
+          # _@return_ — "16:04"
+          attr_reader sunset: String?
+        end
+
+        # @!attribute [r] time
+        #   @return [String] local, "2026-11-22T15:00"
+        # @!attribute [r] condition
+        #   @return [String, nil]
+        # @!attribute [r] temperature
+        #   @return [Float, nil]
+        # @!attribute [r] precipitation
+        #   @return [Float, nil] over the hour before
+        # @!attribute [r] chance
+        #   @return [Integer, nil] in per cent
+        # @!attribute [r] wind
+        #   @return [Integer, nil] in {Units#wind_label}
+        class Hour
+          def date: () -> Date
+
+          # _@return_ — "15:00"
+          def clock: () -> String
+
+          # _@return_ — local, "2026-11-22T15:00"
+          attr_reader time: String
+
+          attr_reader condition: String?
+
+          attr_reader temperature: Float?
+
+          # _@return_ — over the hour before
+          attr_reader precipitation: Float?
+
+          # _@return_ — in per cent
+          attr_reader chance: Integer?
+
+          # _@return_ — in {Units#wind_label}
+          attr_reader wind: Integer?
+        end
+      end
+
+      # Open-Meteo's forecast API: free, keyless, the data CC BY 4.0 (`R_open_meteo`).
+      # 
+      #   open_meteo = OpenMeteo.new(http: Http.new)
+      #   forecast = open_meteo.forecast(lat: 38.7223, lon: -9.1393, units: Units.gnome, cancellable:)
+      #   forecast.days.size   # => 15 or 16: today and what follows, in Lisbon's time
+      # 
+      # Every call asks for the whole forecast, so asking again about the same place within
+      # {MAX_AGE} costs no request. The point goes out rounded to {PRECISION} decimals, about a
+      # kilometre, finer than the weather models' grid, so a home address's exact point never
+      # reaches Open-Meteo.
+      # 
+      # Thread-safe.
+      class OpenMeteo
+        URL: String
+        MAX_AGE: Integer
+        PRECISION: Integer
+        FORECAST_DAYS: Integer
+        AHEAD: Integer
+        PAST_DAYS: Integer
+        CONDITIONS: ::Hash[Integer, String]
+        CURRENT: String
+        DAILY: String
+        HOURLY: String
+
+        # _@param_ `http` — shared with the place tools, so its pacing covers all
+        # 
+        # _@param_ `url` — the API's base, without `/v1`
+        def initialize: (http: Puri::Core::Http, ?url: String) -> void
+
+        # _@param_ `lat`
+        # 
+        # _@param_ `lon`
+        # 
+        # _@param_ `units`
+        # 
+        # _@param_ `past_days` — days before today to include, up to {PAST_DAYS}
+        # 
+        # _@param_ `cancellable`
+        def forecast: (
+                        lat: Float,
+                        lon: Float,
+                        units: Puri::Core::Weather::Units,
+                        ?past_days: Integer,
+                        ?cancellable: Pikuri::Agent::Control::Cancellable
+                      ) -> Puri::Core::Weather::Forecast
+
+        # _@param_ `json`
+        # 
+        # _@param_ `units`
+        def read: (::Hash[String, Object] json, Puri::Core::Weather::Units units) -> Puri::Core::Weather::Forecast
+
+        # _@param_ `current`
+        # 
+        # _@param_ `units`
+        def now: (::Hash[String, Object] current, Puri::Core::Weather::Units units) -> Puri::Core::Weather::Forecast::Now
+
+        # _@param_ `daily` — columns, one per variable
+        # 
+        # _@param_ `units`
+        def days: (::Hash[String, ::Array[Object]] daily, Puri::Core::Weather::Units units) -> ::Array[Puri::Core::Weather::Forecast::Day]
+
+        # _@param_ `hourly` — columns, one per variable
+        # 
+        # _@param_ `units`
+        def hours: (::Hash[String, ::Array[Object]] hourly, Puri::Core::Weather::Units units) -> ::Array[Puri::Core::Weather::Forecast::Hour]
+
+        # _@param_ `code`
+        def condition: (Integer? code) -> String?
+      end
+
+      # `weather`: the weather at a place, now and over the days asked, from Open-Meteo.
+      # 
+      #   tool = ForecastTool.new(open_meteo:, osm:, notebook:, units: Units.gnome, today: Date.today)
+      #   tool.run('place' => 'Jumbo Vantaa').content
+      #   # => Weather for [1] Jumbo (mall), Vantaanportinkatu 3, 01510 Vantaa, in its local time (Europe/Helsinki).
+      #   #
+      #   #    Now, 16:45: partly cloudy, 0 °C, feels like -5 °C, wind 17 km/h.
+      #   #    Sun 22 Nov: light drizzle, 0 to 1 °C, precipitation 0.7 mm, 61 % chance, wind up to 18 km/h.
+      #   #    Mon 23 Nov: …
+      # 
+      # No dates: today and the {DAYS} after it, a line a day, so "tomorrow" and "this weekend" are
+      # lines to read, not dates to work out. `from` alone: that one day every {STEP} hours, with
+      # its sunrise and sunset. Both: the range, a trip's say. Days are the place's own, and a
+      # range past the forecast's last day is cut there, and says so.
+      # 
+      # The place resolves as `route`'s ends do, so it gets a number, and the result names what it
+      # matched (`D_places`).
+      # 
+      # Sharing: P_one_agent, through its {Places::Notebook}, which is one conversation's.
+      class ForecastTool < Pikuri::Tool
+        DAYS: Integer
+        STEP: Integer
+        DESCRIPTION: String
+
+        # _@param_ `open_meteo`
+        # 
+        # _@param_ `osm` — what finds the place
+        # 
+        # _@param_ `notebook` — the conversation's, which numbers the place
+        # 
+        # _@param_ `units`
+        # 
+        # _@param_ `today` — the machine's, for the description's last date
+        def initialize: (
+                          open_meteo: Puri::Core::Weather::OpenMeteo,
+                          osm: Puri::Core::Places::Osm,
+                          notebook: Puri::Core::Places::Notebook,
+                          units: Puri::Core::Weather::Units,
+                          today: Date
+                        ) -> void
+
+        # _@param_ `arguments` — the model's
+        # 
+        # _@return_ — "Lisbon, 3–6 Dec"
+        def describe_call: (::Hash[untyped, untyped] arguments) -> String
+
+        # _@param_ `text` — the model's place
+        # 
+        # _@param_ `from_text`
+        # 
+        # _@param_ `to_text`
+        # 
+        # _@param_ `cancellable`
+        def weather: (
+                       String text,
+                       String? from_text,
+                       String? to_text,
+                       Pikuri::Agent::Control::Cancellable cancellable
+                     ) -> Pikuri::Tool::Result
+
+        # _@param_ `text`
+        # 
+        # _@param_ `name` — the parameter's
+        def date: (String? text, String name) -> Date?
+
+        # _@param_ `from`
+        # 
+        # _@return_ — days back to ask for, a day to spare where the place's today is ahead
+        # of the machine's
+        def past_days: (Date? from) -> Integer
+
+        # _@param_ `head`
+        # 
+        # _@param_ `forecast`
+        # 
+        # _@param_ `from`
+        # 
+        # _@param_ `to`
+        def answer: (
+                      String head,
+                      Puri::Core::Weather::Forecast forecast,
+                      Date? from,
+                      Date? to
+                    ) -> Pikuri::Tool::Result
+
+        # _@param_ `forecast`
+        # 
+        # _@param_ `day`
+        # 
+        # _@return_ — the day's line, its hours every {STEP} from now on, its sun
+        def one_day: (Puri::Core::Weather::Forecast forecast, Puri::Core::Weather::Forecast::Day day) -> ::Array[String]
+
+        # _@param_ `now`
+        # 
+        # _@return_ — "Now, 16:45: partly cloudy, 0 °C, feels like -5 °C, wind 17 km/h."
+        def now_line: (Puri::Core::Weather::Forecast::Now now) -> String
+
+        # _@param_ `day`
+        # 
+        # _@return_ — "Sun 22 Nov: light drizzle, 0 to 1 °C, precipitation 0.7 mm, 61 % chance, …"
+        def day_line: (Puri::Core::Weather::Forecast::Day day) -> String
+
+        # _@param_ `hour`
+        # 
+        # _@return_ — "15:00: overcast, 5 °C, precipitation 0.2 mm, 40 % chance, wind 12 km/h."
+        def hour_line: (Puri::Core::Weather::Forecast::Hour hour) -> String
+
+        # _@param_ `days`
+        # 
+        # _@return_ — "Light drizzle, 0 to 1 °C" for one day, "7 days, -11 to 2 °C" for more
+        def summary: (::Array[Puri::Core::Weather::Forecast::Day] days) -> String
+
+        # _@param_ `words`
+        # 
+        # _@return_ — the given ones, comma-separated
+        def parts: (*::Array[String?] words) -> String
+
+        # _@param_ `day`
+        # 
+        # _@return_ — "0 to 1 °C"
+        def spread: (Puri::Core::Weather::Forecast::Day day) -> String?
+
+        # _@param_ `value`
+        # 
+        # _@return_ — "-5 °C"
+        def degrees: (Float? value) -> String?
+
+        # _@param_ `amount`
+        # 
+        # _@param_ `chance`
+        # 
+        # _@return_ — "precipitation 0.7 mm", "61 % chance", either missing
+        def precipitation: (Float? amount, Integer? chance) -> ::Array[String]
+
+        # _@param_ `words` — "wind" or "wind up to"
+        # 
+        # _@param_ `speed`
+        # 
+        # _@return_ — "wind up to 18 km/h"
+        def wind: (String words, Integer? speed) -> String?
+
+        # _@param_ `date`
+        # 
+        # _@return_ — "Sun 22 Nov"
+        def day_name: (Date date) -> String
+
+        # _@param_ `from`
+        # 
+        # _@param_ `to`
+        # 
+        # _@return_ — "3–6 Dec", "30 Nov – 2 Dec", "3 Dec", "until 6 Dec"; a date that
+        # doesn't parse as the model wrote it
+        def span: (String? from, String? to) -> String?
+
+        # _@param_ `text`
+        # 
+        # _@return_ — "3 Dec"
+        def short: (String? text) -> String?
+
+        # A date the model wrote that isn't one; the message is for the model.
+        class BadDate < StandardError
+        end
+      end
+    end
+
     # Asks the user in the transcript: a tool's `ask` shows a {Protocol::Confirmation} and waits
     # on the turn's thread until the user answers from the main loop.
     # 
@@ -2080,8 +2618,8 @@ module Puri
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
       # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
-      # builds that folder's {Library}; with `[maps]`, the place tools; with `[dictation]`, the
-      # mic's {Dictation::Transcriber}. Also sets each
+      # builds that folder's {Library}; with `[maps]`, the place tools, and with `[weather]` too,
+      # the weather tool, both on one {Http}; with `[dictation]`, the mic's {Dictation::Transcriber}. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -2132,6 +2670,8 @@ module Puri
       # 
       # _@param_ `osm` — what every agent's place tools ask, with `[maps]`; one for all, so its pacing covers them all
       # 
+      # _@param_ `open_meteo` — what every agent's weather tool asks, with `[weather]`
+      # 
       # _@param_ `rhythmbox` — what every agent's `play_music` plays in; nil wires none
       # 
       # _@param_ `transcriber` — what the mic's clips go to; nil, and the prompt has no mic
@@ -2142,6 +2682,7 @@ module Puri
                         store: Pikuri::Conversations::Store,
                         ?library: Puri::Core::Library?,
                         ?osm: Puri::Core::Places::Osm?,
+                        ?open_meteo: Puri::Core::Weather::OpenMeteo?,
                         ?rhythmbox: Puri::Core::Music::Rhythmbox?,
                         ?transcriber: Puri::Core::Dictation::Transcriber?
                       ) ?{ (Data event) -> void } -> void
@@ -2405,6 +2946,8 @@ module Puri
     # 
     #   ToolWording.status(call)                          # => "Searching the web…"
     #   ToolWording.line(call, content:, summary:)        # => ToolLine(text: '🔍 Searched: "avocado"')
+    #   ToolWording.line(weather, content:, summary:).markup
+    #   # => '🌦 Weather from <a href="https://open-meteo.com/">Open-Meteo</a>: Lisbon', its {CREDITS} linked
     # 
     # `call` is the live `Pikuri::Agent::Event::ToolCall` or the saved
     # `Pikuri::Agent::History::ToolCall`, so {TurnListener} and {Replay} word a line alike. Only the
@@ -2419,6 +2962,7 @@ module Puri
     # pikuri asks of every chrome: `Pikuri::Sanitizer` shows an escape byte, it never runs it.
     module ToolWording
       WORDINGS: ::Hash[String, Wording]
+      CREDITS: ::Hash[String, [String, String]]
       BARE: ::Array[String]
       SUMMED: ::Array[String]
 
@@ -2451,6 +2995,22 @@ module Puri
       # _@return_ — with no id, for {Conversation#add} or
       # {Conversation#restore} to assign
       def self.line: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, content: String, summary: String?) -> Puri::Protocol::ToolLine
+
+      # _@param_ `call`
+      # 
+      # _@param_ `text` — its line
+      # 
+      # _@return_ — the line as Pango markup with its {CREDITS} linked; nil for a tool
+      # with none
+      def markup: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, String text) -> String?
+
+      # _@param_ `call`
+      # 
+      # _@param_ `text` — its line
+      # 
+      # _@return_ — the line as Pango markup with its {CREDITS} linked; nil for a tool
+      # with none
+      def self.markup: ((Pikuri::Agent::Event::ToolCall | Pikuri::Agent::History::ToolCall) call, String text) -> String?
 
       # _@param_ `call`
       # 
@@ -2548,6 +3108,8 @@ module Puri
       # 
       # _@param_ `osm` — what its place tools ask; nil wires none
       # 
+      # _@param_ `open_meteo` — what its weather tool asks; nil, or no `[weather]`, wires none
+      # 
       # _@param_ `rhythmbox` — what `play_music` plays in; nil wires none
       def initialize: (
                         Puri::Core::Conversation conversation,
@@ -2561,6 +3123,7 @@ module Puri
                         saved: bool,
                         ?library: Puri::Core::Library?,
                         ?osm: Puri::Core::Places::Osm?,
+                        ?open_meteo: Puri::Core::Weather::OpenMeteo?,
                         ?rhythmbox: Puri::Core::Music::Rhythmbox?
                       ) -> void
 
@@ -2664,11 +3227,14 @@ module Puri
         # 
         # _@param_ `places` — whether it has the place tools
         # 
+        # _@param_ `weather` — whether it has `weather`
+        # 
         # _@param_ `music` — whether it has `play_music`
         def self.system_prompt: (
                                   web: bool,
                                   documents: bool,
                                   ?places: bool,
+                                  ?weather: bool,
                                   ?music: bool
                                 ) -> String
 
@@ -2686,6 +3252,8 @@ module Puri
         # 
         # _@param_ `notebook` — the conversation's places, which the place tools number and draw in
         # 
+        # _@param_ `open_meteo` — what `weather` asks, beside the place tools; nil wires none
+        # 
         # _@param_ `rhythmbox` — what `play_music` plays in; nil wires none
         def initialize: (
                           Puri::Core::Config config,
@@ -2695,6 +3263,7 @@ module Puri
                           ?cache_dir: String,
                           ?osm: Puri::Core::Places::Osm?,
                           ?notebook: Puri::Core::Places::Notebook?,
+                          ?open_meteo: Puri::Core::Weather::OpenMeteo?,
                           ?rhythmbox: Puri::Core::Music::Rhythmbox?
                         ) -> void
 
@@ -2718,7 +3287,7 @@ module Puri
         # extensions' own fragments
         def system_prompt: (Pikuri::Conversations::Conversation _conversation) -> String
 
-        # Adds the calculator, the web tools, the place tools, `play_music`, the Thunderbird
+        # Adds the calculator, the web tools, the place tools, `weather`, `play_music`, the Thunderbird
         # extension, and the documents' search and file tools. An extension is built afresh for
         # each agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         # 
@@ -2749,6 +3318,9 @@ module Puri
         # 
         # _@param_ `configurator`
         def thunderbird: (Pikuri::Agent::Configurator configurator) -> Pikuri::Thunderbird::Extension
+
+        # GNOME's units are read afresh for each agent, so a change shows in the next conversation.
+        def forecast_tool: () -> Puri::Core::Weather::ForecastTool
 
         # _@return_ — `web_search` with page text, and `web_read_cached`; none
         # without a keyed `[search]`
@@ -3435,7 +4007,8 @@ module Puri
       def self.open: (String url) -> void
     end
 
-    # A {Protocol::ToolLine}: one dimmed line, red when the step failed.
+    # A {Protocol::ToolLine}: one dimmed line, red when the step failed. A line with markup draws
+    # it, so its link opens in the browser on the user's click.
     class ToolLineRow < Gtk::Label
       # _@param_ `block`
       def initialize: (Puri::Protocol::ToolLine block) -> void
@@ -4151,6 +4724,8 @@ module Puri
     # read as progress, not a stall.
     # 
     #   ToolLine.new(id: 'b2', text: '🔍 Searched: "avocado preservation"', error: false)
+    #   ToolLine.new(id: 'b3', text: '🌦 Weather from Open-Meteo: Lisbon', error: false,
+    #                markup: '🌦 Weather from <a href="https://open-meteo.com/">Open-Meteo</a>: Lisbon')
     # 
     # @!attribute [r] id
     #   @return [String] unique within its conversation
@@ -4158,8 +4733,25 @@ module Puri
     #   @return [String] plain text, never markup
     # @!attribute [r] error
     #   @return [Boolean] whether the step failed
+    # @!attribute [r] markup
+    #   @return [String, nil] the same line as Pango markup, drawn in place of `text`, where a
+    #     data source's terms want their credit linked beside the data; nil for a plain line
     class ToolLine
       include Puri::Protocol::Block
+
+      # _@param_ `id`
+      # 
+      # _@param_ `text`
+      # 
+      # _@param_ `error`
+      # 
+      # _@param_ `markup`
+      def initialize: (
+                        id: String?,
+                        text: String,
+                        error: bool,
+                        ?markup: String?
+                      ) -> void
 
       # _@return_ — unique within its conversation
       attr_reader id: String
@@ -4169,6 +4761,10 @@ module Puri
 
       # _@return_ — whether the step failed
       attr_reader error: bool
+
+      # _@return_ — the same line as Pango markup, drawn in place of `text`, where a
+      # data source's terms want their credit linked beside the data; nil for a plain line
+      attr_reader markup: String?
     end
 
     # A whole conversation as Desktop draws it, what {Backend#load_conversation} returns. Later

@@ -57,7 +57,7 @@ class FakeOsm
   # @param interval [Float] between two requests to it
   # @return [Puri::Core::Places::Osm] on this server
   def places(interval: 0)
-    Puri::Core::Places::Osm.new(http: Puri::Core::Places::Http.new(interval:), photon: url, nominatim: url, osrm: url)
+    Puri::Core::Places::Osm.new(http: Puri::Core::Http.new(interval:), photon: url, nominatim: url, osrm: url)
   end
 
   # @return [void]

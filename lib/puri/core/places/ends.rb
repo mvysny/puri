@@ -30,7 +30,7 @@ module Puri
         # @param cancellable [Pikuri::Agent::Control::Cancellable]
         # @return [Array(Integer, Puri::Core::Places::Place)] its number, and the place
         # @raise [Unresolved]
-        # @raise [Puri::Core::Places::Http::Error]
+        # @raise [Puri::Core::Http::Error]
         def resolve(text, osm:, notebook:, near: nil, cancellable: Pikuri::Agent::Control::Cancellable::NEVER)
           text = text.to_s.strip
           place =

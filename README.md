@@ -16,10 +16,10 @@ mascot. "Ask Puri."
 
 **Status:** the UI is done, and the model answers through pikuri. It can search the web, read
 your Thunderbird mail, contacts and calendar, search, read and take notes in your documents, and
-find places and car routes on OpenStreetMap, with a map under the answer, and play your music in
-Rhythmbox. `exe/puri --dummy` runs
+find places and car routes on OpenStreetMap, with a map under the answer, tell the weather, and
+play your music in Rhythmbox. `exe/puri --dummy` runs
 a canned backend instead, with no config and no model: `search`, `note`, `table`, `long`,
-`coffee`, `drive`, `fail`, `mail`, or `calendar` plus `reschedule` in a question walk the paths
+`coffee`, `drive`, `weather`, `fail`, `mail`, or `calendar` plus `reschedule` in a question walk the paths
 the tools will take. The plan lives in `design/ideas/`.
 
 ## Install and run
@@ -151,6 +151,21 @@ once and remembers it in `Notes/PURI.md`. Under the answer it draws the places o
 tiles come from the server above; a click on a pin opens the place in GNOME Maps, or on
 openstreetmap.org when Maps isn't installed. Without the table Puri has no place tools and draws
 no map.
+
+To let Puri tell the weather, add an empty table next to `[maps]`, which it needs:
+
+```toml
+[weather]
+# url = "https://api.open-meteo.com"   # the default; or your own Open-Meteo server
+```
+
+Puri then answers "what's the weather like in Lisbon?", "will it rain this afternoon?" and "what
+will the weather be on my trip?", the trip's dates taken from your calendar, up to about two
+weeks ahead. Weather data by [Open-Meteo.com](https://open-meteo.com/), under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); each weather step in the conversation
+credits it with a link. The place is found on OpenStreetMap as above, and its point, rounded to
+about a kilometre, goes to Open-Meteo. Temperatures and wind come in GNOME's units, as GNOME
+Weather shows them.
 
 With Rhythmbox installed (`sudo apt install rhythmbox`), Puri plays an artist, an album, a song or
 a genre from its library: "play some State Azure", or "play my favourite music" once you've told it

@@ -7,7 +7,8 @@ every Siri claim is [docs] or [unverified]. Each item graduates on its own: pick
 into an idea file of its own or straight into code, and its section here is deleted.
 
 **At parity, roughly:** web answers, notes and documents, memory, mail read and draft, calendar
-read and create, contacts, places and car routes, playing music, dictation, the calculator.
+read and create, contacts, places and car routes, the weather, playing music, dictation, the
+calculator.
 
 ## Cheap: Siri does it, Linux has it, no promise at stake
 
@@ -173,11 +174,11 @@ The tools should already compose these; try each before building anything.
 - "Summarize the details in a note" [unverified]: a read, then `write` in `Notes/`.
 - "What tasks do I have today?" [unverified]: the calendar, until Reminders exist.
 - "What's the weather going to be like on my trip to Lisbon?": the calendar's dates, then
-  `weather` (`weather.md`).
+  `weather`.
 
 ## Proposed order (not decided)
 
-Weather (`weather.md`); the pill's Open; ask about the selection; timers; changing an event. Each is cheap or
+The pill's Open; ask about the selection; timers; changing an event. Each is cheap or
 closes a gap the UI already shows, and together they cover the most of what Cmd-Space gets used
 for.
 

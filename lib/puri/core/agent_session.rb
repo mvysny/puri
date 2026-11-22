@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'date'
+
 module Puri
   module Core
     # One {PikuriCore} conversation's pikuri side: its live `Pikuri::Conversations::Conversation`,
@@ -58,11 +60,13 @@ module Puri
         # @param web [Boolean] whether the agent has the web tools
         # @param documents [Boolean] whether it has the documents folder
         # @param places [Boolean] whether it has the place tools
+        # @param weather [Boolean] whether it has `weather`
         # @param music [Boolean] whether it has `play_music`
         # @return [String]
-        def self.system_prompt(web:, documents:, places: false, music: false)
+        def self.system_prompt(web:, documents:, places: false, weather: false, music: false)
           files = %W[puri.txt #{web ? 'web.txt' : 'offline.txt'} #{documents ? 'documents.txt' : 'no-documents.txt'}]
           files << 'places.txt' if places
+          files << 'weather.txt' if weather
           files << 'music.txt' if music
           files.map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
         end
@@ -78,9 +82,11 @@ module Puri
         # @param osm [Puri::Core::Places::Osm, nil] what the place tools ask; nil wires none
         # @param notebook [Puri::Core::Places::Notebook, nil] the conversation's places, which the
         #   place tools number and draw in
+        # @param open_meteo [Puri::Core::Weather::OpenMeteo, nil] what `weather` asks, beside the
+        #   place tools; nil wires none
         # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what `play_music` plays in; nil wires none
         def initialize(config, conversation, lock:, library: nil, cache_dir: PikuriCore.cache_dir, osm: nil,
-                       notebook: nil, rhythmbox: nil)
+                       notebook: nil, open_meteo: nil, rhythmbox: nil)
           @config = config
           @conversation = conversation
           @lock = lock
@@ -88,6 +94,7 @@ module Puri
           @cache_dir = cache_dir
           @osm = notebook && osm
           @notebook = notebook
+          @open_meteo = @osm && open_meteo
           @rhythmbox = rhythmbox
           @confirmer = nil
         end
@@ -117,13 +124,13 @@ module Puri
         def system_prompt(_conversation)
           now = Time.now
           prompt = Initializer.system_prompt(web: !@config.search.nil?, documents: !@library.nil?, places: !@osm.nil?,
-                                             music: !@rhythmbox.nil?)
+                                             weather: !@open_meteo.nil?, music: !@rhythmbox.nil?)
           "#{prompt}\n\n" \
             "Today is #{now.strftime('%A, %-d %B %Y')}; the time zone is #{Initializer.time_zone(now)}." \
             "#{library_prompt}"
         end
 
-        # Adds the calculator, the web tools, the place tools, `play_music`, the Thunderbird
+        # Adds the calculator, the web tools, the place tools, `weather`, `play_music`, the Thunderbird
         # extension, and the documents' search and file tools. An extension is built afresh for
         # each agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         #
@@ -138,6 +145,7 @@ module Puri
             configurator.add_tools([Places::SearchTool.new(osm: @osm, notebook: @notebook),
                                     Places::RouteTool.new(osm: @osm, notebook: @notebook)])
           end
+          configurator.add_tool(forecast_tool) if @open_meteo
           configurator.add_tool(Music::PlayTool.new(rhythmbox: @rhythmbox)) if @rhythmbox
           configurator.add_extension(thunderbird(configurator)) if @config.thunderbird
           return unless @library
@@ -200,6 +208,14 @@ module Puri
                                              allow_compose_mail: true, allow_create_calendar_event: true)
         end
 
+        # GNOME's units are read afresh for each agent, so a change shows in the next conversation.
+        #
+        # @return [Puri::Core::Weather::ForecastTool]
+        def forecast_tool
+          Weather::ForecastTool.new(open_meteo: @open_meteo, osm: @osm, notebook: @notebook, units: Weather::Units.gnome,
+                                    today: Date.today)
+        end
+
         # @return [Array<Pikuri::Tool>] `web_search` with page text, and `web_read_cached`; none
         #   without a keyed `[search]`
         def web_tools
@@ -222,9 +238,11 @@ module Puri
       # @param saved [Boolean] whether the store holds this conversation already
       # @param library [Puri::Core::Library, nil] the `[documents]` folder its agents search
       # @param osm [Puri::Core::Places::Osm, nil] what its place tools ask; nil wires none
+      # @param open_meteo [Puri::Core::Weather::OpenMeteo, nil] what its weather tool asks; nil, or
+      #   no `[weather]`, wires none
       # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what `play_music` plays in; nil wires none
       def initialize(conversation, entry:, store:, conversations:, transport:, models:, config:, lock:, saved:,
-                     library: nil, osm: nil, rhythmbox: nil)
+                     library: nil, osm: nil, open_meteo: nil, rhythmbox: nil)
         super()
         @conversation = conversation
         @entry = entry
@@ -237,6 +255,7 @@ module Puri
         # self.class's: a spec's subclass brings an Initializer that adds what Puri doesn't wire.
         @initializer = self.class::Initializer.new(config, conversation, lock:, library:,
                                                                          osm: (osm if config.maps), notebook: @notebook,
+                                                                         open_meteo: (open_meteo if config.weather),
                                                                          rhythmbox:)
         @lock = lock
         @saved = saved

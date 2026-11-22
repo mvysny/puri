@@ -86,7 +86,7 @@ RSpec.describe Puri::Core::Places::Osm do
 
     it 'fails when no road joins them' do
       fake.answer('/route/', body: '{"code":"NoRoute","routes":[]}')
-      error = assert_raises(pl::Http::Error) { osm.route(jumbo, shop) }
+      error = assert_raises(Puri::Core::Http::Error) { osm.route(jumbo, shop) }
       assert_equal 'OSRM found no route: NoRoute', error.message
     end
   end

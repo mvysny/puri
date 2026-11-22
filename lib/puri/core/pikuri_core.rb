@@ -44,8 +44,8 @@ module Puri
       # `[titler]`, and `web_search` and `web_read_cached` on its `[search]` engines, which
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
       # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
-      # builds that folder's {Library}; with `[maps]`, the place tools; with `[dictation]`, the
-      # mic's {Dictation::Transcriber}. Also sets each
+      # builds that folder's {Library}; with `[maps]`, the place tools, and with `[weather]` too,
+      # the weather tool, both on one {Http}; with `[dictation]`, the mic's {Dictation::Transcriber}. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -69,13 +69,16 @@ module Puri
           LOGGER.error('[search] in config.toml sets no Brave or Exa key: the agent has no web tools')
         end
         LOGGER.info('no [maps] in config.toml: the agent has no place tools') unless config.maps
+        LOGGER.info('no [weather] in config.toml: the agent has no weather tool') unless config.weather
+        http = Http.new
+        open_meteo = config.weather && Weather::OpenMeteo.new(http:, url: config.weather.url)
         library = config.documents && Library.new(config.documents)
         rhythmbox = Music::Rhythmbox.find
         LOGGER.info('the session bus can\'t start Rhythmbox: the agent has no play_music') unless rhythmbox
         LOGGER.info('no [dictation] in config.toml: the prompt has no mic') unless config.dictation
         transcriber = config.dictation && Dictation::Transcriber.new(config.dictation)
-        new(config:, models: Models.from_config(config), titler:, store:, library:, osm: Places::Osm.new, rhythmbox:,
-            transcriber:, &)
+        new(config:, models: Models.from_config(config), titler:, store:, library:, osm: Places::Osm.new(http:),
+            open_meteo:, rhythmbox:, transcriber:, &)
       end
 
       # Plugs the document extractors into pikuri's registry, process-wide, so `read`,
@@ -128,14 +131,16 @@ module Puri
       # @param library [Puri::Core::Library, nil] the documents folder every agent searches
       # @param osm [Puri::Core::Places::Osm, nil] what every agent's place tools ask, with `[maps]`;
       #   one for all, so its pacing covers them all
+      # @param open_meteo [Puri::Core::Weather::OpenMeteo, nil] what every agent's weather tool
+      #   asks, with `[weather]`
       # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what every agent's `play_music` plays
       #   in; nil wires none
       # @param transcriber [Puri::Core::Dictation::Transcriber, nil] what the mic's clips go to;
       #   nil, and the prompt has no mic
       # @yieldparam event [Data] a {Protocol} event, on whichever thread caused it
       # @yieldreturn [void]
-      def initialize(config:, models:, titler:, store:, library: nil, osm: nil, rhythmbox: nil, transcriber: nil,
-                     &listener)
+      def initialize(config:, models:, titler:, store:, library: nil, osm: nil, open_meteo: nil, rhythmbox: nil,
+                     transcriber: nil, &listener)
         raise ArgumentError, 'PikuriCore needs a listener block' unless listener
 
         @models = models
@@ -144,6 +149,7 @@ module Puri
         @config = config
         @library = library
         @osm = osm
+        @open_meteo = open_meteo
         @rhythmbox = rhythmbox
         @listener = listener
         @lock = Monitor.new
@@ -285,7 +291,7 @@ module Puri
         AgentSession.new(conversation, entry:, store: @store, conversations: @live,
                                        transport: start_on(entry, saved:).transport, models: @models,
                                        config: @config, lock: @lock, saved:, library: @library, osm: @osm,
-                                       rhythmbox: @rhythmbox)
+                                       open_meteo: @open_meteo, rhythmbox: @rhythmbox)
       end
 
       # @param entry [Pikuri::Conversations::Store::Entry]

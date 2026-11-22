@@ -7,6 +7,8 @@ module Puri
     # read as progress, not a stall.
     #
     #   ToolLine.new(id: 'b2', text: '🔍 Searched: "avocado preservation"', error: false)
+    #   ToolLine.new(id: 'b3', text: '🌦 Weather from Open-Meteo: Lisbon', error: false,
+    #                markup: '🌦 Weather from <a href="https://open-meteo.com/">Open-Meteo</a>: Lisbon')
     #
     # @!attribute [r] id
     #   @return [String] unique within its conversation
@@ -14,8 +16,17 @@ module Puri
     #   @return [String] plain text, never markup
     # @!attribute [r] error
     #   @return [Boolean] whether the step failed
-    class ToolLine < Data.define(:id, :text, :error)
+    # @!attribute [r] markup
+    #   @return [String, nil] the same line as Pango markup, drawn in place of `text`, where a
+    #     data source's terms want their credit linked beside the data; nil for a plain line
+    class ToolLine < Data.define(:id, :text, :error, :markup)
       include Block
+
+      # @param id [String, nil]
+      # @param text [String]
+      # @param error [Boolean]
+      # @param markup [String, nil]
+      def initialize(id:, text:, error:, markup: nil) = super
     end
   end
 end

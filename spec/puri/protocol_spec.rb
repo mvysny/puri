@@ -11,6 +11,8 @@ RSpec.describe Puri::Protocol do
                       status: p::Status.new(model: 'Ornith 1.5'), pending: ['and bananas?'],
                       blocks: [p::UserMessage.new(id: 'b1', text: 'avocado?'), reply,
                                p::ToolLine.new(id: 'b3', text: '🔍 Searched: "x"', error: false),
+                               p::ToolLine.new(id: 'b7', text: '🌦 Open-Meteo: x', error: false,
+                                               markup: '🌦 <a href="https://open-meteo.com/">Open-Meteo</a>: x'),
                                p::Confirmation.new(id: 'b4', question: 'Move?', approve_label: 'Update',
                                                    destructive: true, state: 'pending'),
                                p::Notice.new(id: 'b5', text: 'Cancelled', error: false),

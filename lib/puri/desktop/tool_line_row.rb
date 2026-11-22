@@ -2,7 +2,8 @@
 
 module Puri
   module Desktop
-    # A {Protocol::ToolLine}: one dimmed line, red when the step failed.
+    # A {Protocol::ToolLine}: one dimmed line, red when the step failed. A line with markup draws
+    # it, so its link opens in the browser on the user's click.
     class ToolLineRow < Gtk::Label
       # @param block [Puri::Protocol::ToolLine]
       def initialize(block)
@@ -18,7 +19,7 @@ module Puri
       # @param block [Puri::Protocol::ToolLine]
       # @return [void]
       def block=(block)
-        self.text = block.text
+        block.markup ? self.markup = block.markup : self.text = block.text
         block.error ? add_css_class('error') : remove_css_class('error')
         block.error ? remove_css_class('dim-label') : add_css_class('dim-label')
       end
