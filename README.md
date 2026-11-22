@@ -249,16 +249,29 @@ and each `[[llm]]` names `server = "home"`:
 
 ```toml
 [[server]]
-id  = "home"
-url = "https://box.tailXXXX.ts.net/llama"
+id      = "home"
+url     = "https://box.tailXXXX.ts.net/llama"
+api_key = "…"   # the key llama-server reads, below
 
 [dictation]
 url = "https://box.tailXXXX.ts.net/whisper"
 ```
 
-Neither server needs a key: Serve answers your tailnet only, never the internet. Tailscale checks
-no key or password itself, so if you share the tailnet with others, the lock is a grant in its
-access policy that lets only your own devices reach the server's port 443.
+A key on llama-server is recommended. Serve answers your tailnet only, never the internet, but
+that is still every device on it, the VMs running on them and every user logged into one, and
+Tailscale checks no key or password itself. Make a key in a file only you can read, start
+llama-server with `--api-key-file ~/.config/llama-server/api-key`, and paste the same key into
+`api_key` above; `/health` still answers without it.
+
+```sh
+mkdir -p ~/.config/llama-server
+(umask 077; openssl rand -hex 32 > ~/.config/llama-server/api-key)
+```
+
+whisper-server takes no key yet
+([whisper.cpp#4197](https://github.com/ggml-org/whisper.cpp/issues/4197)), so `[dictation]` has
+none, and whoever reaches the server can transcribe on it. If others share your tailnet, a grant
+in its access policy can at least keep their devices off the server's port 443.
 
 ## License
 
