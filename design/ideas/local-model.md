@@ -51,6 +51,10 @@ definitions + memory). That last number is what a smaller model will pay for eve
   more `[[llm]]` connection. Far more energy-efficient than the iGPU, which is the point for
   something that idles in the background all day. The other track is llama.cpp on Vulkan on the
   iGPU. Both to measure. Lemonade isn't in Ubuntu's apt; installing it waits on the owner.
+  The owner's earlier experiments, not repeated since: not every model is on Lemonade, and the
+  NPU decoded about half as fast as the iGPU, far more power-efficient but too slow. Half of the
+  iGPU's 20–25 tok/s in `model-eval.md`'s first pass is 10–12 tok/s, before any thinking
+  (`Q_npu`).
 - **An eval suite before any swap.** One tester ran 62 tasks against Siri 27.2 (34 passed). We want
   the same: a few dozen real requests ("what's on Thursday", "remind me to call Bob at 5", "find
   the invoice from Acme") with an expected tool call each, run against every candidate. Without
@@ -61,5 +65,8 @@ definitions + memory). That last number is what a smaller model will pay for eve
 
 - `Q_target_hardware`: the app runs on the owner's desktop, the Ryzen AI 9 HX 370 host (the VM has
   7 GB RAM and a virtio GPU)? How much RAM does the host have for model + daemon?
+- `Q_npu`: repeat the owner's NPU experiment on today's Lemonade: which of `model-eval.md`'s small
+  tier it carries, their tokens/s and prompt tokens/s against llama.cpp on the iGPU, and the
+  watts of both (`model-eval.md`'s `Q_power`). Worth it only if a small model passes the eval.
 - `Q_hosted_tier`: is there an opt-in hosted tier at all, and is a query that quotes a note allowed
   to go there? That's an egress leg like the search engine's, with the same confirm question.
