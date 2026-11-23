@@ -69,8 +69,8 @@ module Puri
         @day_dir = day_dir
         @log = log
         @day = Date.today
-        @grader = Grader.new(world.facts)
         @recorder = Recorder.new(path: File.join(day_dir, 'http.json'))
+        @grader = Grader.new(world.facts, recording: -> { @recorder.recorded })
         FileUtils.mkdir_p(day_dir)
         @done = read_jsonl('results.jsonl').to_set { [_1['configuration'], _1['task'], _1['run']] }
       end
@@ -182,8 +182,17 @@ module Puri
         { 'configuration' => configuration.name, 'model' => configuration.model, 'task' => task.id,
           'tier' => task.tier, 'run' => run, 'pass' => checks.all? { _1['pass'] }, 'checks' => checks,
           'seconds' => seconds, 'turns' => turns, 'first_prompt' => first_prompt(history),
-          'box' => delta(before, after), 'notes' => obs.notes.keys, 'drafts' => obs.drafts,
-          'events' => obs.events.size, 'at' => started.iso8601 }
+          'box' => delta(before, after), 'observation' => observed(obs), 'at' => started.iso8601 }
+      end
+
+      # What {Grader#regrade} needs beside the turns; the answers by URL alone, since the
+      # recording keeps them.
+      #
+      # @param obs [Puri::Eval::Grader::Observation]
+      # @return [Hash{String => Object}]
+      def observed(obs)
+        { 'notes' => obs.notes, 'memory' => obs.memory, 'drafts' => obs.drafts, 'events' => obs.events,
+          'answer_urls' => obs.answers.keys }
       end
 
       # The hand-off returns once it has launched `thunderbird mailto:…`, and the compose window

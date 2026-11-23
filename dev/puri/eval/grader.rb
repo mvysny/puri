@@ -46,8 +46,24 @@ module Puri
              "isn't expected", '0 mm', '0.0 mm', 'no significant', "doesn't look like", 'not likely'].freeze
 
       # @param facts [Pikuri::Demo::Facts]
-      def initialize(facts)
+      # @param recording [Proc] the whole recording so far, `{url => json}`
+      def initialize(facts, recording:)
         @facts = facts
+        @recording = recording
+      end
+
+      # Grades a run again from its results.jsonl row, which keeps what {#grade} reads: a grader
+      # fixed after the run needs no rerun.
+      #
+      # @param task [Puri::Eval::Task]
+      # @param row [Hash{String => Object}]
+      # @return [Array<Hash{String => Object}>] as {#grade}
+      def regrade(task, row)
+        seen = row.fetch('observation')
+        recorded = @recording.call
+        grade(task, Observation.new(turns: row['turns'], notes: seen['notes'], memory: seen['memory'],
+                                    drafts: seen['drafts'], events: seen['events'],
+                                    answers: seen['answer_urls'].to_h { [_1, recorded[_1]] }))
       end
 
       # @param task [Puri::Eval::Task]
@@ -167,18 +183,22 @@ module Puri
         check('weather_day', pass, "#{mm} mm, #{chance.round} % on #{day}")
       end
 
-      # Within `tolerance` minutes of the recorded route's duration.
+      # Within `minutes` of the recorded drive to the place: this run's own, else any run's. A
+      # model whose route ended somewhere else and repeats that duration fails; one that knows
+      # better passes. (The place tools once took "Tampere, Finland" for Hyvinkää.)
       #
-      # @param tolerance [Integer] minutes
+      # @param want [Hash{String => Numeric}] "lat", "lon" of where the drive ends; "minutes"
       # @param obs [Puri::Eval::Grader::Observation]
       # @return [Hash{String => Object}]
-      def route_minutes(tolerance, obs)
-        route = obs.answers.values.find { _1.is_a?(Hash) && _1['routes'].is_a?(Array) && !_1['routes'].empty? }
-        return check('route_minutes', false, 'no route asked') unless route
+      def route_to(want, obs)
+        drives = [obs.answers, @recording.call].flat_map do |answers|
+          answers.filter_map { |url, json| drive_minutes(url, json, want['lat'], want['lon']) }
+        end
+        return check('route_to', false, 'no drive there recorded') if drives.empty?
 
-        minutes = route['routes'][0]['duration'].to_f / 60
         said = Matcher.durations(answer(obs))
-        check('route_minutes', said.any? { (_1 - minutes).abs <= tolerance }, "#{minutes.round} min; said #{said}")
+        check('route_to', said.any? { (_1 - drives.first).abs <= want['minutes'] },
+              "#{drives.first.round} min; said #{said}")
       end
 
       # Names a place the recorded place search found this run.
@@ -224,6 +244,20 @@ module Puri
         time = Time.strptime(value.delete('Z')[0, 13], '%Y%m%dT%H%M')
         time = Time.utc(time.year, time.month, time.day, time.hour, time.min).getlocal if value.end_with?('Z')
         time.strftime('%Y-%m-%dT%H:%M')
+      end
+
+      # @param url [String] a recorded request
+      # @param json [Object] its answer
+      # @param lat [Float]
+      # @param lon [Float]
+      # @return [Float, nil] the drive's minutes, when it's an OSRM route ending near lat, lon
+      def drive_minutes(url, json, lat, lon)
+        points = url[%r{/route/v1/driving/([^?]+)}, 1] or return nil
+        end_lon, end_lat = points.split(';').last.split(',').map(&:to_f)
+        return nil unless (end_lat - lat).abs < 0.15 && (end_lon - lon).abs < 0.3
+
+        duration = json.is_a?(Hash) && json.dig('routes', 0, 'duration')
+        duration && (duration.to_f / 60)
       end
 
       # @param json [Object] a recorded answer

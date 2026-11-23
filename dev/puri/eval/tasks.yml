@@ -104,7 +104,8 @@
   turns: ['How long is the drive to Tampere?']
   expect:
     tools_any: [route]
-    route_minutes: 10
+    # Tampere's centre; the recorded drive there, within 10 minutes
+    route_to: { lat: 61.4978, lon: 23.7610, minutes: 10 }
 
 - id: percent
   tier: simple

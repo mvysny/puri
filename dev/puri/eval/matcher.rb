@@ -104,9 +104,15 @@ module Puri
         found + text.scan(/(?<!\d)(\d{1,2}):(\d{2})\s*h\b/i).map { |h, m| (h.to_i * 60) + m.to_i }
       end
 
+      # Typography folded to what a task writes: "won’t" is "won't". Not one `tr`: in its second
+      # list a "-" between two characters is a range, which mapped "’" to "#".
+      #
       # @param text [String]
-      # @return [String] downcased, spacing and dashes normalized
-      def plain(text) = text.to_s.downcase.tr('  –—’', "  --'").squeeze(' ')
+      # @return [String] downcased, spacing, dashes and quotes normalized
+      def plain(text)
+        text.to_s.downcase.gsub(/[\u00a0\u202f]/, ' ').gsub(/[\u2013\u2014]/, '-').gsub(/[\u2018\u2019]/, "'")
+            .squeeze(' ')
+      end
 
       # @param text [String]
       # @return [String] uppercased, with no spacing at all
