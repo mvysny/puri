@@ -76,6 +76,14 @@ The box runs llama.cpp's router with one preset file and one model resident at a
 llama.cpp b11960 or newer (LFM3's floor, the newest of the six), on the iGPU's backend, Vulkan
 presumably.
 
+**What it runs (read 2026-11-23):** the router Puri's own `config.toml` names, `llama-mavi-fw`
+at `192.168.122.1:9081`, the dev VM's libvirt host over the bridge, with a key. It's Debian's
+`b10438`, 1,500 builds short of LFM3's floor, and it serves other presets beside the six
+(Qwen3.8-Dense, bge-m3, a reranker, nomic-embed). It runs with `max_instances: 4`, not
+`--models-max 1`, so loading a model unloads nothing and the runner unloads the others itself;
+and without `--models-memory-margin`, so it reports no memory. Only Ornith's preset sets `jinja`;
+the others get tool calls anyway, so this build turns it on by default.
+
 ```ini
 ; ~/.config/llama.cpp/eval.ini
 ;
@@ -163,6 +171,14 @@ Run once, from the dev VM, before any task:
 The output is one table: preset, downloaded, loads, answers, thinking off holds, tool call
 parses, Puri turn works. Each ✗ is either a pikuri issue to file or a model to drop before the
 night run.
+
+**The first round (2026-11-23):** five presets pass every check. LFM3 downloads and then fails
+to load (`exit_code 1`) on b10438, so it waits for a newer build. Bolt thinks only when the
+question asks for it: "17 × 23" came back with no reasoning, a harder one with its reasoning in
+`reasoning_content`. In the Puri turns ("What's on Thursday?", an empty Thursday), Ornith was
+right both ways, Granite asked which calendar instead of looking, and Qwen, Bolt and gpt-oss got
+Thursday's date wrong (27, 28 and 30 November), a hint that the small tier needs the week's
+dates spelled out rather than just today's.
 
 ## The world: pikuri's demo home, extended upstream
 
@@ -306,10 +322,27 @@ There is no music task: the demo world has no music library.
 
 ## The runner
 
-It's a dev-only mode under `dev/eval/`, started from a rake task since it needs no GTK. It
-builds Core from an eval `config.toml`: the box as `[[server]]`, one `[[llm]]` per
-configuration, `[maps]` and `[weather]` on the recording `Http`, and `[documents]` and
-`[thunderbird]` on the demo world.
+It's a dev-only mode, `dev/puri/eval/` beside the dummy backend, started by `rake eval` since
+it needs no GTK. It builds Core from an eval `config.toml`: the box as `[[server]]`, one
+`[[llm]]` per configuration, `[maps]` and `[weather]` on the recording `Http`, and `[documents]`
+and `[thunderbird]` on the demo world.
+
+Its first version (2026-11-23) leaves out:
+- the near misses (`Q_filler`): the world is pikuri's as it stands
+- the seeded `PURI.md` upstream: the runner writes it before each run, from `facts.yml`'s address
+- memory and watts (`Q_power`): the router doesn't report memory without its flag
+- an LLM judge (`Q_judge`): every check is deterministic, so `design-week` is graded on
+  searching alone, and `rent-legal` on naming the three months
+
+Two things the world needs that no doc said:
+- **After a build, restart the indexer:** `systemctl --user restart localsearch-3`. The build
+  recreates `~/Documents`, and the miner then knows the folder but none of its files
+  (pikuri-fileindex's `design/testing.md`).
+- **On a VM with a GNOME session, the testbed's display needs `DISABLE_WAYLAND=1`:** the
+  Thunderbird snap (160, revision 1333) forces `GDK_BACKEND=wayland` whenever a Wayland socket
+  exists in `$XDG_RUNTIME_DIR`, whatever `DISPLAY` says, and Thunderbird then "cannot open
+  display". It belongs in the testbed's `session start --display`, upstream, and in the
+  hand-off's environment, where the runner sets it.
 
 - **No titler:** it would share the box's one slot and skew the timings. Titles get a run of
   their own (below).
@@ -367,8 +400,9 @@ look, since titling is the first job a small model could take over.
 ## Open questions
 
 - `Q_box`: the test box's CPU and iGPU, how its VRAM grows from 16 to 64 GB (a BIOS carve-out or
-  GTT), its llama.cpp build and backend, and whether it reaches the dev VM over the LAN or
-  Tailscale. Ornith needs the >16 GB path.
+  GTT), and its backend. Ornith needs the >16 GB path. Its build and how it reaches the dev VM
+  are known (§ The test box); whether a newer llama.cpp than Debian's goes on it is the owner's
+  call, and LFM3 waits on it.
 - `Q_power`: memory comes from the router. Watts need amdgpu's hwmon `power1_average`, or a
   meter, read on the box itself. Who samples it?
 - `Q_filler`: which near-miss mails, and how many documents of noise? Written by hand like the
