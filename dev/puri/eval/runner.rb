@@ -28,15 +28,27 @@ module Puri
       # @!attribute [r] kwargs
       #   @return [Hash{String => Object}] the chat template's arguments, as the `[[llm]]`'s
       #     `params` sends them
-      class Configuration < Data.define(:name, :model, :kwargs)
+      # @!attribute [r] sampling
+      #   @return [Hash{String => Float}] sent with every request over the preset's own: the
+      #     card's values for this mode, where they differ from the preset's
+      class Configuration < Data.define(:name, :model, :kwargs, :sampling)
+        # @param name [String]
+        # @param model [String]
+        # @param kwargs [Hash{String => Object}]
+        # @param sampling [Hash{String => Float}]
+        def initialize(name:, model:, kwargs:, sampling: {}) = super
+
         # @return [String] the configuration's name, as a file name
         def slug = name.downcase.gsub(/[^a-z0-9.]+/, '-').delete_suffix('-')
       end
 
       OFF = { 'enable_thinking' => false }.freeze
-      private_constant :OFF
+      ON = { 'enable_thinking' => true }.freeze
+      private_constant :OFF, :ON
 
-      # The first pass (design/ideas/model-eval.md): the baseline first, the slowest last.
+      # The first pass (design/ideas/model-eval.md), the baseline first and the slowest last;
+      # then the small tier with thinking on (owner, 2026-11-23), since where it failed, it failed
+      # to act: Granite asked instead of looking, Qwen fell apart on the hard tier.
       #
       # @return [Array<Puri::Eval::Runner::Configuration>]
       CONFIGURATIONS = [
@@ -46,7 +58,11 @@ module Puri
         Configuration.new(name: 'Nemotron-3.5-Bolt-E4B', model: 'Nemotron-3.5-Bolt-E4B', kwargs: OFF),
         Configuration.new(name: 'LFM3-1.7B', model: 'LFM3-1.7B', kwargs: OFF),
         Configuration.new(name: 'gpt-oss-20b, low', model: 'gpt-oss-20b', kwargs: { 'reasoning_effort' => 'low' }),
-        Configuration.new(name: 'Ornith-1.5, thinking', model: 'Ornith-1.5', kwargs: {})
+        Configuration.new(name: 'Ornith-1.5, thinking', model: 'Ornith-1.5', kwargs: {}),
+        Configuration.new(name: 'Qwen3.5-4B, thinking', model: 'Qwen3.5-4B', kwargs: ON,
+                          sampling: { 'temperature' => 1.0, 'top_p' => 0.95 }),
+        Configuration.new(name: 'Nemotron-3.5-Bolt-E4B, thinking', model: 'Nemotron-3.5-Bolt-E4B', kwargs: ON),
+        Configuration.new(name: 'Granite-4.2-3B, thinking', model: 'Granite-4.2-3B', kwargs: ON)
       ].freeze
 
       # @return [Integer] seconds a turn may take before it's cancelled
@@ -376,7 +392,9 @@ module Puri
         own = Core::Config.load
         server = own.servers.find { _1.url == own.primary_llm.server }.id
         kwargs = configuration.kwargs.map { |k, v| "#{k} = #{v.inspect}" }.join(', ')
-        params = kwargs.empty? ? '' : "params = { chat_template_kwargs = { #{kwargs} } }"
+        pairs = configuration.sampling.map { |k, v| "#{k} = #{v.inspect}" }
+        pairs << "chat_template_kwargs = { #{kwargs} }" unless kwargs.empty?
+        params = pairs.empty? ? '' : "params = { #{pairs.join(', ')} }"
         File.write(File.join(dir, 'puri', 'config.toml'), <<~TOML)
           [[llm]]
           name   = #{configuration.name.inspect}
