@@ -41,6 +41,7 @@ definitions + memory). That last number is what a smaller model will pay for eve
   Fewer tools (this app has ~15) means a shorter prefix too.
 - **A smaller model for the simple tier.** "Add milk to my shopping list" doesn't need Ornith.
   The candidates are the small tier above; tool-calling reliability is what decides, not MMLU.
+  Against Ornith's ~3B active parameters it saves memory rather than time (`model-eval.md`).
 - **Routing, Siri-style:** a small model answers or escalates to the big one (local, or an opt-in
   hosted one). The router itself is a model call, so it has to be cheap and rarely wrong.
   pikuri-shaped question: is escalation a tool, or a transport fallback?
@@ -53,13 +54,12 @@ definitions + memory). That last number is what a smaller model will pay for eve
 - **An eval suite before any swap.** One tester ran 62 tasks against Siri 27.2 (34 passed). We want
   the same: a few dozen real requests ("what's on Thursday", "remind me to call Bob at 5", "find
   the invoice from Acme") with an expected tool call each, run against every candidate. Without
-  it, "the small model feels fine" is anecdote.
+  it, "the small model feels fine" is anecdote. The plan, with the models, the box and the
+  tasks: `model-eval.md`.
 
 ## Open questions
 
 - `Q_target_hardware`: the app runs on the owner's desktop, the Ryzen AI 9 HX 370 host (the VM has
   7 GB RAM and a virtio GPU)? How much RAM does the host have for model + daemon?
-- `Q_eval_suite`: where does the task suite live — here, or in pikuri as a general tool-calling
-  benchmark?
 - `Q_hosted_tier`: is there an opt-in hosted tier at all, and is a query that quotes a note allowed
   to go there? That's an egress leg like the search engine's, with the same confirm question.
