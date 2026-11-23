@@ -88,8 +88,9 @@ users, and on one the small models should be fast even while thinking.
 
 Why it's plausible:
 - **Decode speed follows memory bandwidth** (`model-eval.md` § Two halves). On the test box every
-  model generates at 20–25 tok/s; Qwen's 3.0 GB at 20 tok/s means the iGPU reads about 60 GB/s.
-  An RTX 4060 reads 272 GB/s, so Qwen's ceiling there is about 90 tok/s.
+  model generates at 20–25 tok/s; Qwen's 3.0 GB at 20 tok/s means the iGPU reads about 60 GB/s,
+  of the 89.6 GB/s its dual-channel DDR5-5600 allows (a Radeon 890M, `model-eval.md`'s box). An
+  RTX 4060 reads 272 GB/s, three times that peak, so Qwen's ceiling there is about 90 tok/s.
 - **The owner's RTX 4060 8 GB** ran Qwen3.6-35B-A3B with Strata, on CUDA, at an 8K context, at
   around 40 tok/s. The owner's guess for a small model wholly on the card, through llama.cpp and
   Vulkan: around 55 tok/s. Neither is measured here.

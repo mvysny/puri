@@ -14,6 +14,11 @@ candidate is compared with Ornith-1.5.
 For now one box does both: the owner's dedicated test machine, kept quiet, with nothing else
 running. Its iGPU has 16 GB of VRAM that can grow to 64 GB.
 
+**The box (owner, 2026-11-23):** an AMD Ryzen AI 9 HX 370 with its Radeon 890M iGPU, on two
+DDR5-5600 SODIMMs: dual channel, so 89.6 GB/s at most, shared by the CPU and the iGPU. The first
+pass read about 60 GB/s of it while decoding (Qwen3.5-4B's 3.0 GB at 19.8 tok/s), about two
+thirds of the peak.
+
 **The small tier saves memory, not speed.** On an iGPU or CPU, decode speed follows the bytes
 read per token, so it follows the *active* parameters. Ornith-1.5-35B-A3B reads about 3B per
 token, while Qwen3.5-4B, Bolt E4B and Granite 4.2 3B read 3–4.5B. Per token they should be about
@@ -399,10 +404,10 @@ look, since titling is the first job a small model could take over.
 
 ## Open questions
 
-- `Q_box`: the test box's CPU and iGPU, how its VRAM grows from 16 to 64 GB (a BIOS carve-out or
-  GTT), and its backend. Ornith needs the >16 GB path. Its build and how it reaches the dev VM
-  are known (§ The test box); whether a newer llama.cpp than Debian's goes on it is the owner's
-  call, and LFM3 waits on it.
+- `Q_box`: how the test box's VRAM grows from 16 to 64 GB (a BIOS carve-out or GTT), and its
+  backend. Ornith needs the >16 GB path. Its hardware (§ Two halves), its build and how it
+  reaches the dev VM (§ The test box) are known; whether a newer llama.cpp than Debian's goes on
+  it is the owner's call, and LFM3 waits on it.
 - `Q_power`: memory comes from the router. Watts need amdgpu's hwmon `power1_average`, or a
   meter, read on the box itself. Who samples it?
 - `Q_filler`: which near-miss mails, and how many documents of noise? Written by hand like the
