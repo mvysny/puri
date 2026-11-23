@@ -17,8 +17,9 @@ module Puri
       #
       # No dates: today and the {DAYS} after it, a line a day, so "tomorrow" and "this weekend" are
       # lines to read, not dates to work out. `from` alone: that one day every {STEP} hours, with
-      # its sunrise and sunset. Both: the range, a trip's say. Days are the place's own, and a
-      # range past the forecast's last day is cut there, and says so.
+      # its sunrise and sunset. Both: the range, a trip's say. `to` alone: today until then, or
+      # that one day when it's past. Days are the place's own, and a range past the forecast's
+      # last day is cut there, and says so.
       #
       # The place resolves as `route`'s ends do, so it gets a number, and the result names what it
       # matched (`D_places`).
@@ -95,8 +96,8 @@ module Puri
           return Pikuri::Tool::Result.error('to is before from') if from && to && to < from
 
           number, place = Places::Ends.resolve(text, osm: @osm, notebook: @notebook, cancellable:)
-          forecast = @open_meteo.forecast(lat: place.lat, lon: place.lon, units: @units, past_days: past_days(from),
-                                          cancellable:)
+          forecast = @open_meteo.forecast(lat: place.lat, lon: place.lon, units: @units,
+                                          past_days: past_days(from || to), cancellable:)
           answer("Weather for [#{number}] #{place.label}, in its local time (#{forecast.timezone}).", forecast,
                  from, to)
         rescue BadDate => e
@@ -118,10 +119,12 @@ module Puri
           raise BadDate, "#{name}: #{text.inspect} is no date; write it as YYYY-MM-DD"
         end
 
-        # @param from [Date, nil]
+        # @param earliest [Date, nil] the earliest day asked
         # @return [Integer] days back to ask for, a day to spare where the place's today is ahead
         #   of the machine's
-        def past_days(from) = from ? ((Date.today - from).to_i + 1).clamp(0, OpenMeteo::PAST_DAYS) : 0
+        def past_days(earliest)
+          earliest ? ((Date.today - earliest).to_i + 1).clamp(0, OpenMeteo::PAST_DAYS) : 0
+        end
 
         # @param head [String]
         # @param forecast [Puri::Core::Weather::Forecast]
@@ -129,7 +132,7 @@ module Puri
         # @param to [Date, nil]
         # @return [Pikuri::Tool::Result]
         def answer(head, forecast, from, to)
-          first = from || forecast.today
+          first = from || [forecast.today, to].compact.min
           last = to || from || (forecast.today + DAYS)
           known = forecast.days.first.date..forecast.days.last.date
           if first > known.end

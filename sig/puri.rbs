@@ -2200,8 +2200,9 @@ module Puri
       # 
       # No dates: today and the {DAYS} after it, a line a day, so "tomorrow" and "this weekend" are
       # lines to read, not dates to work out. `from` alone: that one day every {STEP} hours, with
-      # its sunrise and sunset. Both: the range, a trip's say. Days are the place's own, and a
-      # range past the forecast's last day is cut there, and says so.
+      # its sunrise and sunset. Both: the range, a trip's say. `to` alone: today until then, or
+      # that one day when it's past. Days are the place's own, and a range past the forecast's
+      # last day is cut there, and says so.
       # 
       # The place resolves as `route`'s ends do, so it gets a number, and the result names what it
       # matched (`D_places`).
@@ -2253,11 +2254,11 @@ module Puri
         # _@param_ `name` — the parameter's
         def date: (String? text, String name) -> Date?
 
-        # _@param_ `from`
+        # _@param_ `earliest` — the earliest day asked
         # 
         # _@return_ — days back to ask for, a day to spare where the place's today is ahead
         # of the machine's
-        def past_days: (Date? from) -> Integer
+        def past_days: (Date? earliest) -> Integer
 
         # _@param_ `head`
         # 

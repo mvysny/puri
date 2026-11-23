@@ -86,6 +86,16 @@ RSpec.describe Puri::Core::Weather::ForecastTool do
     assert result.content.end_with?('Past days reach back only to Fri 20 Nov.')
   end
 
+  it 'reads `to` alone as today until then, or as that one day when it’s past' do
+    lines = run(to: '2026-11-24').content.lines(chomp: true)
+    assert_equal(['Now, 16:45', 'Sun 22 Nov', 'Mon 23 Nov', 'Tue 24 Nov'], lines[2..].map { _1[0, 10] })
+    result = run(to: '2026-11-21')
+    assert_operator Integer(fake.requests.last.query['past_days']), :>=, 2
+    lines = result.content.lines(chomp: true)
+    assert lines[2].start_with?('Sat 21 Nov: ')
+    assert_equal(%w[00:00 03:00 06:00 09:00 12:00 15:00 18:00 21:00], lines[3..10].map { _1[0, 5] })
+  end
+
   it 'numbers the place, for route' do
     run
     assert_equal 'Jumbo', notebook[1].name
