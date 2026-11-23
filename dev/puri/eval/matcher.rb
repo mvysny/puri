@@ -22,6 +22,8 @@ module Puri
       def match?(text, item)
         return item.any? { match?(text, _1) } if item.is_a?(Array)
 
+        # gpt-oss writes "10 :00", French style; Ruby's \s has no narrow or thin space.
+        text = text.to_s.gsub(/[   ]/, ' ')
         tag, value = item.to_s.split(':', 2) if item.to_s.start_with?('@')
         case tag
         when '@num' then numbers(text).any? { (_1 - Float(value)).abs < 0.005 }
@@ -86,7 +88,7 @@ module Puri
         twelve = ((hour - 1) % 12) + 1
         suffix = hour < 12 ? 'a\.?m\.?(?!\w)' : 'p\.?m\.?(?!\w)'
         mm = format('%02d', minute)
-        forms = ["(?<!\\d)0?#{hour}[:.]#{mm}(?!\\d)", "(?<!\\d)#{twelve}(?:[:.]#{mm})?\\s?#{suffix}"]
+        forms = ["(?<!\\d)0?#{hour} ?[:.] ?#{mm}(?!\\d)", "(?<!\\d)#{twelve}(?: ?[:.] ?#{mm})?\\s?#{suffix}"]
         forms += ["\\bat #{hour}(?![\\d:.])", "(?<!\\d)#{hour}h(?!\\w)", "\\b#{twelve} o'clock"] if minute.zero?
         Regexp.new(forms.join('|'), Regexp::IGNORECASE)
       end

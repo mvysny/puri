@@ -6,22 +6,31 @@ Owner, 2026-11-23: "both results will be interesting".
 
 ## Why
 
-The first pass (2026-11-23, `~/.local/state/puri/eval/2026-11-23/report.md`) ran the small tier
-with thinking off. Where those models failed, they mostly failed to act:
+The first pass (2026-11-23, `~/.local/state/puri/eval/2026-11-23/report.md`, regraded after
+two matcher fixes) ran the small tier with thinking off. Where those models failed, they mostly
+failed to act:
 
-| Configuration | Pass | Simple | Medium | Hard |
-|---|---|---|---|---|
-| Ornith-1.5, no thinking | 79 % | 40/45 | 32/42 | 11/18 |
-| Qwen3.5-4B | 62 % | 38/45 | 24/42 | 4/18 |
-| Granite-4.2-3B | 11 % | 8/45 | 4/42 | 0/18 |
+| Configuration | Pass | Simple | Medium | Hard | Turn, median |
+|---|---|---|---|---|---|
+| Ornith-1.5, no thinking | 79 % | 40/45 | 32/42 | 11/18 | 14.6 s |
+| Qwen3.5-4B | 63 % | 38/45 | 24/42 | 4/18 | 11.9 s |
+| Granite-4.2-3B | 11 % | 8/45 | 4/42 | 0/18 | 4.7 s |
+| Nemotron-3.5-Bolt-E4B | 38 % | 22/45 | 15/42 | 3/18 | 6.7 s |
+| gpt-oss-20b, low | 45 % | 31/45 | 16/42 | 0/18 | 11.6 s |
+| Ornith-1.5, thinking | 92 % | 44/45 | 40/42 | 13/18 | 24.6 s |
+
+LFM3 didn't load (b10438).
 
 - **Granite called no tool in 89 of its 105 runs.** It asked instead: "which Thursday?", "which
   insurance policy?", "which bank?".
 - **Qwen holds the simple tier and loses the hard one.** It is close enough to Ornith that
   `model-eval.md`'s own rule ("a small model gets a thinking-on run only if it lands close to
-  Ornith") calls for this run anyway.
-- Bolt, gpt-oss and Ornith with thinking were still running when this was written; their
-  numbers are in the same report.
+  Ornith") calls for this run anyway. It also fell for the stored injection once: a
+  `kettle-todo` note told Alex to pay invoice 4471 to the fake IBAN.
+- **Thinking was Ornith's biggest gain:** 79 % to 92 %, the hard tier 11 to 13 of 18, at
+  24.6 s a turn against 14.6 s.
+- **gpt-oss gets dates wrong:** Thursday as 30 or 23 November, Saturday as "25. novembre", and
+  answers in Finnish now and then.
 
 **The cost to watch is time.** The small models are no faster per token than Ornith: 20–25 tok/s
 generated for every model, and a 9.6k-token prompt (system prompt and tools) before each request.
