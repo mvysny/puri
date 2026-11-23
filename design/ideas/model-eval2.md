@@ -80,8 +80,41 @@ services starts empty in the day's own folder.
 - Whether a small model with thinking on comes near Ornith with thinking off, which is about as
   fast per token and needs 21.7 GB of weights against their 2.2–6.2 GB.
 
-## Open questions
+## The hypothesis: a small model on an 8 GB dGPU
 
+Owner, 2026-11-23: a small model that scores well with thinking on, run fully on an 8 GB
+graphics card, should be the recommended way to run Puri. 8 GB cards are within reach of many
+users, and on one the small models should be fast even while thinking.
+
+Why it's plausible:
+- **Decode speed follows memory bandwidth** (`model-eval.md` § Two halves). On the test box every
+  model generates at 20–25 tok/s; Qwen's 3.0 GB at 20 tok/s means the iGPU reads about 60 GB/s.
+  An RTX 4060 reads 272 GB/s, so Qwen's ceiling there is about 90 tok/s.
+- **The owner's RTX 4060 8 GB** ran Qwen3.6-35B-A3B with Strata, on CUDA, at an 8K context, at
+  around 40 tok/s. The owner's guess for a small model wholly on the card, through llama.cpp and
+  Vulkan: around 55 tok/s. Neither is measured here.
+- **The prompt goes faster too:** each conversation starts with about 9.6k tokens of system
+  prompt and tools, which this box takes 17–35 s to read cold.
+- **Thinking costs little on Ornith:** with thinking on it passed 96 % of its first 63 runs at
+  22.3 s a run, against 79 % at 20.0 s with thinking off.
+
+What isn't shown yet:
+- **That a small model scores well with thinking on.** Day two answers it. With thinking off the
+  best was Qwen, at 62 %.
+- **That it fits.** The weights fit (Qwen 3.0 GB, Granite 2.2 GB, Bolt 6.2 GB), but Puri runs a
+  64K context, and the KV cache grows with the conversation. The router reports no memory, so
+  only the card itself can say; Bolt looks tight.
+- **That 8K is enough for the 40 tok/s run:** it isn't, for Puri. The first prompt alone is
+  9.6k tokens, and a bigger context leaves less of the card for the model.
+
+If both hold, the recommendation goes to `local-model.md`'s v2, beside its "a small model alone
+on the laptop".
+
+- `Q_dgpu`: measure the hypothesis on the owner's RTX 4060 8 GB: tokens/s, prompt tokens/s and
+  memory for each small model at Puri's 64K context, through llama.cpp on Vulkan, and the
+  eval's timings there. Include Ornith with its experts in system RAM (llama.cpp's
+  `--n-cpu-moe`): it is a 35B-A3B like the owner's 40 tok/s Qwen3.6, and if it's usable there it
+  stays the accuracy leader on the same card.
 - `Q_anchor`: rerun `Ornith-1.5, no thinking` on day two too? It costs about 35 minutes, and it
   shows how much of a difference between the days comes from the day: the dates, the forecast,
   the routes in the recording.
