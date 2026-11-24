@@ -7,6 +7,9 @@ It reads your Thunderbird mail and calendar and your documents, keeps notes, dra
 event for you to send, and can search the web, but never opens a URL, and the model runs on your
 own machine whenever it can.
 
+The web page, [puri-ai.de](https://puri-ai.de), shows it at work and lists everything that
+leaves your computer.
+
 Pikuri owns the agent loop, the tools, the prompts and the LLM transport. This project owns the
 popup window, the conversation history beside it, and the resident process that keeps the agent
 warm.
