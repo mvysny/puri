@@ -122,8 +122,8 @@ bundle exec rake install AUTOSTART=1
 
 ## The install guide
 
-Shaped with the owner, 2026-11-24. `docs/install.html` is written; next are `models.html`, then
-the README cut down to the developer setup, since until then it repeats the guide.
+Shaped with the owner, 2026-11-24, and written: `docs/install.html`, `docs/models.html`, and
+the README cut down to the developer setup.
 
 - **Home:** `docs/` owns the user install, since users read the site; the README keeps the
   developer setup and links there (owner). The front page's Install section stays short and links

@@ -367,7 +367,15 @@ Ubuntu 26.04's whisper.cpp 1.8.3, `ggml-small.en.bin` on 4 CPU threads of a Ryze
 
 ## R_tailscale_serve — Tailscale Serve in front of llama-server and whisper-server
 
-Tailscale's `main` and its docs (kb 1242, 1312, 1153), read 2026-11-22; nothing run yet.
+Tailscale's `main` and its docs (kb 1242, 1312, 1153), read 2026-11-22; the owner runs both
+servers behind it, from the snap.
+
+- On Ubuntu it comes as the `tailscale` snap, published by Canonical (verified publisher) and
+  strictly confined: 1.102.3 on `latest/stable`. Its listed limits are `tailscale ssh`, `tailscale
+  cert` to paths outside the snap's, `tailscale update` and `tailscale drive share`. **[docs]**
+  (`snap info tailscale`, 2026-11-24)
+- `tailscale serve` works from the snap, in front of llama-server and whisper-server.
+  **[verified 2026-11-24, on the owner's machine]**
 
 - A proxy mount drops its path before forwarding: `/llama/v1/x` reaches `http://127.0.0.1:8080`
   as `/v1/x`. The longest mount wins, and a bare `/llama` is proxied, never redirected.
@@ -383,3 +391,7 @@ Tailscale's `main` and its docs (kb 1242, 1312, 1153), read 2026-11-22; nothing 
   **[src]**
 - llama-server's `--api-prefix` and whisper-server's `--request-path` serve under a path of their
   own, which a proxy that strips the path doesn't need. **[src]**
+- With `--api-key-file`, llama-server still answers `/health` and its web page without the key,
+  but the page's scripts and stylesheet want it, so the page stays a dead form. Ubuntu's
+  `llama.cpp-tools` serves the UI from a directory, which upstream keeps behind the key on purpose
+  ([llama.cpp#22038](https://github.com/ggml-org/llama.cpp/pull/22038)). **[src]**

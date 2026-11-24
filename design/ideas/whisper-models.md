@@ -39,8 +39,8 @@ know what to recommend.
 
 ## Open questions
 
-- `Q_recommended_model`: one model in the README, or `small` for a CPU and `large-v3-turbo` for a
-  GPU?
+- `Q_recommended_model`: one model in the install guide (`small` for now), or `small` for a CPU
+  and `large-v3-turbo` for a GPU?
 - `Q_silence`: VAD on the server (the README says how), a gate in Puri, or both?
 - `Q_languages`: which languages to test, and whether `.en` models deserve a mention at all, since
   they turn other languages into English gibberish.

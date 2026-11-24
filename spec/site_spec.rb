@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'cgi'
+require 'fileutils'
+require 'tmpdir'
+require 'tomlrb'
 
 # docs/, the web page at puri-ai.de: hand-written pages with no site generator, so what they share
 # is checked here rather than generated. Read as text, since the markup is regular.
@@ -37,6 +41,26 @@ RSpec.describe 'the web page' do
         target = { nil => name, './' => 'index.html' }.fetch(page, page)
         assert_includes pages.fetch(target).scan(/ id="([^"]+)"/).flatten, anchor, "#{name} links to #{page}##{anchor}"
       end
+    end
+  end
+
+  it 'shows config fragments that are valid TOML' do
+    fragments = pages.values.flat_map { _1.scan(%r{<pre class="file toml">(.*?)</pre>}m).flatten }
+    refute_empty fragments
+    fragments.each { Tomlrb.parse(CGI.unescapeHTML(_1)) }
+  end
+
+  it "loads models.html's Ornith tables, put in place of the config's Qwen ones as the page says" do
+    ornith = CGI.unescapeHTML(pages.fetch('models.html')[%r{<pre class="file toml">(\[\[llm\]\].*?)</pre>}m, 1])
+    qwen = /^\[\[llm\]\].*?^llm = "Qwen 3.5 4B, no thinking"\n/m
+    config = File.read(Puri::Core::Config::EXAMPLE).sub(qwen, "#{ornith}\n")
+    Dir.mktmpdir do |home|
+      FileUtils.mkdir_p([File.join(home, 'puri'), File.join(home, 'Documents')])
+      File.write(File.join(home, 'puri', 'config.toml'), config)
+      loaded = Puri::Core::Config.load(env: { 'XDG_CONFIG_HOME' => home, 'XDG_CONFIG_DIRS' => File.join(home, 'none'),
+                                              'HOME' => home })
+      assert_equal ['Ornith 1.5', 'Ornith 1.5, no thinking'], loaded.llms.map(&:name)
+      assert_equal 'Ornith 1.5, no thinking', loaded.titler_llm.name
     end
   end
 

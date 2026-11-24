@@ -187,7 +187,7 @@ EOF</span>
 
       <section class="step" id="step-index">
         <h3><span class="n">7</span>Reindex your documents</h3>
-        <p>Puri finds your documents through GNOME's own file index, the one the Files app searches. Installing the office-file reader in step 2 doesn't reread what the index already holds, so rebuild it once:</p>
+        <p>Puri finds your documents through GNOME's own file index, the one the Files app searches. Installing the office-file reader in step 2 doesn't reread what the index already holds, even after a restart (<a href="https://gitlab.gnome.org/GNOME/localsearch/-/work_items/476">a localsearch bug</a>), so rebuild it once:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
 <pre><span class="p">$ </span><span class="cmd">localsearch reset</span></pre>
@@ -222,7 +222,7 @@ EOF</span>
         <h3><span class="n">9</span>Add a search key</h3>
         <p>Web search is the one feature that needs a key of your own, from <a href="https://api-dashboard.search.brave.com">Brave Search</a> or <a href="https://exa.ai">Exa</a>. Puri sends each search query there, and a query may quote your mail; Exa's terms let it train on what you search for. Puri reads the engine's copy of each page and never opens a link itself.</p>
         <p>In your config, remove the <code>#</code> from the <code>[search]</code> line and the line of your engine's key, and put the key in:</p>
-<pre class="file">[search]
+<pre class="file toml">[search]
 brave_key = "your key"</pre>
         <p>Then make the file yours alone to read, quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd>, and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>: Puri reads its config when it starts.</p>
         <div class="term">
@@ -252,7 +252,7 @@ brave_key = "your key"</pre>
 
       <section id="places">
         <h3>Places and routes</h3>
-        <p>Where a place is, what's open nearby, and how far by car, from OpenStreetMap, with a map under the answer. The place you ask about goes to OpenStreetMap's public services: Photon finds it by name, Nominatim what's nearby, and FOSSGIS's OSRM the drive. Asked what's near you, Puri asks for your home address once, remembers it in <code>Notes/PURI.md</code>, and sends it to Nominatim. A click on a pin opens the place in GNOME Maps.</p>
+        <p>Where a place is, what's open nearby, and how far by car, from OpenStreetMap, with a map under the answer. The place you ask about goes to OpenStreetMap's public services: Photon finds it by name, Nominatim what's nearby, and FOSSGIS's OSRM the drive. Asked what's near you, Puri asks for your home address once, remembers it in <code>Notes/PURI.md</code>, and sends it to Nominatim. A click on a pin opens the place in GNOME Maps, or on openstreetmap.org when Maps isn't installed.</p>
         <p>The map's tiles come from the server in <code>tiles</code> under <code>[maps]</code>, OpenStreetMap's own unless you change it.</p>
       </section>
 
@@ -268,7 +268,7 @@ brave_key = "your key"</pre>
 
       <section id="dictation">
         <h3>Dictation</h3>
-        <p>Press <kbd>F5</kbd> or click the mic in the search bar, speak, and press <kbd>F5</kbd> again. The text lands at the cursor, for you to send with <kbd>Enter</kbd>; <kbd>Escape</kbd> drops it. Your voice stays on this computer.</p>
+        <p>Press <kbd>F5</kbd> or click the mic in the search bar, speak, and press <kbd>F5</kbd> again. The text lands at the cursor, for you to send with <kbd>Enter</kbd>; <kbd>Escape</kbd> drops it. Your voice stays on this computer. On a processor alone, <code>small</code> takes some 7 seconds even for a short clip; the graphics card makes it quicker. Your desktop's own dictation types into Puri too, as into any other field.</p>
         <p>Other models come from the <a href="https://huggingface.co/ggerganov/whisper.cpp">same place</a> as step 4's: <code>base</code> is smaller and faster and makes more mistakes, <code>medium</code> is slower and makes fewer. A model whose name ends in <code>.en</code> understands only English, and turns any other language into English gibberish. To switch, download one, put its name in place of <code>ggml-small.bin</code> in <code>~/.config/systemd/user/whisper-server.service</code>, then:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
@@ -295,7 +295,7 @@ brave_key = "your key"</pre>
 
       <section id="model">
         <h3>The model</h3>
-        <p>Qwen 3.5 4B is small, a short download, and runs on most graphics cards. A smarter model needs far more memory: the README has <a href="https://github.com/mvysny/puri#a-smarter-model-ornith-15">Ornith 1.5</a>, and how to run the model on <a href="https://github.com/mvysny/puri#a-home-server-over-tailscale">a home server of yours</a>.</p>
+        <p>Qwen 3.5 4B is small, a short download, and runs on most graphics cards. A smarter model needs far more memory: <a href="models.html">Choose a model</a> compares Qwen with <a href="models.html#ornith">Ornith 1.5</a>, says which computer runs which, and how to run the model on <a href="models.html#home-server">a home server of yours</a>.</p>
       </section>
     </section>
 

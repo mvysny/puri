@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Choose a model for Puri</title>
+<meta name="description" content="Qwen 3.5 4B, Ornith 1.5 or Qwen 3.6 35B: which model runs Puri on which computer, and how to run it on a home server.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://puri-ai.de/models.html">
+<meta property="og:title" content="Choose a model for Puri">
+<meta property="og:description" content="Qwen 3.5 4B, Ornith 1.5 or Qwen 3.6 35B: which model runs Puri on which computer, and how to run it on a home server.">
+<meta property="og:image" content="https://puri-ai.de/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="kuri.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/AdwaitaSans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script src="copy.js" defer></script>
+</head>
+<body>
+
+<header class="wrap nav">
+  <a class="brand" href="./"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg>Puri</a>
+  <a class="nav-link" href="./#what">What it does</a>
+  <a class="nav-link" href="./#privacy">Privacy</a>
+  <a class="nav-link" href="install.html">Install</a>
+  <a class="btn small" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-code"/></svg>GitHub</a>
+</header>
+
+<main class="wrap guide">
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-head">On this page</p>
+    <ol>
+      <li><a href="#compare">Qwen or Ornith</a></li>
+      <li><a href="#hardware">Which computer runs which</a></li>
+      <li><a href="#ornith">Switching to Ornith</a></li>
+      <li><a href="#igpu">Ornith on integrated graphics</a></li>
+      <li><a href="#strata">A 12 or 16 GB card</a></li>
+      <li><a href="#home-server">A home server</a></li>
+    </ol>
+  </nav>
+
+  <article class="doc">
+    <h1>Choose a model</h1>
+    <p class="lead">The <a href="install.html">install guide</a> starts everyone on Qwen 3.5 4B: small, a short download, and the likeliest to run. Once Puri works, a smarter model is a few lines away, if your computer has the memory for it.</p>
+
+    <section id="compare">
+      <h2>Qwen or Ornith</h2>
+      <p>Both ran the same 35 tasks of the kind Puri gets, three times each, through Puri's own instructions and tools, against a made-up person's mail, calendar and documents. Both think before they answer, which the config turns on: with its thinking off, Qwen did 63 %.</p>
+      <div class="list scroll-x">
+        <table class="compare">
+          <thead><tr><th></th><th>Qwen 3.5 4B</th><th>Ornith 1.5</th></tr></thead>
+          <tbody>
+            <tr><td>Tasks done right</td><td>76 %</td><td>92 %</td></tr>
+            <tr><td>A mail saying a firm's bank account had changed</td><td>almost always passed the new account on as real</td><td>warned every time</td></tr>
+            <tr><td>Download</td><td>3–4 GB</td><td>about 23 GB</td></tr>
+            <tr><td>Memory, with Puri's 64K context</td><td>most of an 8 GB card</td><td>about 32 GB</td></tr>
+            <tr><td>A turn on integrated graphics (Radeon 890M), median</td><td>33 s</td><td>24 s</td></tr>
+            <tr><td>Speed on an 8 GB card (RTX 4060)</td><td>50–60 tokens a second</td><td>doesn't fit</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Ornith is a much bigger model, but it uses only about 3 billion of its 35 billion parameters for each token, about as many as Qwen has in all, so where it fits, it isn't slower. With Qwen, check any payment details in your mail yourself.</p>
+    </section>
+
+    <section id="hardware">
+      <h2>Which computer runs which</h2>
+      <ul class="needs">
+        <li><strong>A graphics card with 8 GB:</strong> Qwen, and quickly.</li>
+        <li><strong>A graphics card with 12 or 16 GB:</strong> Qwen; or, as an experiment, Qwen 3.6 35B through <a href="#strata">Strata</a>.</li>
+        <li><strong>A graphics card with about 32 GB:</strong> Ornith, all of it on the card.</li>
+        <li><strong>Integrated graphics and 48 GB of memory or more:</strong> Ornith, which there is both better and faster than Qwen, once the graphics may use enough of that memory (<a href="#igpu">below</a>).</li>
+        <li><strong>Integrated graphics and less memory:</strong> Qwen.</li>
+        <li><strong>A computer at home with more memory than this one:</strong> run the model there, on <a href="#home-server">a home server</a>.</li>
+      </ul>
+      <p>Ornith needs about 32 GB for itself, so a computer with exactly 32 GB has nothing left for GNOME, Thunderbird and your browser: hence the 48.</p>
+    </section>
+
+    <section id="ornith">
+      <h2>Switching to Ornith</h2>
+      <p>Point the model service from the install guide's <a href="install.html#step-model">step 3</a> at Ornith, and restart it. The first start downloads about 23 GB:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sed -i 's#ggml-org/Qwen3.5-4B-GGUF:Q4_K_M#ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M#' ~/.config/systemd/user/llama-server.service</span>
+<span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
+<span class="p">$ </span><span class="cmd">systemctl --user restart llama-server</span>
+<span class="p">$ </span><span class="cmd">journalctl --user -fu llama-server</span></pre>
+      </div>
+      <p>Then, in <code>~/.config/puri/config.toml</code>, put these in place of the two Qwen <code>[[llm]]</code> tables and the <code>[titler]</code> under them, the settings from Ornith's model card:</p>
+<pre class="file toml">[[llm]]
+name   = "Ornith 1.5"
+server = "local"
+model  = "ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M"
+[llm.params]
+temperature = 0.6
+top_p       = 0.95
+top_k       = 20
+
+[[llm]]
+name   = "Ornith 1.5, no thinking"
+server = "local"
+model  = "ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M"
+[llm.params]
+temperature = 0.6
+top_p       = 0.95
+top_k       = 20
+chat_template_kwargs = { enable_thinking = false }
+
+[titler]
+llm = "Ornith 1.5, no thinking"</pre>
+      <p>Quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>. Qwen stays in <code>~/.cache/llama.cpp</code> until you delete it.</p>
+      <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> once the log says the server is listening, Puri answers again.</span></p>
+    </section>
+
+    <section id="igpu">
+      <h2>Ornith on integrated graphics</h2>
+      <p>Integrated graphics share the computer's memory, but may use only part of it: a share set in the firmware, plus what the kernel lends them. Ornith needs about 32 GB of it. Your BIOS setup may have a setting for the graphics' share; if it doesn't, or it can't give enough, the kernel can lend more.</p>
+      <p>On an AMD Radeon, that's two kernel options, both set to the gigabytes the graphics may use times 262144, which is the number of 4 KiB pages in a gigabyte. On a 64 GB computer, 48 GB is <code>12582912</code>. Add them to the <code>GRUB_CMDLINE_LINUX_DEFAULT</code> line in <code>/etc/default/grub</code>, after <code>quiet splash</code>:</p>
+<pre class="file">GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ttm.pages_limit=12582912 ttm.page_pool_size=12582912"</pre>
+      <p>Then apply it and restart the computer:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo update-grub</span></pre>
+      </div>
+      <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> after the restart, <code>cat /proc/cmdline</code> shows both options.</span></p>
+      <p>Intel graphics have settings of their own: look up your model's.</p>
+    </section>
+
+    <section id="strata">
+      <h2>A 12 or 16 GB card: Qwen 3.6 35B through Strata</h2>
+      <p class="hint"><strong>Experimental.</strong> Nobody has run Puri this way at its full context yet.</p>
+      <p><a href="https://github.com/niko1221/strata">Strata</a> runs large models on graphics cards too small to hold them. On it, Qwen 3.6 35B, a model of Ornith's size, has done well in pikuri's own apps, which Puri is built on; Strata probably has no Ornith.</p>
+      <p>The catch is the context. Puri's instructions alone are about 10,000 tokens. An 8 GB card held an 8K context through Strata, too small; a 12 GB card may hold 32K or even 64K, but that hasn't been checked.</p>
+      <p>Strata comes from its own releases, not from Ubuntu's archive: an AppImage that downloads its engine for your card, or an install script. That's the kind of install <a href="install.html#why">the install guide avoids</a>, so it's your call, and this page doesn't vouch for it. Its own instructions cover setting it up.</p>
+      <p>It serves the same kind of API as <code>llama-server</code>. Stop the model service, so the card is Strata's alone, then put the address Strata gives in <code>url</code> under <code>[[server]]</code>, and its model's name in each <code>[[llm]]</code>'s <code>model</code>:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">systemctl --user disable --now llama-server</span></pre>
+      </div>
+    </section>
+
+    <section id="home-server">
+      <h2>A home server over Tailscale</h2>
+      <p>One computer at home runs both servers, the model and dictation, and <a href="https://tailscale.com">Tailscale</a> carries them over HTTPS to each computer you run Puri on: one name, port 443, the model at <code>/llama</code> and dictation at <code>/whisper</code>.</p>
+
+      <h3>On the server</h3>
+      <p>Set up the two services as in the install guide's <a href="install.html#step-model">steps 3</a> and <a href="install.html#step-dictation">4</a>, with the model your server can hold. Both listen only on the server itself. Let them start at boot rather than when you log in:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo loginctl enable-linger $USER</span></pre>
+      </div>
+      <p>Give the model server a key: a file only you can read, which <code>llama-server</code> reads with <code>--api-key-file</code>.</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.config/llama-server</span>
+<span class="p">$ </span><span class="cmd">(umask 077; openssl rand -hex 32 &gt; ~/.config/llama-server/api-key)</span></pre>
+      </div>
+      <p>In <code>~/.config/systemd/user/llama-server.service</code>, add <code>--api-key-file %h/.config/llama-server/api-key</code> to the <code>ExecStart</code> line, then:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
+<span class="p">$ </span><span class="cmd">systemctl --user restart llama-server</span></pre>
+      </div>
+      <p>The key matters even inside your tailnet: Tailscale lets in every device on it, the virtual machines on them and everyone logged into one, and checks no key of its own. <code>llama-server</code>'s web page still opens without the key, but nothing on it works, as it should be.</p>
+
+      <h3>Tailscale</h3>
+      <p>Tailscale comes as a snap that Canonical publishes, the way Ubuntu's Thunderbird does. Install it on the server and on each computer that runs Puri, and log them all into one tailnet; <code>tailscale up</code> prints the link to log in with:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo snap install tailscale</span>
+<span class="p">$ </span><span class="cmd">sudo tailscale up</span></pre>
+      </div>
+      <p>In Tailscale's admin console, on the DNS page, turn on MagicDNS, then HTTPS Certificates. That publishes your computers' names and your tailnet's in a public ledger of certificates, so give the server a name that says nothing. Then, on the server:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo tailscale serve --bg --https=443 --set-path=/llama   http://127.0.0.1:8080</span>
+<span class="p">$ </span><span class="cmd">sudo tailscale serve --bg --https=443 --set-path=/whisper http://127.0.0.1:8081</span>
+<span class="p">$ </span><span class="cmd">tailscale serve status</span></pre>
+      </div>
+      <p><code>--bg</code> keeps both across restarts, and <code>status</code> prints the server's name, <code>box.tailXXXX.ts.net</code> here.</p>
+      <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> from your laptop, <code>https://box.tailXXXX.ts.net/llama/health</code> answers in the browser.</span></p>
+
+      <h3>On each computer that runs Puri</h3>
+      <p>Point Puri's config at the server, with the key from the server's <code>~/.config/llama-server/api-key</code>. The <code>id</code> stays <code>local</code>: it's only a name the <code>[[llm]]</code> tables use.</p>
+<pre class="file toml">[[server]]
+id      = "local"
+url     = "https://box.tailXXXX.ts.net/llama"
+api_key = "the key"
+
+[dictation]
+url = "https://box.tailXXXX.ts.net/whisper"</pre>
+      <p>Keep the key yours alone to read, stop the local servers if you set them up there, then quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">chmod 600 ~/.config/puri/config.toml</span>
+<span class="p">$ </span><span class="cmd">systemctl --user disable --now llama-server whisper-server</span></pre>
+      </div>
+      <p><code>whisper-server</code> takes no key yet (<a href="https://github.com/ggml-org/whisper.cpp/issues/4197">whisper.cpp#4197</a>), so whoever reaches the server can transcribe on it. If others share your tailnet, a grant in its access policy can keep their devices off the server's port 443.</p>
+    </section>
+  </article>
+</main>
+
+<footer class="wrap footer">
+  <span class="grow"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg><span>Puri is MIT licensed and built on <a href="https://github.com/mvysny/pikuri">pikuri</a>. Kuri the pika is pikuri's mascot.</span></span>
+  <span>This page sets no cookies and loads nothing from other sites.</span>
+</footer>
+
+</body>
+</html>

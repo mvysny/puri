@@ -149,8 +149,8 @@ the desktop's own sandbox. The price is keyword recall, where Spotlight's index 
 too: the index knows no synonym and no other language, so the prompt has the model list them in one
 query, which a file matches by any of its words. And the index reads only what the desktop's
 extractors do: Ubuntu's localsearch reads no DOCX, ODF or EPUB without
-`localsearch-extractor-office`, which it only suggests, so the README asks for it. The index often
-covers the whole home, but the tools' roots are the documents folder alone (owner, 2026-11-18): the
+`localsearch-extractor-office`, which it only suggests, so the install guide installs it. The index
+often covers the whole home, but the tools' roots are the documents folder alone (owner, 2026-11-18): the
 reach of `read` and `glob`, so the folder is the gate for search too, and an index that lacks the
 folder doesn't count as ready. A file elsewhere in the home is out of reach, even when the user
 asks for it. The legs are private and hard untrusted, since the agent quotes mail into `Notes/`.

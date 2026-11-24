@@ -301,6 +301,8 @@ tbody tr[data-flow]:hover { background: var(--zone); }
 pre.file { margin: 14px 0; padding: 16px 20px; overflow-x: auto; border-radius: 12px; background: var(--view); box-shadow: 0 0 0 1px var(--edge); font: 13.5px/1.7 var(--mono); }
 .asks td:last-child, .asks tr:last-child td:last-child { color: var(--dim); font-weight: 400; }
 .asks td:first-child { font-weight: 500; }
+.compare td, .compare tr:last-child td:last-child { color: var(--fg); font-weight: 400; }
+.compare td:first-child { color: var(--dim); font-weight: 500; }
 .doc .list { margin: 16px 0; }
 
 /* ── the Puri popup replay ───────────────────────────── */
