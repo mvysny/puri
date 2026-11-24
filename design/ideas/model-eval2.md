@@ -173,12 +173,14 @@ What day two and the card showed:
 - **8K isn't enough for the 40 tok/s run,** for Puri: the first prompt alone is 9.6k tokens, and
   a bigger context leaves less of the card for the model.
 
-If both hold, the recommendation goes to `local-model.md`'s v2, beside its "a small model alone
-on the laptop".
+**Decided (owner, 2026-11-24): no more eval runs.** Puri starts with Qwen3.5-4B, on a dGPU if
+there is one, and recommends Ornith-1.5 for a far smarter assistant, on an iGPU with lots of
+memory. On an iGPU Ornith is the faster of the two as well. Qwen repeating the fake IBAN is
+`payment-redirect-defence.md`'s to fix.
 
-- `Q_dgpu`: the rest of the hypothesis on the owner's RTX 4060 8 GB: prompt tokens/s and memory
-  for Qwen and Bolt at Puri's 64K context, through llama.cpp on Vulkan, and the eval's timings
-  there. Include Ornith with its experts in system RAM (llama.cpp's
+- `Q_dgpu` (the owner measures): the rest of the hypothesis on the owner's RTX 4060 8 GB: prompt
+  tokens/s and memory for Qwen and Bolt at Puri's 64K context, through llama.cpp on Vulkan, and
+  the eval's timings there. Include Ornith with its experts in system RAM (llama.cpp's
   `--n-cpu-moe`): it is a 35B-A3B like the owner's 40 tok/s Qwen3.6, and if it's usable there it
   stays the accuracy leader on the same card.
 - `Q_week_dates`: Qwen, Bolt and gpt-oss got "Thursday"'s date wrong in the smoke round, and a
