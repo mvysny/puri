@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 7 56 56" role="img" aria-label="Kuri, the pikuri pika">
+  <!-- Kuri - pikuri's mascot, in the Talus coat. THIS FILE IS THE MASTER: it
+       lives in pikuri/assets/ and every other copy, in this repo or a host's,
+       is downstream of it. Why a pika, why this coat, and what was drawn and
+       rejected first: the kuri mascot entry in *pikuri's* design/decisions.md -
+       named by repo because this file is vendored, and a bare
+       "design/decisions.md" would point at the wrong repo everywhere but here.
+       Named in prose rather than by slug for the same reason: a downstream
+       copy must not carry a D_ cite its own doc tripwire cannot resolve.
+
+       Deliberately transparent and unplated. Talus is a mid grey, which holds
+       fine at README and book sizes on either a light or a dark page - but a
+       host rendering him small (a favicon, an app icon) has to supply its own
+       background, and that is the host's decision to make and record. pikuri
+       does not decide it here.
+
+       What makes him a pika rather than a teddy bear is the ear placement:
+       large, and set on the SIDES of the head at about 8 and 4 o'clock. Ears
+       that are small, high and clear of the skull read as a bear every time -
+       that was the first draft, and it was not obvious until it was rendered
+       at 512px. The whiskers and the small muzzle are the other two tells;
+       the muzzle wants to stay well under half the face.
+
+       The viewBox is the art's own bounding square (56x56 centred on 32,35),
+       so scaling this file into a frame needs no transform - a percentage
+       width is enough. Changing the geometry invalidates every raster
+       rendered from it, here and downstream. -->
+  <title>Kuri</title>
+
+  <!-- ears -->
+  <circle cx="14" cy="29" r="10" fill="#a89c8e"/>
+  <circle cx="50" cy="29" r="10" fill="#a89c8e"/>
+  <circle cx="13.4" cy="28.4" r="5.6" fill="#786d61"/>
+  <circle cx="50.6" cy="28.4" r="5.6" fill="#786d61"/>
+
+  <!-- head: one circle, so the silhouette survives a circular mask -->
+  <circle cx="32" cy="35" r="20.5" fill="#a89c8e"/>
+  <ellipse cx="32" cy="44" rx="10" ry="7.5" fill="#ded5c8"/>
+
+  <!-- whiskers stay inside the silhouette on purpose: anything poking out is
+       the first thing a maskable crop removes -->
+  <g stroke="#7d7367" stroke-width="1.5" stroke-linecap="round" fill="none">
+    <path d="M22 41.6 L14.5 39.2"/>
+    <path d="M21.6 44.8 L15 45.2"/>
+    <path d="M42 41.6 L49.5 39.2"/>
+    <path d="M42.4 44.8 L49 45.2"/>
+  </g>
+
+  <!-- face -->
+  <circle cx="24.5" cy="35" r="3.3" fill="#26241f"/>
+  <circle cx="39.5" cy="35" r="3.3" fill="#26241f"/>
+  <circle cx="25.6" cy="33.9" r="1.1" fill="#ffffff"/>
+  <circle cx="40.6" cy="33.9" r="1.1" fill="#ffffff"/>
+  <path d="M32 39.8 L34.5 41.9 L32 44 L29.5 41.9 Z" fill="#26241f"/>
+  <path d="M32 44 v1.6 M32 45.6 q-3 2.5 -5.6 .2 M32 45.6 q3 2.5 5.6 .2"
+        stroke="#26241f" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+</svg>

@@ -25,6 +25,7 @@ warm.
 | File | Owns | Loaded |
 |---|---|---|
 | `README.md` | the pitch, install, how to run | — |
+| `docs/` | the web page at puri-ai.de, plain files GitHub Pages serves from `master`: the pitch and a short install, linking to the README for the rest | — |
 | `AGENTS.md` (this) | promises, invariants, the module map, conventions, commands | every turn |
 | `design/architecture.md` | how the pieces compose — wiring, dependency direction, threads, the flows; normative | lazy |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |
@@ -65,6 +66,7 @@ Every fact lives in exactly one of these; the others link to it.
 - `bundle exec rake install` / `uninstall` — the per-user D-Bus activation and the global shortcut (`HOTKEY`, `AUTOSTART=1`; README); `spec/install_spec.rb` runs it against a scratch home.
 - GTK specs start their own `gtk4-broadwayd` on `:90`–`:99` unless `GDK_BACKEND` is set.
 - `design/verify_design_tripwires.sh` — the doc-layer tripwire.
+- `python3 -m http.server -d docs` — the web page locally; it loads nothing from other sites, and its footer says so.
 
 ## Skills this project follows
 

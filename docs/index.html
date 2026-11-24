@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Puri: a desktop AI assistant for GNOME</title>
+<meta name="description" content="Press Super+Alt+Space and ask. Puri answers from your mail, calendar, documents and the web, with the model running on your own machine.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://puri-ai.de/">
+<meta property="og:title" content="Puri: a desktop AI assistant for GNOME">
+<meta property="og:description" content="Press Super+Alt+Space and ask. Puri answers from your mail, calendar, documents and the web, with the model running on your own machine.">
+<meta property="og:image" content="https://puri-ai.de/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="kuri.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/AdwaitaSans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script src="demo.js" defer></script>
+</head>
+<body>
+
+<svg class="sym" aria-hidden="true">
+  <defs>
+    <!-- Kuri, from pikuri/assets/kuri.svg; kuri.svg beside this page is the same drawing. -->
+    <symbol id="kuri-mark" viewBox="4 7 56 56">
+      <circle cx="14" cy="29" r="10" fill="#a89c8e"/><circle cx="50" cy="29" r="10" fill="#a89c8e"/>
+      <circle cx="13.4" cy="28.4" r="5.6" fill="#786d61"/><circle cx="50.6" cy="28.4" r="5.6" fill="#786d61"/>
+      <circle cx="32" cy="35" r="20.5" fill="#a89c8e"/><ellipse cx="32" cy="44" rx="10" ry="7.5" fill="#ded5c8"/>
+      <g stroke="#7d7367" stroke-width="1.5" stroke-linecap="round" fill="none"><path d="M22 41.6 L14.5 39.2"/><path d="M21.6 44.8 L15 45.2"/><path d="M42 41.6 L49.5 39.2"/><path d="M42.4 44.8 L49 45.2"/></g>
+      <circle cx="24.5" cy="35" r="3.3" fill="#26241f"/><circle cx="39.5" cy="35" r="3.3" fill="#26241f"/>
+      <circle cx="25.6" cy="33.9" r="1.1" fill="#ffffff"/><circle cx="40.6" cy="33.9" r="1.1" fill="#ffffff"/>
+      <path d="M32 39.8 L34.5 41.9 L32 44 L29.5 41.9 Z" fill="#26241f"/>
+      <path d="M32 44 v1.6 M32 45.6 q-3 2.5 -5.6 .2 M32 45.6 q3 2.5 5.6 .2" stroke="#26241f" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+    </symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7l8 6 8-6"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-6.4-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.6 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.3"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19h10a4 4 0 0 0 .4-8 5.6 5.6 0 0 0-10.9 1.2A3.4 3.4 0 0 0 7 19z"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+    <symbol id="i-side" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M9.5 5v14"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9.5a13 13 0 0 1 18 0M6 13a8.5 8.5 0 0 1 12 0M9 16.4a4 4 0 0 1 6 0"/><circle cx="12" cy="19.5" r=".6"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+    <symbol id="i-bat" viewBox="0 0 24 24"><rect x="3" y="7.5" width="16" height="9" rx="2"/><path d="M21 10.5v3M6 10.5h7v3H6z"/></symbol>
+  </defs>
+</svg>
+
+<template id="puri-template">
+  <div class="puri-win" data-state="open">
+    <div class="puri-head">
+      <span class="puri-hbtn x"><svg class="ic"><use href="#i-x"/></svg></span>
+      <span class="puri-title"></span>
+      <span class="puri-hbtn"><svg class="ic"><use href="#i-pen"/></svg></span>
+      <span class="puri-hbtn"><svg class="ic"><use href="#i-side"/></svg></span>
+    </div>
+    <div class="puri-body"><div class="puri-tx"></div></div>
+    <div class="puri-prompt"><svg class="ic"><use href="#i-search"/></svg><span class="puri-input"></span><span class="puri-caret"></span></div>
+  </div>
+  <svg class="puri-cursor" viewBox="0 0 20 24"><path d="M2 1.5v18.5l5-4.6 3.2 7 3-1.4-3.1-6.8H17z"/></svg>
+</template>
+
+<header class="wrap nav">
+  <a class="brand" href="#"><svg aria-hidden="true"><use href="#kuri-mark"/></svg>Puri</a>
+  <a class="nav-link" href="#what">What it does</a>
+  <a class="nav-link" href="#privacy">Privacy</a>
+  <a class="nav-link" href="#install">Install</a>
+  <a class="btn small" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>GitHub</a>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <div class="keys" aria-label="The shortcut: Super, Alt and Space"><kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd></div>
+      <h1>Ask your desktop.</h1>
+      <p class="lead">Puri is an assistant for GNOME. Press the shortcut, ask, and it answers from <strong>your mail, your calendar, your documents</strong> and the web. The model runs on your own machine.</p>
+      <div class="cta">
+        <a class="btn suggested" href="#install">Install Puri</a>
+        <a class="btn" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Source code</a>
+      </div>
+      <p class="meta">Free and open source, MIT · Ubuntu 26.04 with GNOME</p>
+    </div>
+    <div class="desk">
+      <svg class="wall" viewBox="0 0 800 480" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop class="s1" offset="0"/><stop class="s2" offset="1"/></linearGradient></defs>
+        <rect width="800" height="480" fill="url(#sky)"/>
+        <circle class="sun" cx="610" cy="200" r="46" opacity=".85"/>
+        <polygon class="m1" points="0,320 80,268 160,292 250,226 330,270 420,214 510,262 600,236 690,280 800,240 800,480 0,480"/>
+        <polygon class="m2" points="0,370 120,316 220,350 330,304 450,356 560,318 680,362 800,328 800,480 0,480"/>
+        <polygon class="m3" points="0,428 140,392 300,420 460,388 620,424 800,398 800,480 0,480"/>
+      </svg>
+      <div class="topbar" aria-hidden="true"><span class="workspaces"><i></i><i></i><i></i></span><span>Tue 24 Nov 09:41</span><span class="tray"><svg class="ic"><use href="#i-wifi"/></svg><svg class="ic"><use href="#i-vol"/></svg><svg class="ic"><use href="#i-bat"/></svg></span></div>
+      <div class="puri" data-replay role="img" aria-label="Puri's window answering three example questions: the weather on a trip in the calendar, a mail draft that opens in Thunderbird, and the amount on an invoice in Documents"></div>
+    </div>
+  </div>
+
+  <section class="sec" id="what">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>It already knows where your things are.</h2>
+        <p>Puri works with what GNOME and Thunderbird already keep on your disk, so there's nothing to import.</p>
+      </div>
+      <div class="list caps">
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-mail"/></svg></span><div><h3>Mail and contacts</h3><p>Finds a mail, sums up a thread, looks up an address. Writes a draft and opens it in Thunderbird for you to send.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-cal"/></svg></span><div><h3>Calendar</h3><p>What's on Thursday, when the dentist is, which day the trip starts. Drafts an event for Thunderbird to add.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-doc"/></svg></span><div><h3>Documents</h3><p>Searches your Documents folder through GNOME's own file index, PDFs and office files included.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-note"/></svg></span><div><h3>Notes and memory</h3><p>Keeps notes in <code>Documents/Notes</code>, and remembers what you tell it in one plain Markdown file you can edit.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-search"/></svg></span><div><h3>Web search</h3><p>Brave or Exa, with your own key. Puri reads the search engine's copy of a page and never opens a link itself.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-pin"/></svg></span><div><h3>Places and routes</h3><p>Where a place is, what's open nearby, how far by car, from OpenStreetMap, with a map under the answer.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-cloud"/></svg></span><div><h3>Weather</h3><p>Open-Meteo's forecast in GNOME's units, about two weeks ahead, for any place or for the trip in your calendar.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-music"/></svg></span><div><h3>Music</h3><p>"Play some State Azure." Plays an artist, an album, a song or a genre from your Rhythmbox library.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-mic"/></svg></span><div><h3>Dictation</h3><p>Press F5 and talk. whisper.cpp, on your machine or your home server, types what you said.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-clock"/></svg></span><div><h3>Every conversation</h3><p>Each earlier conversation is one click away in the same window, saved on your disk.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="privacy">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>What leaves your computer</h2>
+        <p>All of it, drawn and listed. Most of these lines exist only once you turn that feature on.</p>
+      </div>
+      <figure class="list diagram-card" style="margin:0">
+        <div class="scroll-x">
+          <svg class="diagram" viewBox="0 0 1000 560" role="img" aria-label="Inside this computer, Thunderbird, Documents, Notes, Rhythmbox, the model and dictation all connect only to Puri, which can't fetch a URL, run a command or send anything. Four dashed lines leave the computer: a search query to Brave or Exa, a place name to OpenStreetMap's services, the map tiles to a tile server, and a rounded point to Open-Meteo. A draft goes to Thunderbird's compose window, and reaches its recipients only when you click Send.">
+            <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+            <rect class="zone" x="16" y="40" width="620" height="500" rx="18"/>
+            <text class="zlab" x="20" y="26">THIS COMPUTER</text>
+            <g class="node"><rect x="40" y="64" width="230" height="54" rx="8"/><text class="t" x="56" y="87">Thunderbird</text><text class="s" x="56" y="106">mail · contacts · calendar</text></g>
+            <g class="node"><rect x="40" y="132" width="230" height="54" rx="8"/><text class="t" x="56" y="155">Documents</text><text class="s" x="56" y="174">through GNOME's file index</text></g>
+            <g class="node"><rect x="40" y="200" width="230" height="54" rx="8"/><text class="t" x="56" y="223">Notes</text><text class="s" x="56" y="242">the one folder Puri writes in</text></g>
+            <g class="node"><rect x="40" y="268" width="230" height="54" rx="8"/><text class="t" x="56" y="291">Rhythmbox</text><text class="s" x="56" y="310">your music library</text></g>
+            <g class="node"><rect x="40" y="336" width="230" height="54" rx="8"/><text class="t" x="56" y="359">llama-server</text><text class="s" x="56" y="378">the model</text></g>
+            <g class="node"><rect x="40" y="404" width="230" height="54" rx="8"/><text class="t" x="56" y="427">whisper-server</text><text class="s" x="56" y="446">dictation</text></g>
+            <path class="loc" d="M270 91 C330 91 330 266 390 266"/><path class="loc" d="M270 159 C330 159 330 266 390 266"/>
+            <path class="loc" d="M270 227 C330 227 330 266 390 266"/><path class="loc" d="M270 295 C330 295 330 266 390 266"/>
+            <path class="loc" d="M270 363 C330 363 330 266 390 266"/><path class="loc" d="M270 431 C330 431 330 266 390 266"/>
+            <text class="never" x="480" y="222" text-anchor="middle">no fetch · no shell · no send</text>
+            <g class="hub"><rect x="390" y="236" width="180" height="60" rx="30"/><use href="#kuri-mark" x="398" y="242" width="48" height="48"/><text class="t" x="508" y="273" text-anchor="middle">Puri</text></g>
+            <path class="loc" d="M480 296 C480 380 450 400 450 466"/>
+            <text class="s" x="488" y="392">a draft</text>
+            <g class="node"><rect x="340" y="466" width="220" height="54" rx="8"/><text class="t" x="356" y="489">Thunderbird compose</text><text class="s" x="356" y="508">waits for you</text></g>
+            <g data-flow="search"><path class="out" d="M570 256 C650 256 650 91 736 91" marker-end="url(#arrow)"/><g class="svc"><rect x="740" y="64" width="240" height="54" rx="8"/><text class="t" x="756" y="87">a search query</text><text class="s" x="756" y="106">to Brave or Exa</text></g></g>
+            <g data-flow="places"><path class="out" d="M570 262 C660 262 660 177 736 177" marker-end="url(#arrow)"/><g class="svc"><rect x="740" y="150" width="240" height="54" rx="8"/><text class="t" x="756" y="173">a place name</text><text class="s" x="756" y="192">to Photon · Nominatim · OSRM</text></g></g>
+            <g data-flow="tiles"><path class="out" d="M570 270 C660 270 660 263 736 263" marker-end="url(#arrow)"/><g class="svc"><rect x="740" y="236" width="240" height="54" rx="8"/><text class="t" x="756" y="259">the map tiles on screen</text><text class="s" x="756" y="278">to your tile server</text></g></g>
+            <g data-flow="weather"><path class="out" d="M570 278 C650 278 650 349 736 349" marker-end="url(#arrow)"/><g class="svc"><rect x="740" y="322" width="240" height="54" rx="8"/><text class="t" x="756" y="345">a point, ±1 km</text><text class="s" x="756" y="364">to Open-Meteo</text></g></g>
+            <g data-flow="send"><path class="out" d="M560 493 L736 493" marker-end="url(#arrow)"/><g class="gate"><rect x="590" y="481" width="92" height="24" rx="12"/><text x="636" y="497.5" text-anchor="middle">your click</text></g><g class="svc"><rect x="740" y="466" width="240" height="54" rx="8"/><text class="t" x="756" y="489">your mail or invite</text><text class="s" x="756" y="508">to its recipients</text></g></g>
+          </svg>
+        </div>
+      </figure>
+      <p class="legend"><span class="swipe">Swipe sideways for the whole drawing.</span><span class="l">stays on this computer</span><span class="o">leaves it, once you turn that feature on</span><span>The model and dictation can also run on a home server of yours.</span></p>
+
+      <div class="leaves">
+        <div class="promises">
+          <div class="promise"><svg class="ic"><use href="#i-check"/></svg><div><h3>Search, never fetch</h3><p>Puri talks to the search, map and weather services you set up, and never opens a URL.</p></div></div>
+          <div class="promise"><svg class="ic"><use href="#i-check"/></svg><div><h3>Sending is always your click</h3><p>A mail opens in Thunderbird's compose window, an event in its import wizard.</p></div></div>
+          <div class="promise"><svg class="ic"><use href="#i-check"/></svg><div><h3>The model runs at home</h3><p>On this computer or your own server. A hosted model is something you opt into.</p></div></div>
+        </div>
+        <div>
+          <div class="list scroll-x">
+            <table>
+              <thead><tr><th>What</th><th>Goes to</th><th>Only when</th></tr></thead>
+              <tbody>
+                <tr data-flow="search"><td>A search query, which may quote your mail</td><td>Brave or Exa*</td><td>you added a search key</td></tr>
+                <tr data-flow="places"><td>A place name, or your home address when you ask what's near you</td><td>Photon, Nominatim, FOSSGIS's OSRM</td><td>you turned on maps</td></tr>
+                <tr data-flow="tiles"><td>The map tiles of the area on screen</td><td>your map tile server</td><td>you turned on maps</td></tr>
+                <tr data-flow="weather"><td>A point, rounded to about 1 km</td><td>Open-Meteo</td><td>you turned on weather</td></tr>
+                <tr><td>Your voice</td><td>your dictation server</td><td>it's a hosted one</td></tr>
+                <tr><td>The conversation</td><td>your model server</td><td>it's a hosted one</td></tr>
+                <tr data-flow="send"><td>A mail or an invite</td><td>its recipients</td><td>you click Send in Thunderbird</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">* Exa's terms let it train on what you search for.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="sec-head"><h2>What it won't do</h2></div>
+      <div class="limits">
+        <div><h3>Act on its own</h3><p>No schedules and no errands in the background. Puri answers when you ask, and does nothing in between.</p></div>
+        <div><h3>Follow you around</h3><p>It lives on your desktop. There's no phone app and no chat bridge to reach it from elsewhere.</p></div>
+        <div><h3>Run anywhere</h3><p>It needs GNOME and Thunderbird, and is tested on Ubuntu 26.04. Other distributions once someone tries them.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="install">
+    <div class="wrap install">
+      <div>
+        <div class="sec-head" style="margin-bottom:0">
+          <h2>Install</h2>
+          <p>GTK, libadwaita and Ruby come from apt, and Puri itself is a git clone. No npm, no Electron, no <code>curl | sh</code>.</p>
+        </div>
+        <ol class="steps">
+          <li>Install the packages.</li>
+          <li>Clone Puri and install it for your user. This binds the shortcut, and <code>AUTOSTART=1</code> starts Puri at login.</li>
+          <li>Tell Puri where your model server is, in <code>~/.config/puri/config.toml</code>. <a href="https://github.com/mvysny/puri#configure-the-model">The README shows how.</a></li>
+          <li>Press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</li>
+        </ol>
+      </div>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button" id="copy-install">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo apt install ruby ruby-bundler ruby-dev build-essential \
+    ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep</span>
+<span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri &amp;&amp; cd puri</span>
+<span class="p">$ </span><span class="cmd">bundle config set --local path vendor/bundle</span>
+<span class="p">$ </span><span class="cmd">bundle install</span>
+<span class="p">$ </span><span class="cmd">bundle exec rake install AUTOSTART=1</span>
+<span class="c"># then point ~/.config/puri/config.toml at your model server</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="sec-head"><h2>Questions</h2></div>
+      <div class="list faq">
+        <details><summary>How is this different from OpenClaw?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>OpenClaw acts for you, with a shell, a browser and your messengers. Puri answers you, and the only things it sends are in the table above. If you looked at OpenClaw and backed off, Puri was made for you.</p></details>
+        <details><summary>Why can't it open a link?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>A mail or a web page can carry instructions written for the model. Puri can't fetch a URL, run a command or send a mail, so a mail written to trick it can't make it pass your data to whoever wrote it.</p></details>
+        <details><summary>Why Thunderbird?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>It already holds your mail, contacts and calendar on your disk, and its compose window is the right place to check a draft before it goes.</p></details>
+        <details><summary>Which model does it run?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>Any OpenAI-compatible server you run, such as llama.cpp's <code>llama-server</code>, which Ubuntu packages as <code>llama.cpp-tools</code>. A starter model for 8 GB laptops is being picked, and a bigger one can run on <a href="https://github.com/mvysny/puri#a-home-server-over-tailscale">a home server over Tailscale</a>.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap footer">
+  <span class="grow"><svg aria-hidden="true"><use href="#kuri-mark"/></svg><span>Puri is MIT licensed and built on <a href="https://github.com/mvysny/pikuri">pikuri</a>. Kuri the pika is pikuri's mascot.</span></span>
+  <span>This page sets no cookies and loads nothing from other sites.</span>
+</footer>
+
+</body>
+</html>

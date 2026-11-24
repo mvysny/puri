@@ -163,24 +163,24 @@ first run; `small.en` is ~0.5 GB.
 
 ## The page and the domain
 
-- **Hosting:** GitHub Pages from this repo, with a `CNAME` file, and the DNS records in Hetzner
-  Robot, which holds the domain.
+- **The page is built** (owner, 2026-11-24): `docs/`, in libadwaita's own look, a GNOME desktop
+  in the hero with the popup replaying three invented conversations, the what-leaves table drawn
+  as a diagram of the computer's edge, and Kuri as the logo. Two other directions were drawn and
+  set aside: a gold, mascot-led page, too cute for a first visit that must earn trust, and the
+  diagram as the whole page, which sold safety before use. Left: Pages switched on, the DNS, the
+  headline, the video in place of the replay.
+- **Hosting:** GitHub Pages from `docs/` on `master`, with a `CNAME` file, and the DNS records in
+  Hetzner Robot, which holds the domain.
 - **The domain:** `puri-ai.de`, registered at Hetzner (owner, 2026-11-24). Read one way it's
   "Puri aide", the other way "Puri AI". "Puri" alone collides with the city in Odisha and the
   fried bread, so the page's title needs the qualifier too. A `.de` asks no citizenship or
   residency. A holder living outside Germany has two weeks to name an authorised recipient in
   Germany, but only if DENIC asks, and DENIC asks only when someone wants to serve papers over a
   dispute about the domain (DENIC terms §3(4)).
-- **What's on it:**
-  - the headline (`Q_headline`) and a short loop of the popup;
-  - the scenarios;
-  - the what-leaves table and the limits;
-  - the install;
-  - the tiers and the home server;
-  - an FAQ: why not OpenClaw, why no fetch, why Thunderbird.
-- **One home for the install:** `AGENTS.md`'s design-docs table gives `README.md` the pitch and
-  the install. The page would copy both, and copies drift (`Q_install_home`). The site gets a row
-  in that table either way.
+- **Not on it yet:** the tiers and the home server beyond one FAQ link, and the starter model's
+  install step, which waits on the eval.
+- **One home for the install:** the page carries the short install and links to the README's
+  model config; the two still overlap, and copies drift (`Q_install_home`).
 
 ## The video
 
