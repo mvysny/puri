@@ -125,9 +125,12 @@ on the laptop".
   eval's timings there. Include Ornith with its experts in system RAM (llama.cpp's
   `--n-cpu-moe`): it is a 35B-A3B like the owner's 40 tok/s Qwen3.6, and if it's usable there it
   stays the accuracy leader on the same card.
-- `Q_anchor`: rerun `Ornith-1.5, no thinking` on day two too? It costs about 35 minutes, and it
-  shows how much of a difference between the days comes from the day: the dates, the forecast,
-  the routes in the recording.
+- **No Ornith anchor on day two** (owner, 2026-11-24): day one's Ornith runs are the reference,
+  so a difference between the days may partly come from the day itself (the dates, the
+  forecast, the routes in the recording).
+- **Neither day gets regraded** (owner, 2026-11-24): `dentist` wants "Laine", which the question
+  doesn't ask for, so a run with the right day, time and clinic fails. Once day two ends the
+  check takes the doctor or the clinic, for later runs only; both days keep their grades.
 - `Q_week_dates`: Qwen, Bolt and gpt-oss got "Thursday"'s date wrong in the smoke round. The
   system prompt gives only today's date; spelling out the next seven days is our own prompt's
   change (`D_own_prompts`). Not before day two, or it measures two changes at once.
