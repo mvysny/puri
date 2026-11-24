@@ -2,7 +2,7 @@
 
 Goal: Puri now does enough to promote (owner, 2026-11-23). That needs a web page on GitHub Pages
 under its own domain, an install of a few steps on a small starter model, and a short video of a
-few scenarios. Brainstormed 2026-11-23; nothing decided. The pitch comes first, since the page's
+few scenarios. Brainstormed 2026-11-23; nothing decided but the domain, `puri-ai.de`. The pitch comes first, since the page's
 headline and the video's scenarios follow from it. The starter model is the first build item,
 since the install steps, the RAM the page asks for and what the video can show all hang on it.
 
@@ -163,11 +163,14 @@ first run; `small.en` is ~0.5 GB.
 
 ## The page and the domain
 
-- **Hosting:** GitHub Pages from this repo, with a `CNAME` file. The domain comes from Hetzner
-  Robot, where the owner's other domains are.
-- **The domain:** the owner suggested `puri-ai.eu`, and a `.eu` needs a registrant in the EU.
-  "Puri" alone collides with the city in Odisha and the fried bread, so the domain and the page's
-  title both need a qualifier (`Q_domain`).
+- **Hosting:** GitHub Pages from this repo, with a `CNAME` file, and the DNS records in Hetzner
+  Robot, which holds the domain.
+- **The domain:** `puri-ai.de`, registered at Hetzner (owner, 2026-11-24). Read one way it's
+  "Puri aide", the other way "Puri AI". "Puri" alone collides with the city in Odisha and the
+  fried bread, so the page's title needs the qualifier too. A `.de` asks no citizenship or
+  residency. A holder living outside Germany has two weeks to name an authorised recipient in
+  Germany, but only if DENIC asks, and DENIC asks only when someone wants to serve papers over a
+  dispute about the domain (DENIC terms §3(4)).
 - **What's on it:**
   - the headline (`Q_headline`) and a short loop of the popup;
   - the scenarios;
@@ -219,7 +222,7 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
 2. The apt-only install on a clean 26.04 VM and on the 890M host; measure.
 3. First run writes the config.
 4. The public services' policies, `Q_tiles_ua` first.
-5. The page and the domain.
+5. The page, and the domain's DNS pointed at it.
 6. The video, on the documented setup.
 
 ## Open questions
@@ -240,7 +243,6 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
   run or the page says so; if no, each stays one line to uncomment.
 - `Q_install_home`: does the page own the user install, with the README keeping the developer
   setup and linking to it? Or is the page generated from the README?
-- `Q_domain`: `puri-ai.eu`, or another name with a qualifier?
 - `Q_demo_data`: where does the invented profile live? It's code that `dev/` would load, per the
   module map: a Dummy-side fixture, or a separate repo?
 - `Q_video_speed`: real time on the starter model, or a cut with a caption?
@@ -254,5 +256,8 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
 - [NYU Shanghai RITS: OpenClaw, beware the risks](https://rits.shanghai.nyu.edu/ai/openclaw-the-open-source-ai-agent-you-can-run-locally-but-beware-the-risks/)
 - [HackerNoon: OpenClaw is a security nightmare](https://hackernoon.com/openclaw-is-a-security-nightmare-here-are-the-alternatives-to-use-instead)
 - [Phoronix: Newelle 1.2](https://phoronix.com/news/gnome-ai-newelle-1.2)
+- [DENIC Domain Terms and Conditions](https://www.denic.de/en/domain-terms-and-conditions/),
+  §3(4), §7(2), §8(3), read 2026-11-24 in the English translation, which isn't binding: no
+  residency rule, the authorised recipient only on request.
 - The Ubuntu 26.04 archive: `llama.cpp-tools` 8681+dfsg-1, `whisper.cpp` 1.8.3+dfsg-2, `libggml0`
   0.9.11-1, read with `apt-cache` and `dpkg-deb`.
