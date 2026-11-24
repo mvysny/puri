@@ -13,7 +13,8 @@ module Puri
     # Keys: Escape cancels a running turn and hides, except that while a reply streams the first
     # Escape only stops it, leaving the partial answer to read, and while dictating it only drops
     # the dictation; Ctrl+N starts a new conversation, Ctrl+F searches the history, F9 shows or
-    # hides it, F5 starts dictating and stops. The header's × hides without cancelling a turn.
+    # hides it, F5 starts dictating and stops; Ctrl+Q, the app's own, quits Puri. The header's ×
+    # hides without cancelling a turn.
     # Losing focus hides only the empty pill, so a glance at another window never loses a
     # running answer. Hiding always drops a dictation: the mic never records behind a hidden
     # window.

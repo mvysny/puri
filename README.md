@@ -38,6 +38,7 @@ exe/puri
 ```
 
 `exe/puri` starts Puri; Escape hides the window, and running `exe/puri` again brings it back.
+Ctrl+Q quits it, as does `gapplication action io.github.mvysny.Puri quit`.
 
 ## Configure the model
 
@@ -163,7 +164,7 @@ To let Puri search and read your documents, add the table:
 
 ```toml
 [documents]
-# folder = "~/Documents"   # the default
+# folder = "~/Papers"   # omitted, your desktop's own Documents folder, in its language
 ```
 
 Puri searches that folder, and nothing else, through your desktop's own file index, GNOME's

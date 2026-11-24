@@ -135,7 +135,7 @@ RSpec.describe 'rake install' do
   # starts before the install, as the login session's does, so the install has one to reload,
   # though dbus-daemon would find the file without it (`R_gnome_activation`). It starts the real
   # backend, so it needs a config; nothing asks, so nothing dials the server.
-  it 'lets the session bus start Puri on `gapplication launch`' do
+  it 'lets the session bus start Puri on `gapplication launch`, and its quit action end it' do
     Broadway.start
     FileUtils.mkdir_p("#{@home}/config/puri")
     File.write("#{@home}/config/puri/config.toml", <<~TOML)
@@ -169,10 +169,30 @@ RSpec.describe 'rake install' do
                              '--object-path', '/org/freedesktop/DBus',
                              '--method', 'org.freedesktop.DBus.GetConnectionUnixProcessID', app_id).first
       pid = owner[/\(uint32 (\d+),\)/, 1] or raise "nobody owns #{app_id}: #{owner.inspect}"
-      Process.kill('KILL', Integer(pid))
+
+      # Ctrl+Q's action, from a terminal: the resident Puri ends and lets go of its name.
+      _, err, status = Open3.capture3(on_bus, 'gapplication', 'action', app_id, 'quit')
+      assert status.success?, err
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 10
+      until (gone = !name_owned?(on_bus, app_id))
+        break if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+        sleep 0.1
+      end
+      assert gone, "#{app_id} still runs after its quit action"
     ensure
+      Process.kill('KILL', Integer(pid)) if pid && !gone
       Process.kill('TERM', bus.pid)
       bus.close
     end
+  end
+
+  # @param bus_env [Hash{String => String, nil}] an {#env} whose bus to ask
+  # @param name [String]
+  # @return [Boolean] whether anyone on that bus owns `name`
+  def name_owned?(bus_env, name)
+    Open3.capture2(bus_env, 'gdbus', 'call', '--session', '--dest', 'org.freedesktop.DBus',
+                   '--object-path', '/org/freedesktop/DBus',
+                   '--method', 'org.freedesktop.DBus.NameHasOwner', name).first.include?('true')
   end
 end

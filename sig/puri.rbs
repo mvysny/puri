@@ -491,7 +491,7 @@ module Puri
     #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
     # 
     #   [documents]                      # optional; omitted, the agent has no files
-    #   folder = "~/Documents"           # optional, the default; notes go in its Notes/
+    #   folder = "~/Documents"           # optional; omitted, the desktop's own, in its language
     # 
     #   [maps]                           # optional; omitted, the agent has no place tools
     #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
@@ -570,6 +570,16 @@ module Puri
       # _@return_ — the files to read, lowest priority first
       def self.candidate_paths: (untyped env) -> ::Array[String]
 
+      # _@param_ `env`
+      # 
+      # _@return_ — `$HOME`
+      def self.home: (untyped env) -> String
+
+      # _@param_ `env`
+      # 
+      # _@return_ — `$XDG_CONFIG_HOME`, `~/.config` when unset
+      def self.config_home: (untyped env) -> String
+
       # Warns on stderr, never fails, when a file holding a key — a `[[server]]`'s `api_key`, a
       # search engine's, `[dictation]`'s — is readable by others.
       # 
@@ -627,7 +637,21 @@ module Puri
       def self.resolve_thunderbird: (Puri::Core::Config::ThunderbirdTable? table) -> Puri::Core::Config::ThunderbirdTable?
 
       # _@param_ `table`
-      def self.resolve_documents: (Puri::Core::Config::DocumentsTable table) -> Puri::Core::Config::Documents
+      # 
+      # _@param_ `env`
+      def self.resolve_documents: (Puri::Core::Config::DocumentsTable table, untyped env) -> Puri::Core::Config::Documents
+
+      # The desktop's own Documents folder, named in its language, as xdg-user-dirs records it:
+      # 
+      #   XDG_DOCUMENTS_DIR="$HOME/Dokumenty"   # in ~/.config/user-dirs.dirs => ~/Dokumenty
+      # 
+      # `~/Documents` without that line, and when it names the home itself, which is how
+      # xdg-user-dirs switches a folder off: reading all of home needs a `folder` that says so.
+      # 
+      # _@param_ `env`
+      # 
+      # _@return_ — absolute, and perhaps missing
+      def self.desktop_documents: (untyped env) -> String
 
       # _@param_ `table`
       # 
@@ -932,15 +956,17 @@ module Puri
       # {Documents}.
       # 
       # @!attribute [r] folder
-      #   @return [String] see {Documents#folder}, `~` unexpanded
+      #   @return [String, nil] see {Documents#folder}, `~` unexpanded; nil for the desktop's own
+      #     Documents folder
       class DocumentsTable
         extend Typemap::Constrain
 
         # _@param_ `folder`
-        def initialize: (?folder: String) -> void
+        def initialize: (?folder: String?) -> void
 
-        # _@return_ — see {Documents#folder}, `~` unexpanded
-        attr_reader folder: String
+        # _@return_ — see {Documents#folder}, `~` unexpanded; nil for the desktop's own
+        # Documents folder
+        attr_reader folder: String?
       end
 
       # The `[maps]` table, which turns on `place_search`, `route` and the map under an answer.
@@ -3849,7 +3875,8 @@ module Puri
     # Keys: Escape cancels a running turn and hides, except that while a reply streams the first
     # Escape only stops it, leaving the partial answer to read, and while dictating it only drops
     # the dictation; Ctrl+N starts a new conversation, Ctrl+F searches the history, F9 shows or
-    # hides it, F5 starts dictating and stops. The header's × hides without cancelling a turn.
+    # hides it, F5 starts dictating and stops; Ctrl+Q, the app's own, quits Puri. The header's ×
+    # hides without cancelling a turn.
     # Losing focus hides only the empty pill, so a glance at another window never loses a
     # running answer. Hiding always drops a dictation: the mic never records behind a hidden
     # window.

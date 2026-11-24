@@ -53,7 +53,7 @@ module Puri
     #   profile_dir = "~/.thunderbird/x" # optional; omitted, discovered (snap, then apt)
     #
     #   [documents]                      # optional; omitted, the agent has no files
-    #   folder = "~/Documents"           # optional, the default; notes go in its Notes/
+    #   folder = "~/Documents"           # optional; omitted, the desktop's own, in its language
     #
     #   [maps]                           # optional; omitted, the agent has no place tools
     #   tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # required; the map's tiles
@@ -244,14 +244,15 @@ module Puri
       # {Documents}.
       #
       # @!attribute [r] folder
-      #   @return [String] see {Documents#folder}, `~` unexpanded
+      #   @return [String, nil] see {Documents#folder}, `~` unexpanded; nil for the desktop's own
+      #     Documents folder
       class DocumentsTable < Data.define(:folder)
         extend Typemap::Constrain
 
         constrain :folder, not_blank: true
 
-        # @param folder [String]
-        def initialize(folder: '~/Documents') = super
+        # @param folder [String, nil]
+        def initialize(folder: nil) = super
       end
 
       # The `[maps]` table, which turns on `place_search`, `route` and the map under an answer.
@@ -402,7 +403,8 @@ module Puri
         llms = root.llm.map { |table| resolve_llm(table, servers) }
         new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
             search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird),
-            documents: root.documents && resolve_documents(root.documents), maps: root.maps && resolve_maps(root.maps),
+            documents: root.documents && resolve_documents(root.documents, env),
+            maps: root.maps && resolve_maps(root.maps),
             weather: root.weather && resolve_weather(root.weather, root.maps),
             dictation: root.dictation && resolve_dictation(root.dictation))
       end
@@ -473,8 +475,17 @@ module Puri
       # @return [Array<String>] the files to read, lowest priority first
       def self.candidate_paths(env)
         dirs = env['XDG_CONFIG_DIRS'].to_s.empty? ? '/etc/xdg' : env['XDG_CONFIG_DIRS']
-        home = env['XDG_CONFIG_HOME'].to_s.empty? ? File.join(Dir.home, '.config') : env['XDG_CONFIG_HOME']
-        [*dirs.split(':').reverse, home].map { |root| File.join(root, XDG_SUBDIR, FILENAME) }
+        [*dirs.split(':').reverse, config_home(env)].map { |root| File.join(root, XDG_SUBDIR, FILENAME) }
+      end
+
+      # @param env [#[]]
+      # @return [String] `$HOME`
+      def self.home(env) = env['HOME'].to_s.empty? ? Dir.home : env['HOME']
+
+      # @param env [#[]]
+      # @return [String] `$XDG_CONFIG_HOME`, `~/.config` when unset
+      def self.config_home(env)
+        env['XDG_CONFIG_HOME'].to_s.empty? ? File.join(home(env), '.config') : env['XDG_CONFIG_HOME']
       end
 
       # Warns on stderr, never fails, when a file holding a key — a `[[server]]`'s `api_key`, a
@@ -590,13 +601,31 @@ module Puri
       end
 
       # @param table [Puri::Core::Config::DocumentsTable]
+      # @param env [#[]]
       # @return [Puri::Core::Config::Documents]
-      # @raise [Error] when `folder` is no directory
-      def self.resolve_documents(table)
-        folder = File.expand_path(table.folder)
+      # @raise [Error] when the folder is no directory
+      def self.resolve_documents(table, env)
+        folder = File.expand_path(table.folder || desktop_documents(env))
         raise Error, "documents.folder: #{folder} is not a directory" unless File.directory?(folder)
 
         Documents.new(folder:)
+      end
+
+      # The desktop's own Documents folder, named in its language, as xdg-user-dirs records it:
+      #
+      #   XDG_DOCUMENTS_DIR="$HOME/Dokumenty"   # in ~/.config/user-dirs.dirs => ~/Dokumenty
+      #
+      # `~/Documents` without that line, and when it names the home itself, which is how
+      # xdg-user-dirs switches a folder off: reading all of home needs a `folder` that says so.
+      #
+      # @param env [#[]]
+      # @return [String] absolute, and perhaps missing
+      def self.desktop_documents(env)
+        home = home(env)
+        file = File.join(config_home(env), 'user-dirs.dirs')
+        line = File.file?(file) && File.foreach(file, encoding: 'UTF-8').find { _1.start_with?('XDG_DOCUMENTS_DIR=') }
+        dir = line && line[/\AXDG_DOCUMENTS_DIR="(.+)"/, 1]&.sub(%r{\A\$HOME(?=/|\z)}, home)
+        dir && File.expand_path(dir) != File.expand_path(home) ? File.expand_path(dir) : File.join(home, 'Documents')
       end
 
       # @param table [Puri::Core::Config::MapsTable]
@@ -638,9 +667,10 @@ module Puri
           "mkdir -p #{File.dirname(target).shellescape}\n  cp #{EXAMPLE.shellescape} #{target.shellescape}"
       end
 
-      private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
-                           :resolve_llm, :resolve_titler, :resolve_search, :resolve_thunderbird,
-                           :resolve_documents, :resolve_maps, :resolve_weather, :resolve_dictation, :copy_example
+      private_class_method :candidate_paths, :home, :config_home, :warn_loose_perms, :keys?, :parse_file,
+                           :deep_merge, :map, :resolve_llm, :resolve_titler, :resolve_search,
+                           :resolve_thunderbird, :resolve_documents, :desktop_documents, :resolve_maps,
+                           :resolve_weather, :resolve_dictation, :copy_example
     end
   end
 end

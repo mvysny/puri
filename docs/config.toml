@@ -57,10 +57,11 @@ llm = "Qwen 3.5 4B, no thinking"
 
 # ── Documents and notes ───────────────────────────────────────────────────────────────────────
 
-# Puri searches and reads this folder through GNOME's own file index, and writes only in its
-# Notes folder: its notes, and Notes/PURI.md, what you asked it to remember.
+# Puri searches and reads your Documents folder, whatever your desktop's language calls it,
+# through GNOME's own file index. It writes only in its Notes folder: its notes, and
+# Notes/PURI.md, what you asked it to remember.
 [documents]
-# folder = "~/Documents"   # the default; on a desktop in another language, put its name here
+# folder = "~/Papers"   # another folder instead
 
 
 # ── Places and routes ─────────────────────────────────────────────────────────────────────────

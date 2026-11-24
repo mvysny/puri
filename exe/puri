@@ -31,8 +31,15 @@ app = Adw::Application.new('io.github.mvysny.Puri', :default_flags)
 app.signal_connect('activate') do |a|
   (a.active_window || Puri::Desktop::PopupWindow.new(a, client)).present
 end
-# Resident: a hidden window, or none yet, never lets the process exit.
-app.signal_connect('startup', &:hold)
+# Resident: a hidden window, or none yet, never lets the process exit. The way out is Ctrl+Q, or
+# `gapplication action io.github.mvysny.Puri quit` from a terminal, say after editing the config.
+app.signal_connect('startup') do |a|
+  a.hold
+  quit = Gio::SimpleAction.new('quit')
+  quit.signal_connect('activate') { a.quit }
+  a.add_action(quit)
+  a.set_accels_for_action('app.quit', ['<Control>q'])
+end
 
 # GLib's `--gapplication-service` starts it without a window: the D-Bus activation and autostart
 # files `rake install` writes pass it. Any other argument is dropped (`--dummy` was read above),

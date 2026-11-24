@@ -33,9 +33,12 @@ RSpec.describe Puri::Core::Config do
   around do |example|
     Dir.mktmpdir do |home|
       Dir.mktmpdir do |system|
-        @home = home
-        @system = system
-        example.run
+        Dir.mktmpdir do |user|
+          @home = home
+          @system = system
+          @user = user
+          example.run
+        end
       end
     end
   end
@@ -50,22 +53,19 @@ RSpec.describe Puri::Core::Config do
     path
   end
 
-  # @return [Hash{String => String}]
-  def env = { 'XDG_CONFIG_HOME' => @home, 'XDG_CONFIG_DIRS' => @system }
+  # @return [Hash{String => String}] `HOME` is a scratch one too, for the Documents folder
+  def env = { 'XDG_CONFIG_HOME' => @home, 'XDG_CONFIG_DIRS' => @system, 'HOME' => @user }
 
   # @return [Puri::Core::Config]
   def load = described_class.load(env:)
 
-  # Writes {Puri::Core::Config::EXAMPLE}, as shipped, as the system layer, and a user layer that
-  # points `[documents]` at a scratch folder, since the example's `~/Documents` is the host's.
+  # Writes {Puri::Core::Config::EXAMPLE} as shipped, and the scratch home's Documents folder it
+  # reads.
   #
   # @return [String] that folder
   def write_example
-    write(@system, File.read(described_class::EXAMPLE))
-    docs = File.join(@home, 'Documents')
-    FileUtils.mkdir_p(docs)
-    write(@home, "[documents]\nfolder = \"#{docs}\"\n")
-    docs
+    write(@home, File.read(described_class::EXAMPLE))
+    File.join(@user, 'Documents').tap { FileUtils.mkdir_p(_1) }
   end
 
   # @param fragment [String] a regexp source the error message must match
@@ -215,8 +215,33 @@ RSpec.describe Puri::Core::Config do
       assert_equal File.join(@folder, 'Notes', 'PURI.md'), documents.memory
     end
 
-    it 'defaults to ~/Documents' do
-      assert_equal '~/Documents', described_class::DocumentsTable.new.folder
+    # @param line [String] user-dirs.dirs' Documents line, as xdg-user-dirs writes it
+    # @return [void]
+    def user_dirs(line) = File.write(File.join(@home, 'user-dirs.dirs'), "# written by xdg-user-dirs-update\n#{line}\n")
+
+    it "defaults to the desktop's own Documents folder, named in its language" do
+      FileUtils.mkdir_p(File.join(@user, 'Dokumenty'))
+      user_dirs('XDG_DOCUMENTS_DIR="$HOME/Dokumenty"')
+      write(@home, "#{minimal}[documents]\n")
+      assert_equal File.join(@user, 'Dokumenty'), load.documents.folder
+    end
+
+    it 'takes an absolute path from user-dirs.dirs' do
+      user_dirs(%(XDG_DOCUMENTS_DIR="#{@folder}"))
+      write(@home, "#{minimal}[documents]\n")
+      assert_equal @folder, load.documents.folder
+    end
+
+    it 'falls back to ~/Documents without user-dirs.dirs' do
+      FileUtils.mkdir_p(File.join(@user, 'Documents'))
+      write(@home, "#{minimal}[documents]\n")
+      assert_equal File.join(@user, 'Documents'), load.documents.folder
+    end
+
+    it 'never takes the home itself, which is xdg-user-dirs switching the folder off' do
+      user_dirs('XDG_DOCUMENTS_DIR="$HOME/"')
+      write(@home, "#{minimal}[documents]\n")
+      assert_rejected("documents.folder: #{Regexp.escape(File.join(@user, 'Documents'))} is not a directory")
     end
 
     it 'rejects a folder that is not a directory' do

@@ -157,7 +157,8 @@ Shaped with the owner, 2026-11-24; nothing written yet. Once it is, `AGENTS.md`'
   send. The quickstart copies the file from the clone, and the site serves it for reading first.
   Puri's missing-config error points at it instead of printing `EXAMPLE_CONFIG`, a second copy;
   a spec loads it through Core's config, so a renamed key fails the gate. Dropped: Puri writing
-  the config on first run.
+  the config on first run. Puri reads it only at start, so after an edit the guide says Ctrl+Q,
+  or `gapplication action io.github.mvysny.Puri quit`, then the shortcut.
 - **Both servers run as per-user systemd services** (owner), from login, rather than apt's system
   unit, which holds the model from boot for every user. The model stays resident, for an instant
   answer; no `--sleep-idle-seconds` (owner), and a game is the one time to stop the service.
