@@ -27,7 +27,7 @@
   turns: ["When's my dentist appointment?"]
   expect:
     tools_any: <%= (cal + mail + docs).inspect %>
-    answer_has: ['<%= date(f.dentist.day) %>', '<%= time(f.dentist.time) %>', 'Laine']
+    answer_has: ['<%= date(f.dentist.day) %>', '<%= time(f.dentist.time) %>', ['Laine', '<%= f.dentist.clinic %>']]
 
 - id: saturday-evening
   tier: simple
