@@ -24,8 +24,8 @@ warm.
 
 | File | Owns | Loaded |
 |---|---|---|
-| `README.md` | the pitch, install, how to run | — |
-| `docs/` | the web page at puri-ai.de, plain files GitHub Pages serves from `master`: the pitch and a short install, linking to the README for the rest | — |
+| `README.md` | the pitch, the developer setup, how to run | — |
+| `docs/` | the web page at puri-ai.de, plain files GitHub Pages serves from `master`: the pitch, and the user's install guide (`install.html`) with its commented `config.toml`; `spec/site_spec.rb` checks what the pages share | — |
 | `AGENTS.md` (this) | promises, invariants, the module map, conventions, commands | every turn |
 | `design/architecture.md` | how the pieces compose — wiring, dependency direction, threads, the flows; normative | lazy |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |

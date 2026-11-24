@@ -1,12 +1,12 @@
-// The page's script: replays three invented conversations in the hero's popup, in the wording Puri
-// uses for its steps (dev/puri/dummy/script.rb); thickens a diagram line while its table row is
-// pointed at; copies the install commands.
+// The front page's script: replays three invented conversations in the hero's popup, in the
+// wording Puri uses for its steps (dev/puri/dummy/script.rb), and thickens a diagram line while
+// its table row is pointed at. copy.js, beside it, does the terminal's Copy button.
 //
 // The popup opens on the first conversation finished, so the page reads complete before anything
 // moves, and stays there under reduced motion.
 //
-// Markup contract: #puri-template, [data-replay], .diagram, .copy and the .cmd spans in .term's pre
-// must exist; a missing one throws at load. style.css draws what this toggles: data-state on
+// Markup contract: #puri-template, [data-replay] and .diagram must exist; a missing one throws at
+// load. style.css draws what this toggles: data-state on
 // .puri-win (pill, open), .down on the shortcut's kbd and the popup's button, .hot on a diagram
 // group.
 (() => {
@@ -199,18 +199,5 @@
     const line = diagram.querySelector(`g[data-flow="${row.dataset.flow}"]`);
     row.addEventListener('mouseenter', () => line.classList.add('hot'));
     row.addEventListener('mouseleave', () => line.classList.remove('hot'));
-  });
-
-  const copy = document.querySelector('.copy');
-  copy.addEventListener('click', async () => {
-    const text = [...document.querySelectorAll('.term pre .cmd')].map((el) => el.textContent).join('\n');
-    try {
-      await navigator.clipboard.writeText(text);
-      copy.textContent = 'Copied';
-    } catch {
-      getSelection().selectAllChildren(document.querySelector('.term pre'));
-      copy.textContent = 'Press Ctrl+C';
-    }
-    setTimeout(() => { copy.textContent = 'Copy'; }, 2000);
   });
 })();

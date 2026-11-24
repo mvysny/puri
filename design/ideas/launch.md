@@ -93,6 +93,8 @@ To test before the page relies on it:
 - **The `-hf` download:** does it work under the system unit?
 - **A clean 26.04 VM:** with no GPU at all.
 - **`wget`** on a clean 26.04 desktop, for the Whisper model's step.
+- **The install guide, top to bottom,** on a clean 26.04 VM. Its calendar click path (right-click
+  the calendar → Properties → Offline Support) is written from memory; check it in Thunderbird.
 
 The page's steps, first sketched; § The install guide replaces the system unit with per-user
 services:
@@ -120,8 +122,8 @@ bundle exec rake install AUTOSTART=1
 
 ## The install guide
 
-Shaped with the owner, 2026-11-24; nothing written yet. Once it is, `AGENTS.md`'s rows for
-`docs/` and `README.md` change to match.
+Shaped with the owner, 2026-11-24. `docs/install.html` is written; next are `models.html`, then
+the README cut down to the developer setup, since until then it repeats the guide.
 
 - **Home:** `docs/` owns the user install, since users read the site; the README keeps the
   developer setup and links there (owner). The front page's Install section stays short and links

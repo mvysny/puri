@@ -18,64 +18,30 @@
 <link rel="preload" href="fonts/AdwaitaSans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 <script src="demo.js" defer></script>
+<script src="copy.js" defer></script>
 </head>
 <body>
-
-<svg class="sym" aria-hidden="true">
-  <defs>
-    <!-- Kuri, from pikuri/assets/kuri.svg; kuri.svg beside this page is the same drawing. -->
-    <symbol id="kuri-mark" viewBox="4 7 56 56">
-      <circle cx="14" cy="29" r="10" fill="#a89c8e"/><circle cx="50" cy="29" r="10" fill="#a89c8e"/>
-      <circle cx="13.4" cy="28.4" r="5.6" fill="#786d61"/><circle cx="50.6" cy="28.4" r="5.6" fill="#786d61"/>
-      <circle cx="32" cy="35" r="20.5" fill="#a89c8e"/><ellipse cx="32" cy="44" rx="10" ry="7.5" fill="#ded5c8"/>
-      <g stroke="#7d7367" stroke-width="1.5" stroke-linecap="round" fill="none"><path d="M22 41.6 L14.5 39.2"/><path d="M21.6 44.8 L15 45.2"/><path d="M42 41.6 L49.5 39.2"/><path d="M42.4 44.8 L49 45.2"/></g>
-      <circle cx="24.5" cy="35" r="3.3" fill="#26241f"/><circle cx="39.5" cy="35" r="3.3" fill="#26241f"/>
-      <circle cx="25.6" cy="33.9" r="1.1" fill="#ffffff"/><circle cx="40.6" cy="33.9" r="1.1" fill="#ffffff"/>
-      <path d="M32 39.8 L34.5 41.9 L32 44 L29.5 41.9 Z" fill="#26241f"/>
-      <path d="M32 44 v1.6 M32 45.6 q-3 2.5 -5.6 .2 M32 45.6 q3 2.5 5.6 .2" stroke="#26241f" stroke-width="1.6" stroke-linecap="round" fill="none"/>
-    </symbol>
-    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7l8 6 8-6"/></symbol>
-    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
-    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></symbol>
-    <symbol id="i-note" viewBox="0 0 24 24"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></symbol>
-    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-6.4-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.6 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.3"/></symbol>
-    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19h10a4 4 0 0 0 .4-8 5.6 5.6 0 0 0-10.9 1.2A3.4 3.4 0 0 0 7 19z"/></symbol>
-    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></symbol>
-    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.5"/></symbol>
-    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
-    <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5"/></symbol>
-    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
-    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
-    <symbol id="i-side" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M9.5 5v14"/></symbol>
-    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9.5a13 13 0 0 1 18 0M6 13a8.5 8.5 0 0 1 12 0M9 16.4a4 4 0 0 1 6 0"/><circle cx="12" cy="19.5" r=".6"/></symbol>
-    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
-    <symbol id="i-bat" viewBox="0 0 24 24"><rect x="3" y="7.5" width="16" height="9" rx="2"/><path d="M21 10.5v3M6 10.5h7v3H6z"/></symbol>
-  </defs>
-</svg>
 
 <template id="puri-template">
   <div class="puri-win" data-state="open">
     <div class="puri-head">
-      <span class="puri-hbtn x"><svg class="ic"><use href="#i-x"/></svg></span>
+      <span class="puri-hbtn x"><svg class="ic"><use href="icons.svg#i-x"/></svg></span>
       <span class="puri-title"></span>
-      <span class="puri-hbtn"><svg class="ic"><use href="#i-pen"/></svg></span>
-      <span class="puri-hbtn"><svg class="ic"><use href="#i-side"/></svg></span>
+      <span class="puri-hbtn"><svg class="ic"><use href="icons.svg#i-pen"/></svg></span>
+      <span class="puri-hbtn"><svg class="ic"><use href="icons.svg#i-side"/></svg></span>
     </div>
     <div class="puri-body"><div class="puri-tx"></div></div>
-    <div class="puri-prompt"><svg class="ic"><use href="#i-search"/></svg><span class="puri-input"></span><span class="puri-caret"></span></div>
+    <div class="puri-prompt"><svg class="ic"><use href="icons.svg#i-search"/></svg><span class="puri-input"></span><span class="puri-caret"></span></div>
   </div>
   <svg class="puri-cursor" viewBox="0 0 20 24"><path d="M2 1.5v18.5l5-4.6 3.2 7 3-1.4-3.1-6.8H17z"/></svg>
 </template>
 
 <header class="wrap nav">
-  <a class="brand" href="#"><svg aria-hidden="true"><use href="#kuri-mark"/></svg>Puri</a>
-  <a class="nav-link" href="#what">What it does</a>
-  <a class="nav-link" href="#privacy">Privacy</a>
-  <a class="nav-link" href="#install">Install</a>
-  <a class="btn small" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>GitHub</a>
+  <a class="brand" href="./"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg>Puri</a>
+  <a class="nav-link" href="./#what">What it does</a>
+  <a class="nav-link" href="./#privacy">Privacy</a>
+  <a class="nav-link" href="install.html">Install</a>
+  <a class="btn small" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-code"/></svg>GitHub</a>
 </header>
 
 <main>
@@ -85,8 +51,8 @@
       <h1>Ask your desktop.</h1>
       <p class="lead">Puri is an assistant for GNOME. Press the shortcut, ask, and it answers from <strong>your mail, your calendar, your documents</strong> and the web. The model runs on your own machine.</p>
       <div class="cta">
-        <a class="btn suggested" href="#install">Install Puri</a>
-        <a class="btn" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Source code</a>
+        <a class="btn suggested" href="install.html">Install Puri</a>
+        <a class="btn" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-code"/></svg>Source code</a>
       </div>
       <p class="meta">Free and open source, MIT · Ubuntu 26.04 with GNOME</p>
     </div>
@@ -99,7 +65,7 @@
         <polygon class="m2" points="0,370 120,316 220,350 330,304 450,356 560,318 680,362 800,328 800,480 0,480"/>
         <polygon class="m3" points="0,428 140,392 300,420 460,388 620,424 800,398 800,480 0,480"/>
       </svg>
-      <div class="topbar" aria-hidden="true"><span class="workspaces"><i></i><i></i><i></i></span><span>Tue 24 Nov 09:41</span><span class="tray"><svg class="ic"><use href="#i-wifi"/></svg><svg class="ic"><use href="#i-vol"/></svg><svg class="ic"><use href="#i-bat"/></svg></span></div>
+      <div class="topbar" aria-hidden="true"><span class="workspaces"><i></i><i></i><i></i></span><span>Tue 24 Nov 09:41</span><span class="tray"><svg class="ic"><use href="icons.svg#i-wifi"/></svg><svg class="ic"><use href="icons.svg#i-vol"/></svg><svg class="ic"><use href="icons.svg#i-bat"/></svg></span></div>
       <div class="puri" data-replay role="img" aria-label="Puri's window answering three example questions: the weather on a trip in the calendar, a mail draft that opens in Thunderbird, and the amount on an invoice in Documents"></div>
     </div>
   </div>
@@ -111,16 +77,16 @@
         <p>Puri works with what GNOME and Thunderbird already keep on your disk, so there's nothing to import.</p>
       </div>
       <div class="list caps">
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-mail"/></svg></span><div><h3>Mail and contacts</h3><p>Finds a mail, sums up a thread, looks up an address. Writes a draft and opens it in Thunderbird for you to send.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-cal"/></svg></span><div><h3>Calendar</h3><p>What's on Thursday, when the dentist is, which day the trip starts. Drafts an event for Thunderbird to add.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-doc"/></svg></span><div><h3>Documents</h3><p>Searches your Documents folder through GNOME's own file index, PDFs and office files included.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-note"/></svg></span><div><h3>Notes and memory</h3><p>Keeps notes in <code>Documents/Notes</code>, and remembers what you tell it in one plain Markdown file you can edit.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-search"/></svg></span><div><h3>Web search</h3><p>Brave or Exa, with your own key. Puri reads the search engine's copy of a page and never opens a link itself.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-pin"/></svg></span><div><h3>Places and routes</h3><p>Where a place is, what's open nearby, how far by car, from OpenStreetMap, with a map under the answer.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-cloud"/></svg></span><div><h3>Weather</h3><p>Open-Meteo's forecast in GNOME's units, about two weeks ahead, for any place or for the trip in your calendar.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-music"/></svg></span><div><h3>Music</h3><p>"Play some State Azure." Plays an artist, an album, a song or a genre from your Rhythmbox library.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-mic"/></svg></span><div><h3>Dictation</h3><p>Press F5 and talk. whisper.cpp, on your machine or your home server, types what you said.</p></div></div>
-        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="#i-clock"/></svg></span><div><h3>Every conversation</h3><p>Each earlier conversation is one click away in the same window, saved on your disk.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-mail"/></svg></span><div><h3>Mail and contacts</h3><p>Finds a mail, sums up a thread, looks up an address. Writes a draft and opens it in Thunderbird for you to send.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-cal"/></svg></span><div><h3>Calendar</h3><p>What's on Thursday, when the dentist is, which day the trip starts. Drafts an event for Thunderbird to add.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-doc"/></svg></span><div><h3>Documents</h3><p>Searches your Documents folder through GNOME's own file index, PDFs and office files included.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-note"/></svg></span><div><h3>Notes and memory</h3><p>Keeps notes in <code>Documents/Notes</code>, and remembers what you tell it in one plain Markdown file you can edit.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-search"/></svg></span><div><h3>Web search</h3><p>Brave or Exa, with your own key. Puri reads the search engine's copy of a page and never opens a link itself.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-pin"/></svg></span><div><h3>Places and routes</h3><p>Where a place is, what's open nearby, how far by car, from OpenStreetMap, with a map under the answer.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-cloud"/></svg></span><div><h3>Weather</h3><p>Open-Meteo's forecast in GNOME's units, about two weeks ahead, for any place or for the trip in your calendar.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-music"/></svg></span><div><h3>Music</h3><p>"Play some State Azure." Plays an artist, an album, a song or a genre from your Rhythmbox library.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-mic"/></svg></span><div><h3>Dictation</h3><p>Press F5 and talk. whisper.cpp, on your machine or your home server, types what you said.</p></div></div>
+        <div class="cap"><span class="cap-ic"><svg class="ic"><use href="icons.svg#i-clock"/></svg></span><div><h3>Every conversation</h3><p>Each earlier conversation is one click away in the same window, saved on your disk.</p></div></div>
       </div>
     </div>
   </section>
@@ -147,7 +113,7 @@
             <path class="loc" d="M270 227 C330 227 330 266 390 266"/><path class="loc" d="M270 295 C330 295 330 266 390 266"/>
             <path class="loc" d="M270 363 C330 363 330 266 390 266"/><path class="loc" d="M270 431 C330 431 330 266 390 266"/>
             <text class="never" x="480" y="222" text-anchor="middle">no fetch · no shell · no send</text>
-            <g class="hub"><rect x="390" y="236" width="180" height="60" rx="30"/><use href="#kuri-mark" x="398" y="242" width="48" height="48"/><text class="t" x="508" y="273" text-anchor="middle">Puri</text></g>
+            <g class="hub"><rect x="390" y="236" width="180" height="60" rx="30"/><use href="icons.svg#kuri-mark" x="398" y="242" width="48" height="48"/><text class="t" x="508" y="273" text-anchor="middle">Puri</text></g>
             <path class="loc" d="M480 296 C480 380 450 400 450 466"/>
             <text class="s" x="488" y="392">a draft</text>
             <g class="node"><rect x="340" y="466" width="220" height="54" rx="8"/><text class="t" x="356" y="489">Thunderbird compose</text><text class="s" x="356" y="508">waits for you</text></g>
@@ -163,9 +129,9 @@
 
       <div class="leaves">
         <div class="promises">
-          <div class="promise"><svg class="ic"><use href="#i-check"/></svg><div><h3>Search, never fetch</h3><p>Puri talks to the search, map and weather services you set up, and never opens a URL.</p></div></div>
-          <div class="promise"><svg class="ic"><use href="#i-check"/></svg><div><h3>Sending is always your click</h3><p>A mail opens in Thunderbird's compose window, an event in its import wizard.</p></div></div>
-          <div class="promise"><svg class="ic"><use href="#i-check"/></svg><div><h3>The model runs at home</h3><p>On this computer or your own server. A hosted model is something you opt into.</p></div></div>
+          <div class="promise"><svg class="ic"><use href="icons.svg#i-check"/></svg><div><h3>Search, never fetch</h3><p>Puri talks to the search, map and weather services you set up, and never opens a URL.</p></div></div>
+          <div class="promise"><svg class="ic"><use href="icons.svg#i-check"/></svg><div><h3>Sending is always your click</h3><p>A mail opens in Thunderbird's compose window, an event in its import wizard.</p></div></div>
+          <div class="promise"><svg class="ic"><use href="icons.svg#i-check"/></svg><div><h3>The model runs at home</h3><p>On this computer or your own server. A hosted model is something you opt into.</p></div></div>
         </div>
         <div>
           <div class="list scroll-x">
@@ -204,27 +170,31 @@
       <div>
         <div class="sec-head" style="margin-bottom:0">
           <h2>Install</h2>
-          <p>GTK, libadwaita, Ruby and llama.cpp come from apt, Puri itself is a git clone, and the model downloads on first start. No npm, no Electron, no <code>curl | sh</code>.</p>
+          <p>GTK, libadwaita, Ruby, llama.cpp and whisper.cpp come from apt, Puri itself is a git clone, and the models come from Hugging Face. No npm, no Electron, and <a href="install.html#why">no <code>curl | sh</code></a>.</p>
         </div>
         <ol class="steps">
-          <li>Install the packages, the model server's included.</li>
-          <li>Clone Puri and install it for your user. This binds the shortcut, and <code>AUTOSTART=1</code> starts Puri at login.</li>
-          <li>Start the model server and leave it running. The first start downloads Qwen 3.5 4B, about 3 GB. <code>-ngl 99</code> puts it on your graphics card, and <code>-c 65536</code> gives it the 64K context Puri needs.</li>
-          <li>Tell Puri where the model server is, in <code>~/.config/puri/config.toml</code>. <a href="https://github.com/mvysny/puri#configure-the-model">The README shows how.</a></li>
+          <li>Install the packages: Puri's, the model server's and dictation's.</li>
+          <li>Run the model and dictation as services of your own. The first start downloads Qwen 3.5 4B, 3–4 GB.</li>
+          <li>Clone Puri and install it for your user. This binds the shortcut and starts Puri at login.</li>
+          <li>Copy the config, which turns on everything but web search and says what each part sends out.</li>
           <li>Press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</li>
         </ol>
+        <p class="more"><a class="btn suggested" href="install.html">The install guide</a><span>Every step, with a check after each.</span></p>
       </div>
       <div class="term">
-        <div class="term-head">Terminal<button class="copy" type="button" id="copy-install">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">sudo apt install ruby ruby-bundler ruby-dev build-essential \
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo apt install git wget ruby ruby-bundler ruby-dev build-essential \
     ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
-    llama.cpp-tools libggml0-backend-vulkan</span>
-<span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri &amp;&amp; cd puri</span>
+    llama.cpp-tools libggml0-backend-vulkan whisper.cpp \
+    localsearch-extractor-office rhythmbox</span>
+<span class="c"># the model and dictation as services: the install guide, steps 3 and 4</span>
+<span class="p">$ </span><span class="cmd">cd ~</span>
+<span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri</span>
+<span class="p">$ </span><span class="cmd">cd puri</span>
 <span class="p">$ </span><span class="cmd">bundle config set --local path vendor/bundle</span>
 <span class="p">$ </span><span class="cmd">bundle install</span>
 <span class="p">$ </span><span class="cmd">bundle exec rake install AUTOSTART=1</span>
-<span class="p">$ </span><span class="cmd">llama-server -ngl 99 -c 65536 -hf ggml-org/Qwen3.5-4B-GGUF:Q4_K_M</span>
-<span class="c"># then point ~/.config/puri/config.toml at http://localhost:8080</span></pre>
+<span class="c"># then the config: step 6</span></pre>
       </div>
     </div>
   </section>
@@ -233,19 +203,19 @@
     <div class="wrap">
       <div class="sec-head"><h2>Questions</h2></div>
       <div class="list faq">
-        <details><summary>How is this different from OpenClaw?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>OpenClaw works on its own in the background: it can execute any command in your shell and browse the web, so a mail with malicious instructions in your inbox may turn it against you. Puri answers you. Everything it sends out is in the table above, a short list chosen so that such a mail can't use any of it to reach whoever wrote it, and a mail of yours leaves only when you click Send. If you looked at OpenClaw and backed off, Puri was made for you.</p></details>
-        <details><summary>Where can Puri write, and what can it do to my system?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>It writes only in <code>Documents/Notes</code>: its notes, and one file of what you asked it to remember. It reads the rest of your Documents folder and your Thunderbird mail, contacts and calendar. It has no shell, so it can't run a command, install anything or change a setting. Beyond that it plays music in Rhythmbox, and opens a mail or an event in Thunderbird for you to send or add. Your conversations are saved in <code>~/.local/state/puri</code>.</p></details>
-        <details><summary>Why can't it open a link?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>A mail or a web page can carry instructions written for the model. Puri can't fetch a URL, run a command or send a mail, so a mail written to trick it can't make it pass your data to whoever wrote it.</p></details>
-        <details><summary>Why Thunderbird?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>It already holds your mail, contacts and calendar on your disk, and its compose window is the right place to check a draft before it goes.</p></details>
-        <details><summary>Can Puri damage my Thunderbird data?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>No. It never writes to Thunderbird's files. It copies the mail index and the calendar into <code>~/.cache/puri</code> and searches only the copy, never the database Thunderbird has open, so it's safe while Thunderbird runs. The mail itself it only reads.</p></details>
-        <details><summary>Which model does it run?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>The install above runs Qwen 3.5 4B on llama.cpp's <code>llama-server</code>, best on a graphics card. Any OpenAI-compatible server works, and a bigger model can run on <a href="https://github.com/mvysny/puri#a-home-server-over-tailscale">a home server over Tailscale</a>.</p></details>
+        <details><summary>How is this different from OpenClaw?<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>OpenClaw works on its own in the background: it can execute any command in your shell and browse the web, so a mail with malicious instructions in your inbox may turn it against you. Puri answers you. Everything it sends out is in the table above, a short list chosen so that such a mail can't use any of it to reach whoever wrote it, and a mail of yours leaves only when you click Send. If you looked at OpenClaw and backed off, Puri was made for you.</p></details>
+        <details><summary>Where can Puri write, and what can it do to my system?<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>It writes only in <code>Documents/Notes</code>: its notes, and one file of what you asked it to remember. It reads the rest of your Documents folder and your Thunderbird mail, contacts and calendar. It has no shell, so it can't run a command, install anything or change a setting. Beyond that it plays music in Rhythmbox, and opens a mail or an event in Thunderbird for you to send or add. Your conversations are saved in <code>~/.local/state/puri</code>.</p></details>
+        <details><summary>Why can't it open a link?<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>A mail or a web page can carry instructions written for the model. Puri can't fetch a URL, run a command or send a mail, so a mail written to trick it can't make it pass your data to whoever wrote it.</p></details>
+        <details><summary>Why Thunderbird?<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>It already holds your mail, contacts and calendar on your disk, and its compose window is the right place to check a draft before it goes.</p></details>
+        <details><summary>Can Puri damage my Thunderbird data?<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>No. It never writes to Thunderbird's files. It copies the mail index and the calendar into <code>~/.cache/puri</code> and searches only the copy, never the database Thunderbird has open, so it's safe while Thunderbird runs. The mail itself it only reads.</p></details>
+        <details><summary>Which model does it run?<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>The <a href="install.html">install guide</a> runs Qwen 3.5 4B on llama.cpp's <code>llama-server</code>, best on a graphics card. Any OpenAI-compatible server works, and a bigger model can run on <a href="https://github.com/mvysny/puri#a-home-server-over-tailscale">a home server over Tailscale</a>.</p></details>
       </div>
     </div>
   </section>
 </main>
 
 <footer class="wrap footer">
-  <span class="grow"><svg aria-hidden="true"><use href="#kuri-mark"/></svg><span>Puri is MIT licensed and built on <a href="https://github.com/mvysny/pikuri">pikuri</a>. Kuri the pika is pikuri's mascot.</span></span>
+  <span class="grow"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg><span>Puri is MIT licensed and built on <a href="https://github.com/mvysny/pikuri">pikuri</a>. Kuri the pika is pikuri's mascot.</span></span>
   <span>This page sets no cookies and loads nothing from other sites.</span>
 </footer>
 

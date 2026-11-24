@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Install Puri: a desktop AI assistant for GNOME</title>
+<meta name="description" content="Install Puri on Ubuntu with GNOME: a dozen short commands, every one from apt or Puri's own source, and a check after each step.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://puri-ai.de/install.html">
+<meta property="og:title" content="Install Puri: a desktop AI assistant for GNOME">
+<meta property="og:description" content="Install Puri on Ubuntu with GNOME: a dozen short commands, every one from apt or Puri's own source, and a check after each step.">
+<meta property="og:image" content="https://puri-ai.de/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="kuri.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/AdwaitaSans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script src="copy.js" defer></script>
+</head>
+<body>
+
+<header class="wrap nav">
+  <a class="brand" href="./"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg>Puri</a>
+  <a class="nav-link" href="./#what">What it does</a>
+  <a class="nav-link" href="./#privacy">Privacy</a>
+  <a class="nav-link" href="install.html">Install</a>
+  <a class="btn small" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-code"/></svg>GitHub</a>
+</header>
+
+<main class="wrap guide">
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-head">On this page</p>
+    <ol>
+      <li><a href="#before">Before you start</a></li>
+      <li><a href="#quickstart">Quickstart</a>
+        <ol>
+          <li><a href="#step-thunderbird">Thunderbird's search</a></li>
+          <li><a href="#step-packages">The packages</a></li>
+          <li><a href="#step-model">The model</a></li>
+          <li><a href="#step-dictation">Dictation</a></li>
+          <li><a href="#step-puri">Puri</a></li>
+          <li><a href="#step-config">The config</a></li>
+          <li><a href="#step-index">Your documents</a></li>
+          <li><a href="#step-try">Try it</a></li>
+          <li><a href="#step-search">A search key</a></li>
+        </ol>
+      </li>
+      <li><a href="#features">Each feature</a></li>
+      <li><a href="#games">Games</a></li>
+      <li><a href="#update">Updating</a></li>
+      <li><a href="#uninstall">Uninstalling</a></li>
+      <li><a href="#trouble">When something doesn't work</a></li>
+      <li><a href="#sources">Where each piece comes from</a></li>
+    </ol>
+  </nav>
+
+  <article class="doc">
+    <h1>Install Puri</h1>
+    <p class="lead">A dozen short commands in Ubuntu's Terminal. At the end, Puri answers from your mail, calendar and documents, finds places and the weather, plays your music and takes dictation. Web search waits for a key of your own.</p>
+
+    <aside class="callout" id="why">
+      <h2>Why there's no one-line installer</h2>
+      <p>Plenty of apps install with one line that downloads a script and runs it at once, <code>curl … | bash</code>. That script runs as you, often with <code>sudo</code>, before you've read a line of it, and the server can hand the pipe something other than what your browser shows you.</p>
+      <p>Puri is meant to be safe to point at your real inbox, and asking you to run code you haven't seen would be a poor start. So this guide is a dozen short commands instead of one, each one yours to read before you run it. The only <code>sudo</code> is <code>apt install</code>, and <a href="#sources">where each piece comes from</a> is at the end.</p>
+    </aside>
+
+    <section id="before">
+      <h2>Before you start</h2>
+      <ul class="needs">
+        <li><strong>Ubuntu 26.04 with GNOME,</strong> the desktop Ubuntu installs. Other distributions haven't been tried yet.</li>
+        <li><strong>Thunderbird with your mail in it,</strong> the snap Ubuntu ships or apt's.</li>
+        <li><strong>A graphics card with 8 GB of memory</strong> runs the model fastest. Integrated graphics work too, more slowly. A computer with neither hasn't been tried yet.</li>
+        <li><strong>About 5 GB of free disk:</strong> 3–4 GB for the model, half a gigabyte for dictation, and the rest for Puri.</li>
+        <li><strong>Ubuntu's Terminal.</strong> Every command below goes there: copy a block, paste it with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, and press <kbd>Enter</kbd>. A command starting with <code>sudo</code> asks for your password.</li>
+      </ul>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quickstart</h2>
+      <p>Nine steps, each ending in a check. The model's download is the slow part, so it starts early and runs while you do the rest.</p>
+
+      <section class="step" id="step-thunderbird">
+        <h3><span class="n">1</span>Check Thunderbird's search</h3>
+        <p>Puri searches your mail through Thunderbird's own index, which stays current only while Thunderbird's global search is on. It is, unless you switched it off: in Thunderbird, <em>Settings → General → Enable Global Search and Indexer</em>.</p>
+        <p>A calendar on a server, such as Google's or Nextcloud's, needs its <em>Offline Support</em> on, so that Thunderbird keeps a copy on your disk for Puri to read: right-click the calendar, then <em>Properties</em>.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> Thunderbird's search bar, at the top of its window, finds a mail by a word from its text.</span></p>
+      </section>
+
+      <section class="step" id="step-packages">
+        <h3><span class="n">2</span>Install the packages</h3>
+        <p>Puri's toolkit, Ruby, the model server, dictation, the office-file reader for your file index, and Rhythmbox, all from Ubuntu's archive:</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo apt install git wget ruby ruby-bundler ruby-dev build-essential \
+    ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
+    llama.cpp-tools libggml0-backend-vulkan whisper.cpp \
+    localsearch-extractor-office rhythmbox</span></pre>
+        </div>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> apt finishes without an error.</span></p>
+      </section>
+
+      <section class="step" id="step-model">
+        <h3><span class="n">3</span>Start the model</h3>
+        <p><code>llama-server</code> runs the model, Qwen 3.5 4B. These commands make it a service of your own, which starts whenever you log in, and start it now. The first start downloads the model, 3–4 GB, into <code>~/.cache/llama.cpp</code>.</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.config/systemd/user</span>
+<span class="p">$ </span><span class="cmd">cat &gt; ~/.config/systemd/user/llama-server.service &lt;&lt;'EOF'
+[Unit]
+Description=llama-server, the model Puri talks to
+
+[Service]
+ExecStart=/usr/bin/llama-server -ngl 99 -c 65536 -hf ggml-org/Qwen3.5-4B-GGUF:Q4_K_M
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF</span>
+<span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
+<span class="p">$ </span><span class="cmd">systemctl --user enable --now llama-server</span></pre>
+        </div>
+        <p><code>-ngl 99</code> puts the whole model on your graphics card, and <code>-c 65536</code> gives it the 64K context Puri needs. To watch the download:</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">journalctl --user -fu llama-server</span></pre>
+        </div>
+        <p><kbd>Ctrl</kbd>+<kbd>C</kbd> stops watching, and the download carries on. Go on with the next steps meanwhile.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> once the log says the server is listening, <code>http://localhost:8080</code> opens llama-server's own chat page in your browser, and it answers a hello.</span></p>
+        <p class="hint">While it runs, the model holds most of an 8 GB card's memory. Before a game, see <a href="#games">Games</a>.</p>
+      </section>
+
+      <section class="step" id="step-dictation">
+        <h3><span class="n">4</span>Start dictation</h3>
+        <p><code>whisper-server</code> turns your voice into text, on this computer. apt ships the server but no model, so download one, about 470 MB, then make the server a service like the model's:</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.local/share/whisper</span>
+<span class="p">$ </span><span class="cmd">wget -P ~/.local/share/whisper https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin</span>
+<span class="p">$ </span><span class="cmd">cat &gt; ~/.config/systemd/user/whisper-server.service &lt;&lt;'EOF'
+[Unit]
+Description=whisper-server, Puri's dictation
+
+[Service]
+ExecStart=/usr/bin/whisper-server -m %h/.local/share/whisper/ggml-small.bin --port 8081 --inference-path /v1/audio/transcriptions -l auto
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF</span>
+<span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
+<span class="p">$ </span><span class="cmd">systemctl --user enable --now whisper-server</span></pre>
+        </div>
+        <p><code>small</code> understands many languages, and <code>-l auto</code> lets it tell which one you speak. <a href="#dictation">Dictation</a>, below, has the other models.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> <code>systemctl --user is-active whisper-server</code> prints <code>active</code>.</span></p>
+      </section>
+
+      <section class="step" id="step-puri">
+        <h3><span class="n">5</span>Install Puri</h3>
+        <p>Puri itself is plain Ruby, cloned into <code>~/puri</code>. It runs from that folder, so keep it. Bundler fetches the Ruby libraries Puri needs into the same folder, and <code>rake install</code> adds Puri to your desktop:</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">cd ~</span>
+<span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri</span>
+<span class="p">$ </span><span class="cmd">cd puri</span>
+<span class="p">$ </span><span class="cmd">bundle config set --local path vendor/bundle</span>
+<span class="p">$ </span><span class="cmd">bundle install</span>
+<span class="p">$ </span><span class="cmd">bundle exec rake install AUTOSTART=1</span></pre>
+        </div>
+        <p><code>rake install</code> binds <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>, and <code>AUTOSTART=1</code> starts Puri when you log in, so even the first press is instant. It writes three files under your home and never uses <code>sudo</code>.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> the last command lists the three files it wrote.</span></p>
+      </section>
+
+      <section class="step" id="step-config">
+        <h3><span class="n">6</span>Copy the config</h3>
+        <p>One file says what Puri may use, and each part of it says what it does and what it sends out of your computer. Copy it, then read it:</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.config/puri</span>
+<span class="p">$ </span><span class="cmd">cp ~/puri/docs/config.toml ~/.config/puri/</span>
+<span class="p">$ </span><span class="cmd">gnome-text-editor ~/.config/puri/config.toml</span></pre>
+        </div>
+        <p>Everything in it is on, except web search. Places and the weather send what you ask about to public services, as the file says; to turn one off, put a <code>#</code> before its lines. You can also <a href="https://github.com/mvysny/puri/blob/master/docs/config.toml">read the file here</a> before you install.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> <code>~/puri/exe/puri</code> opens Puri's search bar. If the config has a mistake, the terminal says what and where. Then press <kbd>Ctrl</kbd>+<kbd>Q</kbd> to quit this Puri: from now on, <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> starts it.</span></p>
+      </section>
+
+      <section class="step" id="step-index">
+        <h3><span class="n">7</span>Reindex your documents</h3>
+        <p>Puri finds your documents through GNOME's own file index, the one the Files app searches. Installing the office-file reader in step 2 doesn't reread what the index already holds, so rebuild it once:</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">localsearch reset</span></pre>
+        </div>
+        <p>It asks before erasing the index, then reads your home folder again, office files included. That can take a while.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> <code>localsearch status</code> no longer says that data is still being indexed, and in GNOME's <em>Settings → Search → Search Locations</em>, your Documents folder is on.</span></p>
+      </section>
+
+      <section class="step" id="step-try">
+        <h3><span class="n">8</span>Try it</h3>
+        <p>Press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and ask, one question per feature. When one fails, its section under <a href="#features">Each feature</a> says what it needs.</p>
+        <div class="list scroll-x">
+          <table class="asks">
+            <thead><tr><th>Ask</th><th>It tries</th></tr></thead>
+            <tbody>
+              <tr><td>What's on my calendar this week?</td><td><a href="#mail">the calendar</a></td></tr>
+              <tr><td>Find the last mail from <em>someone who writes to you</em></td><td><a href="#mail">mail</a></td></tr>
+              <tr><td>Find the invoice from <em>a company you pay</em></td><td><a href="#documents">documents</a></td></tr>
+              <tr><td>Remember that I prefer window seats</td><td><a href="#documents">notes and memory</a></td></tr>
+              <tr><td>How far is it to <em>a nearby town</em> by car?</td><td><a href="#places">places and routes</a></td></tr>
+              <tr><td>Will it rain tomorrow in <em>your town</em>?</td><td><a href="#weather">the weather</a></td></tr>
+              <tr><td>Play some <em>artist in your Rhythmbox library</em></td><td><a href="#music">music</a></td></tr>
+              <tr><td>Press <kbd>F5</kbd>, say something, press <kbd>F5</kbd> again</td><td><a href="#dictation">dictation</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The first answer after the model starts takes longest: the model first reads Puri's instructions, which takes up to half a minute on integrated graphics.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> each question gets its answer.</span></p>
+      </section>
+
+      <section class="step" id="step-search">
+        <h3><span class="n">9</span>Add a search key</h3>
+        <p>Web search is the one feature that needs a key of your own, from <a href="https://api-dashboard.search.brave.com">Brave Search</a> or <a href="https://exa.ai">Exa</a>. Puri sends each search query there, and a query may quote your mail; Exa's terms let it train on what you search for. Puri reads the engine's copy of each page and never opens a link itself.</p>
+        <p>In your config, remove the <code>#</code> from the <code>[search]</code> line and the line of your engine's key, and put the key in:</p>
+<pre class="file">[search]
+brave_key = "your key"</pre>
+        <p>Then make the file yours alone to read, quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd>, and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>: Puri reads its config when it starts.</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">chmod 600 ~/.config/puri/config.toml</span></pre>
+        </div>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> asked what's in the news today, Puri shows a search step above its answer.</span></p>
+      </section>
+    </section>
+
+    <section id="features">
+      <h2>Each feature</h2>
+      <p>What each one needs, what it sends out, and how to change it. Puri reads its config when it starts, so after an edit, quit it with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</p>
+
+      <section id="mail">
+        <h3>Mail, contacts and calendar</h3>
+        <p>Puri reads your Thunderbird profile, snap or apt, which it finds on its own, and never writes there. A mail you ask it to write opens in Thunderbird's compose window, and an event in its import wizard; nothing leaves until you send or add it there.</p>
+        <p>Mail search needs Thunderbird's global search, and a calendar on a server its Offline Support (<a href="#step-thunderbird">step 1</a>). When Puri finds two profiles with mail, it names both: put the one you use in <code>profile_dir</code> under <code>[thunderbird]</code>. <code>enabled = false</code> there turns mail, contacts and calendar off.</p>
+      </section>
+
+      <section id="documents">
+        <h3>Documents and notes</h3>
+        <p>Puri searches your Documents folder, whatever your desktop's language calls it, and nothing else. It goes through GNOME's file index, which also holds the text of your PDFs and office files: <code>localsearch-extractor-office</code> (<a href="#step-packages">step 2</a>) adds DOCX, XLSX, PPTX, ODT, ODS, ODP and EPUB, and the older DOC, XLS and PPT need nothing extra.</p>
+        <p>A file the index doesn't hold, such as a mail attachment, is converted in a container with no network when podman is installed (<code>sudo apt install podman</code>). Without it, Puri reads only PDFs.</p>
+        <p>Puri writes only in the Notes folder inside Documents: its notes, and <code>Notes/PURI.md</code>, what you asked it to remember, a plain file you can edit. To use another folder than Documents, set <code>folder</code> under <code>[documents]</code>.</p>
+      </section>
+
+      <section id="places">
+        <h3>Places and routes</h3>
+        <p>Where a place is, what's open nearby, and how far by car, from OpenStreetMap, with a map under the answer. The place you ask about goes to OpenStreetMap's public services: Photon finds it by name, Nominatim what's nearby, and FOSSGIS's OSRM the drive. Asked what's near you, Puri asks for your home address once, remembers it in <code>Notes/PURI.md</code>, and sends it to Nominatim. A click on a pin opens the place in GNOME Maps.</p>
+        <p>The map's tiles come from the server in <code>tiles</code> under <code>[maps]</code>, OpenStreetMap's own unless you change it.</p>
+      </section>
+
+      <section id="weather">
+        <h3>Weather</h3>
+        <p>Open-Meteo's forecast, up to about two weeks ahead and in GNOME's units, for a place or for the trip in your calendar. Puri finds the place on OpenStreetMap, so the weather needs <code>[maps]</code> too, and sends Open-Meteo a point rounded to about a kilometre. Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>, under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p>
+      </section>
+
+      <section id="music">
+        <h3>Music</h3>
+        <p>Puri plays an artist, an album, a song or a genre from your Rhythmbox library: "play some State Azure", or "play my favourite music" once you've told it your favourite. It starts Rhythmbox when it isn't running. An artist or a genre plays shuffled and replaces what you had queued; pause and skip with the media keys. It needs Rhythmbox's <em>D-Bus Media Server</em> plugin, which is on unless you switched it off.</p>
+      </section>
+
+      <section id="dictation">
+        <h3>Dictation</h3>
+        <p>Press <kbd>F5</kbd> or click the mic in the search bar, speak, and press <kbd>F5</kbd> again. The text lands at the cursor, for you to send with <kbd>Enter</kbd>; <kbd>Escape</kbd> drops it. Your voice stays on this computer.</p>
+        <p>Other models come from the <a href="https://huggingface.co/ggerganov/whisper.cpp">same place</a> as step 4's: <code>base</code> is smaller and faster and makes more mistakes, <code>medium</code> is slower and makes fewer. A model whose name ends in <code>.en</code> understands only English, and turns any other language into English gibberish. To switch, download one, put its name in place of <code>ggml-small.bin</code> in <code>~/.config/systemd/user/whisper-server.service</code>, then:</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
+<span class="p">$ </span><span class="cmd">systemctl --user restart whisper-server</span></pre>
+        </div>
+      </section>
+
+      <section id="search">
+        <h3>Web search</h3>
+        <p>Set up in <a href="#step-search">step 9</a>. With both keys, Puri picks an engine per query; <code>engines = ["brave"]</code> under <code>[search]</code> keeps it to one. DuckDuckGo isn't offered, because it returns no page text for Puri to read.</p>
+      </section>
+
+      <section id="shortcut">
+        <h3>The shortcut</h3>
+        <p><kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>, which GNOME leaves free. To pick another, install again with it; each <code>rake install</code> sets everything from its own options, so leaving out <code>AUTOSTART=1</code> stops Puri starting at login.</p>
+        <div class="term">
+          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">cd ~/puri</span>
+<span class="p">$ </span><span class="cmd">bundle exec rake install AUTOSTART=1 HOTKEY='&lt;Super&gt;p'</span></pre>
+        </div>
+        <p>In Puri, <kbd>Escape</kbd> hides the window and <kbd>Ctrl</kbd>+<kbd>Q</kbd> quits; <kbd>F9</kbd> shows your earlier conversations, and <kbd>Ctrl</kbd>+<kbd>N</kbd> starts a new one.</p>
+      </section>
+
+      <section id="model">
+        <h3>The model</h3>
+        <p>Qwen 3.5 4B is small, a short download, and runs on most graphics cards. A smarter model needs far more memory: the README has <a href="https://github.com/mvysny/puri#a-smarter-model-ornith-15">Ornith 1.5</a>, and how to run the model on <a href="https://github.com/mvysny/puri#a-home-server-over-tailscale">a home server of yours</a>.</p>
+      </section>
+    </section>
+
+    <section id="games">
+      <h2>Games and graphics memory</h2>
+      <p>While <code>llama-server</code> runs, the model holds most of an 8 GB graphics card's memory, so a big game may not start, or may stutter. Resources, Ubuntu's system monitor, shows how much of the card's memory is in use. Before you play, stop the model and dictation:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">systemctl --user stop llama-server whisper-server</span></pre>
+      </div>
+      <p>Afterwards, start them again, or log out and in:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">systemctl --user start llama-server whisper-server</span></pre>
+      </div>
+      <p>On integrated graphics the model holds ordinary memory instead, the same way.</p>
+    </section>
+
+    <section id="update">
+      <h2>Updating</h2>
+      <p>apt updates everything but Puri along with the rest of Ubuntu. Puri updates from its folder:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">cd ~/puri</span>
+<span class="p">$ </span><span class="cmd">git pull</span>
+<span class="p">$ </span><span class="cmd">bundle install</span></pre>
+      </div>
+      <p>Then quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>. A new feature may bring a new part to <code>~/puri/docs/config.toml</code>: compare it with yours.</p>
+    </section>
+
+    <section id="uninstall">
+      <h2>Uninstalling</h2>
+      <p>This takes Puri off your desktop and stops both servers:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">cd ~/puri</span>
+<span class="p">$ </span><span class="cmd">bundle exec rake uninstall</span>
+<span class="p">$ </span><span class="cmd">systemctl --user disable --now llama-server whisper-server</span>
+<span class="p">$ </span><span class="cmd">rm ~/.config/systemd/user/llama-server.service ~/.config/systemd/user/whisper-server.service</span></pre>
+      </div>
+      <p>What's left is yours to delete or keep:</p>
+      <ul class="paths">
+        <li><code>~/puri</code>, Puri itself</li>
+        <li><code>~/.config/puri</code>, the config</li>
+        <li><code>~/.local/state/puri</code>, your conversations</li>
+        <li><code>~/.cache/puri</code>, Puri's copy of Thunderbird's mail index and calendar</li>
+        <li><code>~/.cache/llama.cpp</code>, the model</li>
+        <li><code>~/.local/share/whisper</code>, the dictation model</li>
+        <li><code>Notes</code> in your Documents folder, your notes and what Puri remembered</li>
+      </ul>
+      <p>The apt packages stay too; remove them with apt if nothing else uses them.</p>
+    </section>
+
+    <section id="trouble">
+      <h2>When something doesn't work</h2>
+      <div class="list faq">
+        <details><summary><kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> does nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Start Puri in a terminal, where it says what's wrong: <code>~/puri/exe/puri</code>. A mistake in the config is the usual one.</p></details>
+        <details><summary>Puri can't reach the model<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p><code>systemctl --user status llama-server</code> says whether it runs, and <code>journalctl --user -u llama-server</code> why it stopped. On the first start it may still be downloading.</p></details>
+        <details><summary>The first answer takes long<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Before its first answer, the model reads Puri's instructions, about 10,000 tokens: up to half a minute on integrated graphics, less on a graphics card. Later questions start sooner.</p></details>
+        <details><summary>Mail search finds nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Thunderbird's global search is off, or still indexing your mail: see <a href="#step-thunderbird">step 1</a>.</p></details>
+        <details><summary>The calendar is empty<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>A calendar on a server needs its Offline Support on, so that Thunderbird keeps a copy on your disk: see <a href="#step-thunderbird">step 1</a>.</p></details>
+        <details><summary>Office files are found by name only<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>The index holds them without their text: install <code>localsearch-extractor-office</code> and rebuild the index, <a href="#step-index">step 7</a>.</p></details>
+        <details><summary>Puri found two Thunderbird profiles<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Put the one you use in <code>profile_dir</code> under <code>[thunderbird]</code>: see <a href="#mail">Mail, contacts and calendar</a>.</p></details>
+        <details><summary>Dictation types nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p><code>systemctl --user status whisper-server</code> says whether it runs; its model must be where the service file says, <code>~/.local/share/whisper/ggml-small.bin</code>.</p></details>
+        <details><summary>A game won't start<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>The model holds the graphics card's memory: see <a href="#games">Games and graphics memory</a>.</p></details>
+      </div>
+    </section>
+
+    <section id="sources">
+      <h2>Where each piece comes from</h2>
+      <ul class="needs">
+        <li><strong>From Ubuntu's archive,</strong> signed and updated by apt with the rest of Ubuntu: GTK, libadwaita, Ruby, llama.cpp, whisper.cpp, localsearch and Rhythmbox.</li>
+        <li><strong>Puri,</strong> a git clone of its source: plain Ruby you can read, with nothing compiled.</li>
+        <li><strong>Its Ruby libraries,</strong> from rubygems.org through Bundler. Puri's <code>Gemfile.lock</code> pins each one's version and SHA-256, so <code>bundle install</code> refuses one that changed; pikuri's libraries come from GitHub, pinned to one commit. A few compile some C on your computer, which is why apt installs <code>build-essential</code>.</li>
+        <li><strong>The two models,</strong> from Hugging Face: the language model fetched by <code>llama-server</code>, the dictation model by <code>wget</code>. Both are weights, files of numbers that the servers read, not programs.</li>
+        <li><strong><code>rake install</code></strong> writes three files under your home, a desktop entry, a D-Bus service and an autostart entry, and sets one GNOME shortcut. It prints each file, never uses <code>sudo</code>, and <code>rake uninstall</code> removes them all.</li>
+        <li><strong>The two service files</strong> are the ones you wrote in steps 3 and 4.</li>
+      </ul>
+    </section>
+  </article>
+</main>
+
+<footer class="wrap footer">
+  <span class="grow"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg><span>Puri is MIT licensed and built on <a href="https://github.com/mvysny/pikuri">pikuri</a>. Kuri the pika is pikuri's mascot.</span></span>
+  <span>This page sets no cookies and loads nothing from other sites.</span>
+</footer>
+
+</body>
+</html>

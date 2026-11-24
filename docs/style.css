@@ -1,4 +1,4 @@
-/* puri-ai.de — one page in libadwaita's own look, so a GNOME user sees one of theirs.
+/* puri-ai.de — its pages in libadwaita's own look, so a GNOME user sees one of theirs.
    Everything is served from this folder: no font host, no CDN, no analytics. The footer says
    so, so keep it true. Adwaita Sans is subset to Latin from Ubuntu's fonts-adwaita-sans; Ubuntu
    ships no Adwaita Mono, so code falls back to the visitor's own monospace. */
@@ -111,7 +111,6 @@ img, svg { max-width: 100%; }
 code { font: .86em var(--mono); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 section[id] { scroll-margin-top: 16px; }
-.sym { position: absolute; width: 0; height: 0; }
 .ic { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .scroll-x { overflow-x: auto; }
 .wrap {
@@ -261,9 +260,48 @@ tbody tr[data-flow]:hover { background: var(--zone); }
 .faq details p { max-width: 72ch; padding: 0 20px 18px; color: var(--dim); line-height: 1.6; }
 .faq a { color: var(--accent); }
 
+.more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 26px; color: var(--dim); font-size: .92rem; }
+
 .footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding-block: 32px 40px; border-top: 1px solid var(--edge); color: var(--dim); font-size: .9rem; }
 .footer .grow { margin-right: auto; display: flex; align-items: center; gap: 10px; }
 .footer svg { width: 26px; height: 26px; flex: none; }
+
+/* ── the install guide ───────────────────────────────── */
+.guide { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 56px; align-items: start; padding-block: 32px 80px; }
+.toc { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; font-size: .9rem; }
+.toc-head { margin-bottom: 12px; color: var(--dim); font-size: .76rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.toc ol ol { margin: 7px 0 3px; padding-left: 12px; border-left: 1px solid var(--edge); gap: 5px; }
+.toc a { color: var(--dim); text-decoration: none; }
+.toc a:hover { color: var(--fg); }
+
+.doc { max-width: 760px; min-width: 0; }
+.doc h1 { margin-top: 0; font-size: clamp(2.3rem, 5vw, 3.3rem); }
+.doc h3 { font-size: 1.2rem; letter-spacing: -.015em; margin-bottom: 8px; }
+.doc p, .doc li { line-height: 1.65; }
+.doc p + p, .doc p + ul, .doc ul + p { margin-top: 12px; }
+.doc a { color: var(--accent); }
+.doc :not(pre) > code { padding: 1px 5px; border-radius: 5px; background: var(--edge); }
+.doc kbd { padding: 3px 7px 4px; font-size: .76rem; }
+.doc > section { margin-top: 56px; padding-top: 40px; border-top: 1px solid var(--edge); }
+.doc > section > h2 { margin-bottom: 14px; font-size: clamp(1.6rem, 3vw, 2.1rem); }
+.doc > section > section { margin-top: 34px; }
+.doc .term { margin: 16px 0; }
+
+.callout { margin-top: 32px; padding: 22px 24px; border-radius: 14px; background: var(--view); box-shadow: 0 0 0 1px var(--edge), 0 1px 3px var(--shade); }
+.callout h2 { margin-bottom: 10px; font-size: 1.3rem; letter-spacing: -.02em; }
+.step h3 { display: flex; align-items: center; gap: 12px; }
+.step .n { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--accent-tint); color: var(--accent); font-size: .85rem; font-weight: 800; }
+.check { display: flex; gap: 10px; margin-top: 16px; padding: 12px 16px; border-radius: 12px; background: var(--accent-tint); }
+.doc p + .check { margin-top: 16px; }
+.check .ic { margin-top: 3px; color: var(--accent); }
+.hint { color: var(--dim); font-size: .93rem; }
+.needs, .paths { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.paths { gap: 4px; }
+pre.file { margin: 14px 0; padding: 16px 20px; overflow-x: auto; border-radius: 12px; background: var(--view); box-shadow: 0 0 0 1px var(--edge); font: 13.5px/1.7 var(--mono); }
+.asks td:last-child, .asks tr:last-child td:last-child { color: var(--dim); font-weight: 400; }
+.asks td:first-child { font-weight: 500; }
+.doc .list { margin: 16px 0; }
 
 /* ── the Puri popup replay ───────────────────────────── */
 .puri { position: relative; color: var(--pw-fg); font: 14px/1.45 var(--sans); text-align: left; }
@@ -319,7 +357,10 @@ tbody tr[data-flow]:hover { background: var(--zone); }
 
 /* ── narrow screens ──────────────────────────────────── */
 @media (max-width: 920px) {
-  .hero, .leaves, .install { grid-template-columns: minmax(0, 1fr); }
+  .hero, .leaves, .install, .guide { grid-template-columns: minmax(0, 1fr); }
+  .guide { gap: 8px; }
+  .toc { position: static; max-height: none; }
+  .toc ol ol { display: none; }
   .limits { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .nav-link { display: none; }
 }
