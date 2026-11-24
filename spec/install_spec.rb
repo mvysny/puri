@@ -138,7 +138,19 @@ RSpec.describe 'rake install' do
   it 'lets the session bus start Puri on `gapplication launch`' do
     Broadway.start
     FileUtils.mkdir_p("#{@home}/config/puri")
-    File.write("#{@home}/config/puri/config.toml", Puri::Core::Config::EXAMPLE_CONFIG)
+    File.write("#{@home}/config/puri/config.toml", <<~TOML)
+      [[server]]
+      id  = "local"
+      url = "http://localhost:8080"
+
+      [[llm]]
+      name   = "Local"
+      server = "local"
+      model  = "qwen"
+
+      [titler]
+      llm = "Local"
+    TOML
     # The bus hands its own environment to the Puri it starts. Local GIO, or that Puri asks the bus
     # for gvfs, which can't mount here; err: quiets the bus's activation log.
     bus = IO.popen([env('GIO_USE_VFS' => 'local'), 'dbus-daemon', '--session', '--nofork', '--print-address'],

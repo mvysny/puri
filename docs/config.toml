@@ -1,0 +1,107 @@
+# Puri's settings: the model it talks to, and each feature, on or off.
+#
+# It lives at ~/.config/puri/config.toml, and Puri reads it when it starts. Every feature below
+# is on, except web search, which needs a key of your own. A line starting with # is off: remove
+# the # to turn it on. To turn a feature off, put a # before its [table] line and the lines under
+# it. What each feature sends out of your computer: https://puri-ai.de/#privacy
+
+
+# ── The model ─────────────────────────────────────────────────────────────────────────────────
+
+# Where the model runs: llama-server on this computer.
+[[server]]
+id  = "local"
+url = "http://localhost:8080"
+# api_key = "…"   # only when the server asks for one, as a home server should
+
+# Conversations run on the first [[llm]], here with its thinking on: slower, but right more often.
+# The numbers under [llm.params] are the model card's own; leave them be.
+[[llm]]
+name   = "Qwen 3.5 4B"
+server = "local"
+model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+[llm.params]
+temperature      = 1.0
+top_p            = 0.95
+top_k            = 20
+min_p            = 0.0
+presence_penalty = 1.5
+chat_template_kwargs = { enable_thinking = true }
+
+# The same model with its thinking off, which names each conversation, so a title doesn't wait.
+[[llm]]
+name   = "Qwen 3.5 4B, no thinking"
+server = "local"
+model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+[llm.params]
+temperature      = 0.7
+top_p            = 0.8
+top_k            = 20
+min_p            = 0.0
+presence_penalty = 1.5
+chat_template_kwargs = { enable_thinking = false }
+
+[titler]
+llm = "Qwen 3.5 4B, no thinking"
+
+
+# ── Mail, contacts and calendar ───────────────────────────────────────────────────────────────
+
+# Puri reads your Thunderbird profile, snap or apt, which it finds on its own. It never writes
+# there: a mail or an event opens in Thunderbird, for you to send or add.
+# Mail search needs Thunderbird's global search index, and the calendar its Offline Support.
+[thunderbird]
+# profile_dir = "~/snap/thunderbird/common/.thunderbird/abcd1234.default"   # if Puri finds two
+# enabled = false   # Puri without your mail, contacts and calendar
+
+
+# ── Documents and notes ───────────────────────────────────────────────────────────────────────
+
+# Puri searches and reads this folder through GNOME's own file index, and writes only in its
+# Notes folder: its notes, and Notes/PURI.md, what you asked it to remember.
+[documents]
+# folder = "~/Documents"   # the default; on a desktop in another language, put its name here
+
+
+# ── Places and routes ─────────────────────────────────────────────────────────────────────────
+
+# "Where is …", "what's near …", "how far by car …", with a map under the answer.
+# Sends the place you ask about, or your home address when you ask what's near you, to
+# OpenStreetMap's public services: Photon, Nominatim and FOSSGIS's OSRM. The map's tiles come
+# from the server below.
+[maps]
+tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+
+# ── Weather ───────────────────────────────────────────────────────────────────────────────────
+
+# "Will it rain this afternoon?", "what's the weather on my trip?", up to about two weeks ahead.
+# Sends a point, rounded to about 1 km, to Open-Meteo. Needs [maps] above, which finds the place.
+# Weather data by Open-Meteo.com, CC BY 4.0.
+[weather]
+# url = "https://api.open-meteo.com"   # the default; or an Open-Meteo server of your own
+
+
+# ── Dictation ─────────────────────────────────────────────────────────────────────────────────
+
+# Press F5, speak, and press F5 again: whisper-server on this computer types what you said, so
+# your voice stays here.
+[dictation]
+url = "http://127.0.0.1:8081"
+# api_key = "…"   # a hosted server only, and your voice then leaves this computer
+
+
+# ── Music ─────────────────────────────────────────────────────────────────────────────────────
+
+# Needs no setting: with Rhythmbox installed, Puri plays from its library.
+
+
+# ── Web search ────────────────────────────────────────────────────────────────────────────────
+
+# Off until you add a key: Brave Search's, https://api-dashboard.search.brave.com, or Exa's,
+# https://exa.ai. Sends each search query, which may quote your mail, to that engine; Exa's terms
+# let it train on what you search for. Puri reads the engine's copy of each page, and never opens
+# a link itself. With a key in here, keep this file to yourself: chmod 600 it.
+# [search]
+# brave_key = "…"
+# exa_key   = "…"

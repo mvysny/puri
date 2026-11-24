@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'shellwords'
 require 'tomlrb'
 require 'typemap'
 
@@ -8,7 +9,7 @@ module Puri
     # Puri's `config.toml`: the model connections, which one writes the titles, the search
     # engines' keys, the Thunderbird profile and the documents folder. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
-    # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
+    # raises {Error} pointing at {EXAMPLE}, and Puri does not start.
     #
     #   config = Config.load
     #   config.primary_llm   # => Llm(name:, server:, model:, api_key:, context_window:, params:)
@@ -356,58 +357,12 @@ module Puri
                        maps: nil, weather: nil, dictation: nil) = super
       end
 
-      # A file that loads: Qwen 3.5 4B on a local llama-server with its thinking on, and the
-      # same model with it off for titles, each with its card's sampling, as the README's
-      # `llama-server` line starts it. Every "nothing configured" error quotes it.
+      # The commented `config.toml` the install guide has the user copy, every feature on but web
+      # search; the "nothing configured" errors point at it. A path into this checkout, which Puri
+      # always runs from.
       #
-      # @return [String] a paste-ready `config.toml`
-      EXAMPLE_CONFIG = <<~TOML
-        [[server]]
-        id  = "local"
-        url = "http://localhost:8080"
-
-        [[llm]]
-        name   = "Qwen 3.5 4B"
-        server = "local"
-        model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
-        [llm.params]                     # the model card's sampling, thinking on
-        temperature      = 1.0
-        top_p            = 0.95
-        top_k            = 20
-        min_p            = 0.0
-        presence_penalty = 1.5
-        chat_template_kwargs = { enable_thinking = true }
-
-        [[llm]]
-        name   = "Qwen 3.5 4B, no thinking"
-        server = "local"
-        model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
-        [llm.params]                     # and thinking off
-        temperature      = 0.7
-        top_p            = 0.8
-        top_k            = 20
-        min_p            = 0.0
-        presence_penalty = 1.5
-        chat_template_kwargs = { enable_thinking = false }
-
-        [titler]
-        llm = "Qwen 3.5 4B, no thinking"
-
-        # Web search, through Brave or Exa; without a key, the agent has no web tools.
-        # [search]
-        # brave_key = "…"
-
-        # Places, routes by car, and a map under the answer, on OpenStreetMap's public services.
-        # [maps]
-        # tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-
-        # The weather, from Open-Meteo (weather data by Open-Meteo.com, CC BY 4.0); needs [maps].
-        # [weather]
-
-        # The mic in the prompt (F5), transcribed by your own whisper-server; see the README.
-        # [dictation]
-        # url = "http://127.0.0.1:8081"
-      TOML
+      # @return [String]
+      EXAMPLE = File.expand_path('../../../docs/config.toml', __dir__)
 
       # The file's name, and its directory under each XDG config root.
       #
@@ -432,7 +387,7 @@ module Puri
       #   `[weather]` comes without `[maps]`
       def self.load(env: ENV)
         files = candidate_paths(env).select { |path| File.file?(path) }
-        raise Error, "no config file found. #{write_example(env)}" if files.empty?
+        raise Error, "no config file found. #{copy_example(env)}" if files.empty?
 
         merged = files.reduce({}) do |acc, path|
           parsed = parse_file(path)
@@ -440,8 +395,8 @@ module Puri
           deep_merge(acc, parsed)
         end
         root = map(merged)
-        raise Error, "no [[llm]] is defined. #{write_example(env)}" if root.llm.empty?
-        raise Error, "no [titler] names the connection that writes titles. #{write_example(env)}" unless root.titler
+        raise Error, "no [[llm]] is defined; #{EXAMPLE} has one, commented" if root.llm.empty?
+        raise Error, "no [titler] names the connection that writes titles; #{EXAMPLE} has one" unless root.titler
 
         servers = root.server.to_h { |server| [server.id, server] }
         llms = root.llm.map { |table| resolve_llm(table, servers) }
@@ -676,14 +631,16 @@ module Puri
       end
 
       # @param env [#[]]
-      # @return [String] where to write the config, and what
-      def self.write_example(env)
-        "Puri has no built-in connection; write #{candidate_paths(env).last}, for example:\n\n#{EXAMPLE_CONFIG}"
+      # @return [String] the commands that copy {EXAMPLE} to where Puri reads it
+      def self.copy_example(env)
+        target = candidate_paths(env).last
+        "Puri has no built-in connection; copy the example, which says what each part does:\n\n  " \
+          "mkdir -p #{File.dirname(target).shellescape}\n  cp #{EXAMPLE.shellescape} #{target.shellescape}"
       end
 
       private_class_method :candidate_paths, :warn_loose_perms, :keys?, :parse_file, :deep_merge, :map,
                            :resolve_llm, :resolve_titler, :resolve_search, :resolve_thunderbird,
-                           :resolve_documents, :resolve_maps, :resolve_weather, :resolve_dictation, :write_example
+                           :resolve_documents, :resolve_maps, :resolve_weather, :resolve_dictation, :copy_example
     end
   end
 end

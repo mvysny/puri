@@ -43,8 +43,8 @@ exe/puri
 
 Puri has no built-in model: it talks to an OpenAI-compatible server you run, such as
 [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server`, and reads where it is from
-`~/.config/puri/config.toml`. Without that file Puri won't start, and prints an example to paste
-there.
+`~/.config/puri/config.toml`. Without that file Puri won't start, and says how to copy
+`docs/config.toml` there, an example with each part commented.
 
 The example runs Qwen 3.5 4B, which fits on an 8 GB graphics card with Puri's 64K context. The
 first start downloads it with its vision projector, 3–4 GB, and `-ngl 99` puts all of it on the

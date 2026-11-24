@@ -447,7 +447,7 @@ module Puri
     # Puri's `config.toml`: the model connections, which one writes the titles, the search
     # engines' keys, the Thunderbird profile and the documents folder. Loaded once
     # at startup, and required: there is no built-in connection, so a missing or incomplete file
-    # raises {Error} with {EXAMPLE_CONFIG} and the path to write it to, and Puri does not start.
+    # raises {Error} pointing at {EXAMPLE}, and Puri does not start.
     # 
     #   config = Config.load
     #   config.primary_llm   # => Llm(name:, server:, model:, api_key:, context_window:, params:)
@@ -523,7 +523,7 @@ module Puri
     # 
     # Immutable.
     class Config
-      EXAMPLE_CONFIG: String
+      EXAMPLE: String
       FILENAME: String
       XDG_SUBDIR: String
       MAPPER: Typemap::Mapper
@@ -648,8 +648,8 @@ module Puri
 
       # _@param_ `env`
       # 
-      # _@return_ — where to write the config, and what
-      def self.write_example: (untyped env) -> String
+      # _@return_ — the commands that copy {EXAMPLE} to where Puri reads it
+      def self.copy_example: (untyped env) -> String
 
       # _@return_ — every connection, in file order; never empty
       attr_reader llms: ::Array[Puri::Core::Config::Llm]

@@ -56,6 +56,18 @@ RSpec.describe Puri::Core::Config do
   # @return [Puri::Core::Config]
   def load = described_class.load(env:)
 
+  # Writes {Puri::Core::Config::EXAMPLE}, as shipped, as the system layer, and a user layer that
+  # points `[documents]` at a scratch folder, since the example's `~/Documents` is the host's.
+  #
+  # @return [String] that folder
+  def write_example
+    write(@system, File.read(described_class::EXAMPLE))
+    docs = File.join(@home, 'Documents')
+    FileUtils.mkdir_p(docs)
+    write(@home, "[documents]\nfolder = \"#{docs}\"\n")
+    docs
+  end
+
   # @param fragment [String] a regexp source the error message must match
   # @return [void]
   def assert_rejected(fragment)
@@ -64,11 +76,10 @@ RSpec.describe Puri::Core::Config do
   end
 
   describe 'nothing configured' do
-    it 'raises with the path to write and the example to paste, when there is no file' do
+    it 'raises with the commands that copy the example where Puri reads it, when there is no file' do
       error = assert_raises(described_class::Error) { load }
       assert_includes error.message, 'no config file found'
-      assert_includes error.message, File.join(@home, 'puri', 'config.toml')
-      assert_includes error.message, described_class::EXAMPLE_CONFIG
+      assert_includes error.message, "cp #{described_class::EXAMPLE} #{File.join(@home, 'puri', 'config.toml')}"
     end
 
     it "never reads pikuri's shared config" do
@@ -77,9 +88,9 @@ RSpec.describe Puri::Core::Config do
       assert_rejected('no config file found')
     end
 
-    it 'raises the same way for a file with no [[llm]]' do
+    it 'points at the example for a file with no [[llm]]' do
       write(@home, "[titler]\nllm = \"x\"\n")
-      assert_rejected("no \\[\\[llm\\]\\] is defined(?m:.*)#{Regexp.escape(described_class::EXAMPLE_CONFIG)}")
+      assert_rejected("no \\[\\[llm\\]\\] is defined; #{Regexp.escape(described_class::EXAMPLE)}")
     end
 
     it 'requires [titler]: there is no default titling connection' do
@@ -88,9 +99,9 @@ RSpec.describe Puri::Core::Config do
     end
   end
 
-  describe 'EXAMPLE_CONFIG' do
-    it 'loads: the main model, and the same one with its thinking off writing the titles' do
-      write(@home, described_class::EXAMPLE_CONFIG)
+  describe 'EXAMPLE, the config the install guide copies' do
+    it 'loads: the main model, the same one with its thinking off writing the titles' do
+      write_example
       config = load
       assert_equal 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', config.primary_llm.model
       assert_equal 'http://localhost:8080', config.primary_llm.server
@@ -98,7 +109,17 @@ RSpec.describe Puri::Core::Config do
       assert_equal({ 'enable_thinking' => false }, config.titler_llm.params['chat_template_kwargs'])
       assert_in_delta 0.7, config.titler_llm.params['temperature']
       assert_equal config.primary_llm.model, config.titler_llm.model
+    end
+
+    it 'turns every feature on but web search, which waits for a key' do
+      docs = write_example
+      config = load
       assert_nil config.search
+      assert_nil config.thunderbird.profile_dir
+      assert_equal docs, config.documents.folder
+      assert_equal 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', config.maps.tiles
+      assert_equal Puri::Core::Weather::OpenMeteo::URL, config.weather.url
+      assert_equal 'http://127.0.0.1:8081', config.dictation.url
     end
   end
 
@@ -324,7 +345,7 @@ RSpec.describe Puri::Core::Config do
     end
 
     it 'builds a pikuri transport from a connection, carrying its params' do
-      write(@home, described_class::EXAMPLE_CONFIG)
+      write_example
       transport = load.titler_llm.transport
       assert_equal 'http://localhost:8080/v1', transport.api_base
       assert_equal 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', transport.model

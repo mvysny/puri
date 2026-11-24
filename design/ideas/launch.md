@@ -2,7 +2,8 @@
 
 Goal: Puri now does enough to promote (owner, 2026-11-23). That needs a web page on GitHub Pages
 under its own domain, an install of a few steps on a small starter model, and a short video of a
-few scenarios. Brainstormed 2026-11-23; nothing decided but the domain, `puri-ai.de`. The pitch comes first, since the page's
+few scenarios. Brainstormed 2026-11-23; decided since: the domain, `puri-ai.de`, the page, and the
+install guide's shape. The pitch comes first, since the page's
 headline and the video's scenarios follow from it. The starter model is the first build item,
 since the install steps, the RAM the page asks for and what the video can show all hang on it.
 
@@ -91,8 +92,10 @@ To test before the page relies on it:
 - **`--fit` on the 890M:** does it fit, and what context does it settle on?
 - **The `-hf` download:** does it work under the system unit?
 - **A clean 26.04 VM:** with no GPU at all.
+- **`wget`** on a clean 26.04 desktop, for the Whisper model's step.
 
-The page's steps, sketched:
+The page's steps, first sketched; § The install guide replaces the system unit with per-user
+services:
 
 ```sh
 sudo apt install ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw-1 \
@@ -100,7 +103,7 @@ sudo apt install ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw
   localsearch-extractor-office
 echo 'LLAMA_ARG_HF_REPO=<starter model>' | sudo tee -a /etc/default/llama-server
 sudo systemctl enable --now llama-server
-# the Whisper model and its user unit: Q_whisper_setup
+# the Whisper model by wget, and its user unit
 git clone https://github.com/mvysny/puri && cd puri
 bundle config set --local path vendor/bundle && bundle install
 bundle exec rake install AUTOSTART=1
@@ -113,24 +116,82 @@ bundle exec rake install AUTOSTART=1
   `Q_packaging` is for later.
 - **Which distros:** Ubuntu 26.04, which is what CI runs. Debian or Fedora only once tested.
 - **A system unit holds the model from boot,** for every user. On an 8 GB laptop that is several
-  GB gone all day. See `Q_resident_model`.
+  GB gone all day, which is why the guide runs per-user services.
 
-## First run writes the config
+## The install guide
 
-Today Puri won't start without `~/.config/puri/config.toml`; it prints an example instead. The
-proposal: on first run, Core writes a complete config.
+Shaped with the owner, 2026-11-24; nothing written yet. Once it is, `AGENTS.md`'s rows for
+`docs/` and `README.md` change to match.
 
-- **The server:** `localhost:8080`. `model =` comes from the server's `/v1/models`, since a single
-  `-hf` model is named after its repo.
-- **The titler:** the same model with thinking off, where the model has a thinking switch; the
-  eval says which.
-- **`[thunderbird]` and `[documents]`:** on. They are local reads, found on their own.
-- **`[dictation]`:** on when something answers at `localhost:8081`.
-- **`[search]`:** present, with the key left empty, as the one thing to paste.
-- **`[maps]` and `[weather]`:** opt-in today on purpose, since each one sends data out. Turning
-  them on by default needs the first run, or the page, to say so (`Q_default_egress`).
+- **Home:** `docs/` owns the user install, since users read the site; the README keeps the
+  developer setup and links there (owner). The front page's Install section stays short and links
+  to the guide.
+- **Pages:** `install.html`, the quickstart, with a section for each feature under it;
+  `models.html`, the model choice (owner). No site generator (owner): the pages share little beyond
+  `style.css`, so each copies the `<head>`, header and footer, a spec checks they match, and the
+  icon sprite moves to `icons.svg`.
+- **On top, why there's no `curl | bash`** (owner): a piped script runs before you've read it, as
+  you and often with sudo, and a server may send a pipe something other than what a browser shows.
+  Every step here is a command you read first. A section at the end says where each piece comes
+  from: GTK, Ruby, llama.cpp, whisper.cpp and localsearch from Ubuntu's archive; Puri a git clone
+  of plain Ruby; its gems from rubygems.org, pinned in `Gemfile.lock` with a SHA-256 each, and
+  pikuri's at one commit from GitHub; the models from Hugging Face, weights rather than programs.
+  `rake install` writes three files under your home and one GNOME shortcut, prints each, and never
+  runs sudo, so the guide's one sudo is `apt install`.
+- **The user walks the path** (owner): every download is a command the user types, and `rake
+  install` stays as it is. llama-server fetches its model with `-hf`; the Whisper model is a
+  `wget` line, or a link and the folder to save it in. The guide shows each service file, and the
+  user writes it.
+- **The quickstart's steps,** each ending in a check that it worked: before you start (Ubuntu
+  26.04 with GNOME, Thunderbird with your mail, the hardware, the disk); Thunderbird's global
+  search index and the calendar's Offline Support; one `apt install`; llama-server as a user
+  service; whisper-server as a user service, its model by `wget`; clone, `bundle install`, `rake
+  install AUTOSTART=1`; the config, checked by running `exe/puri` in a terminal once, since a
+  config error from the shortcut goes nowhere (owner, for now; `Q_startup_error`); `localsearch
+  reset` and Search Locations; one question per
+  feature, which is the test; last, a Brave or Exa key. Then updating, uninstalling, and
+  troubleshooting by symptom.
+- **One config, whole** (owner): `docs/config.toml`, every table present and commented with what
+  it does, what it sends out and how to turn it off, since fragments get missed. Only `[search]`
+  stays commented out, waiting for a key. Maps and weather are on, and the guide says what they
+  send. The quickstart copies the file from the clone, and the site serves it for reading first.
+  Puri's missing-config error points at it instead of printing `EXAMPLE_CONFIG`, a second copy;
+  a spec loads it through Core's config, so a renamed key fails the gate. Dropped: Puri writing
+  the config on first run.
+- **Both servers run as per-user systemd services** (owner), from login, rather than apt's system
+  unit, which holds the model from boot for every user. The model stays resident, for an instant
+  answer; no `--sleep-idle-seconds` (owner), and a game is the one time to stop the service.
+- **One model for everyone, Qwen3.5-4B** (owner): small, the likeliest to run, a small download.
+  Once it works, Ornith is the upgrade if the machine takes it. One `-hf` model per server, no
+  router mode (`--models-preset`): these models take too much memory to load two. Titles come
+  from the same model with thinking off.
+- **`models.html`:** Qwen against Ornith: 76 % against 92 % of the eval tasks, the planted bank
+  account, 3–4 GB against about 23 GB to download (21.7 GB of weights), and memory: Ornith needs
+  about 32 GB for itself at 64K, so a machine of 48 GB or more (owner). Which hardware takes
+  which. The home server over Tailscale, moved from the README.
+- **Ornith on integrated graphics** (owner): the GPU's share of RAM may need raising, in the BIOS
+  or, on a Radeon, with the kernel's `ttm.pages_limit=N ttm.page_pool_size=N`. N counts 4 KiB
+  pages, so GiB × 262144; the owner's 18350080 is 70 GiB. On Intel the user looks up their own.
+- **12–16 GB cards: Strata** (<https://github.com/niko1221/strata>), short and marked advanced.
+  Qwen3.6-35B-A3B, which the owner found solid on pikuri-tui and pikuri-web; Strata probably has
+  no Ornith. It serves an OpenAI-compatible API on localhost, so Puri needs one `[[server]]` URL.
+  It installs from its own releases, an AppImage that downloads its engine or an `install.sh`,
+  outside apt, so the section says the guide doesn't vouch for it. The section is marked
+  experimental (owner): Puri's first prompt alone is 9.6K tokens, the owner's 8 GB card held an 8K
+  context, too small, and a 12 GB card may hold 32K or 64K, unverified. Strata's README (read
+  2026-11-24) gives no context length.
+- **Games and VRAM** (owner): Qwen holds most of an 8 GB card, 2.8 GiB of weights and 2 GiB of
+  cache at 64K before the projector and buffers, so a big game may not run until llama-server
+  stops. The guide gives `systemctl --user stop llama-server` and `start`, and sends the user to
+  Resources, which shows the card's memory and comes with `ubuntu-desktop-minimal`. A sentence at
+  the model step, a section of its own, and a troubleshooting entry.
+- **The Whisper model:** multilingual, since an `.en` model turns other languages into English
+  gibberish; likely `small`, since the Vulkan backend comes for llama.cpp anyway
+  (`Q_recommended_model` in `whisper-models.md`).
 
 ## The starter model
+
+**Decided:** Qwen3.5-4B for everyone (owner, 2026-11-24), § The install guide. What led there:
 
 Gated on `Q_eval_suite` in `local-model.md`: a few dozen real requests, each with its expected
 tool call, run against each candidate. Candidates from `local-model/apple-on-device-models.md`:
@@ -178,10 +239,10 @@ first run; `small.en` is ~0.5 GB.
   Germany, but only if DENIC asks, and DENIC asks only when someone wants to serve papers over a
   dispute about the domain (DENIC terms §3(4)).
 - **Not on it yet:** the tiers and the home server beyond one FAQ link, and dictation. The install
-  starts llama-server in the foreground on Qwen3.5-4B (owner, 2026-11-24); a unit that keeps it
-  running is `Q_resident_model`'s.
-- **One home for the install:** the page carries the short install and links to the README's
-  model config; the two still overlap, and copies drift (`Q_install_home`).
+  starts llama-server in the foreground on Qwen3.5-4B (owner, 2026-11-24), until the install guide
+  makes it a per-user service.
+- **One home for the install:** the site, in the install guide; the README keeps the developer
+  setup (owner, 2026-11-24).
 
 ## The video
 
@@ -221,7 +282,7 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
 
 1. The eval suite, and the starter model.
 2. The apt-only install on a clean 26.04 VM and on the 890M host; measure.
-3. First run writes the config.
+3. `docs/config.toml`, then the install guide.
 4. The public services' policies, `Q_tiles_ua` first.
 5. The page, and the domain's DNS pointed at it.
 6. The video, on the documented setup.
@@ -231,19 +292,11 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
 - `Q_headline`: "Siri for the Linux desktop that runs on your machine", or the inbox angle, "an
   assistant safe to point at your real inbox"? Any claim must survive the what-leaves table: a
   search query *can* carry mail text to Brave.
-- `Q_resident_model`: keep the model loaded all day, for an instant answer at the cost of several
-  GB of RAM, or unload it when idle? Does router mode unload on its own? `D_one_process` keeps
-  Puri warm, but the model is the expensive half.
-- `Q_whisper_setup`: should `rake install`, which already writes the D-Bus activation and the
-  shortcut, also write the whisper-server user unit, or even fetch the model? Or does dictation
-  stay a step the page explains?
+- `Q_startup_error`: started from the shortcut, Puri prints a config error to stderr and exits,
+  so the press does nothing. Show the error in a window? Revisit after the guide (owner).
 - `Q_packaging`: one day `apt install puri`? Options: a Launchpad PPA, which builds from source
   with the gems vendored; Debian packages for pikuri's gems, slow; or Flatpak, whose sandbox
   would need holes for the Thunderbird profile, localsearch, podman and Rhythmbox's D-Bus.
-- `Q_default_egress`: does a generated config turn `[maps]` and `[weather]` on? If yes, the first
-  run or the page says so; if no, each stays one line to uncomment.
-- `Q_install_home`: does the page own the user install, with the README keeping the developer
-  setup and linking to it? Or is the page generated from the README?
 - `Q_demo_data`: where does the invented profile live? It's code that `dev/` would load, per the
   module map: a Dummy-side fixture, or a separate repo?
 - `Q_video_speed`: real time on the starter model, or a cut with a caption?
