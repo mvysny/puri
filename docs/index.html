@@ -204,24 +204,27 @@
       <div>
         <div class="sec-head" style="margin-bottom:0">
           <h2>Install</h2>
-          <p>GTK, libadwaita and Ruby come from apt, and Puri itself is a git clone. No npm, no Electron, no <code>curl | sh</code>.</p>
+          <p>GTK, libadwaita, Ruby and llama.cpp come from apt, Puri itself is a git clone, and the model downloads on first start. No npm, no Electron, no <code>curl | sh</code>.</p>
         </div>
         <ol class="steps">
-          <li>Install the packages.</li>
+          <li>Install the packages, the model server's included.</li>
           <li>Clone Puri and install it for your user. This binds the shortcut, and <code>AUTOSTART=1</code> starts Puri at login.</li>
-          <li>Tell Puri where your model server is, in <code>~/.config/puri/config.toml</code>. <a href="https://github.com/mvysny/puri#configure-the-model">The README shows how.</a></li>
+          <li>Start the model server and leave it running. The first start downloads Qwen 3.5 4B, about 3 GB. <code>-ngl 99</code> puts it on your graphics card, and <code>-c 65536</code> gives it the 64K context Puri needs.</li>
+          <li>Tell Puri where the model server is, in <code>~/.config/puri/config.toml</code>. <a href="https://github.com/mvysny/puri#configure-the-model">The README shows how.</a></li>
           <li>Press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</li>
         </ol>
       </div>
       <div class="term">
         <div class="term-head">Terminal<button class="copy" type="button" id="copy-install">Copy</button></div>
 <pre><span class="p">$ </span><span class="cmd">sudo apt install ruby ruby-bundler ruby-dev build-essential \
-    ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep</span>
+    ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
+    llama.cpp-tools libggml0-backend-vulkan</span>
 <span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri &amp;&amp; cd puri</span>
 <span class="p">$ </span><span class="cmd">bundle config set --local path vendor/bundle</span>
 <span class="p">$ </span><span class="cmd">bundle install</span>
 <span class="p">$ </span><span class="cmd">bundle exec rake install AUTOSTART=1</span>
-<span class="c"># then point ~/.config/puri/config.toml at your model server</span></pre>
+<span class="p">$ </span><span class="cmd">llama-server -ngl 99 -c 65536 -hf ggml-org/Qwen3.5-4B-GGUF:Q4_K_M</span>
+<span class="c"># then point ~/.config/puri/config.toml at http://localhost:8080</span></pre>
       </div>
     </div>
   </section>
@@ -233,7 +236,7 @@
         <details><summary>How is this different from OpenClaw?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>OpenClaw acts for you, with a shell, a browser and your messengers. Puri answers you, and the only things it sends are in the table above. If you looked at OpenClaw and backed off, Puri was made for you.</p></details>
         <details><summary>Why can't it open a link?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>A mail or a web page can carry instructions written for the model. Puri can't fetch a URL, run a command or send a mail, so a mail written to trick it can't make it pass your data to whoever wrote it.</p></details>
         <details><summary>Why Thunderbird?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>It already holds your mail, contacts and calendar on your disk, and its compose window is the right place to check a draft before it goes.</p></details>
-        <details><summary>Which model does it run?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>Any OpenAI-compatible server you run, such as llama.cpp's <code>llama-server</code>, which Ubuntu packages as <code>llama.cpp-tools</code>. A starter model for 8 GB laptops is being picked, and a bigger one can run on <a href="https://github.com/mvysny/puri#a-home-server-over-tailscale">a home server over Tailscale</a>.</p></details>
+        <details><summary>Which model does it run?<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></summary><p>The install above runs Qwen 3.5 4B on llama.cpp's <code>llama-server</code>, best on a graphics card. Any OpenAI-compatible server works, and a bigger model can run on <a href="https://github.com/mvysny/puri#a-home-server-over-tailscale">a home server over Tailscale</a>.</p></details>
       </div>
     </div>
   </section>

@@ -177,8 +177,9 @@ first run; `small.en` is ~0.5 GB.
   residency. A holder living outside Germany has two weeks to name an authorised recipient in
   Germany, but only if DENIC asks, and DENIC asks only when someone wants to serve papers over a
   dispute about the domain (DENIC terms §3(4)).
-- **Not on it yet:** the tiers and the home server beyond one FAQ link, and the starter model's
-  install step, which waits on the eval.
+- **Not on it yet:** the tiers and the home server beyond one FAQ link, and dictation. The install
+  starts llama-server in the foreground on Qwen3.5-4B (owner, 2026-11-24); a unit that keeps it
+  running is `Q_resident_model`'s.
 - **One home for the install:** the page carries the short install and links to the README's
   model config; the two still overlap, and copies drift (`Q_install_home`).
 
