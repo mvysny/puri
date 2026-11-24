@@ -92,9 +92,11 @@ RSpec.describe Puri::Core::Config do
     it 'loads: the main model, and the same one with its thinking off writing the titles' do
       write(@home, described_class::EXAMPLE_CONFIG)
       config = load
-      assert_equal 'Ornith-1.5', config.primary_llm.model
+      assert_equal 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', config.primary_llm.model
       assert_equal 'http://localhost:8080', config.primary_llm.server
-      assert_equal({ 'chat_template_kwargs' => { 'enable_thinking' => false } }, config.titler_llm.params)
+      assert_equal({ 'enable_thinking' => true }, config.primary_llm.params['chat_template_kwargs'])
+      assert_equal({ 'enable_thinking' => false }, config.titler_llm.params['chat_template_kwargs'])
+      assert_in_delta 0.7, config.titler_llm.params['temperature']
       assert_equal config.primary_llm.model, config.titler_llm.model
       assert_nil config.search
     end
@@ -325,9 +327,10 @@ RSpec.describe Puri::Core::Config do
       write(@home, described_class::EXAMPLE_CONFIG)
       transport = load.titler_llm.transport
       assert_equal 'http://localhost:8080/v1', transport.api_base
-      assert_equal 'Ornith-1.5', transport.model
+      assert_equal 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', transport.model
       assert_equal 'not-needed', transport.api_key
-      assert_equal({ chat_template_kwargs: { enable_thinking: false } }, transport.params)
+      assert_equal({ temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5,
+                     chat_template_kwargs: { enable_thinking: false } }, transport.params)
     end
 
     it 'keeps a [[server]] no [[llm]] names' do

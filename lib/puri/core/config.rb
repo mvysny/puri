@@ -33,14 +33,14 @@ module Puri
     #   max_concurrent_requests = 1      # optional; omitted, sized from the server's slots
     #
     #   [[llm]]                          # one model on a box; the first is the conversations'
-    #   name           = "Ornith 1.5"
+    #   name           = "Qwen 3.5 4B"
     #   server         = "local"         # a [[server]] id, never a URL
-    #   model          = "Ornith-1.5"
+    #   model          = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
     #   context_window = 65536           # optional; omitted, pikuri asks the server
     #   params         = { … }           # optional; merged into every request, verbatim
     #
     #   [titler]
-    #   llm = "Ornith 1.5, no thinking"  # an [[llm]] name; required
+    #   llm = "Qwen 3.5 4B, no thinking" # an [[llm]] name; required
     #
     #   [search]                         # optional; without a key, the agent has no web tools
     #   brave_key = "…"                  # Brave's, Exa's or both: only they return page text
@@ -356,9 +356,9 @@ module Puri
                        maps: nil, weather: nil, dictation: nil) = super
       end
 
-      # A file that loads: Ornith 1.5 on a local llama-server, and the same model with its
-      # thinking off for titles, which takes a title from ~30 s to ~1 s. Every "nothing
-      # configured" error quotes it.
+      # A file that loads: Qwen 3.5 4B on a local llama-server with its thinking on, and the
+      # same model with it off for titles, each with its card's sampling, as the README's
+      # `llama-server` line starts it. Every "nothing configured" error quotes it.
       #
       # @return [String] a paste-ready `config.toml`
       EXAMPLE_CONFIG = <<~TOML
@@ -367,18 +367,31 @@ module Puri
         url = "http://localhost:8080"
 
         [[llm]]
-        name   = "Ornith 1.5"
+        name   = "Qwen 3.5 4B"
         server = "local"
-        model  = "Ornith-1.5"
+        model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+        [llm.params]                     # the model card's sampling, thinking on
+        temperature      = 1.0
+        top_p            = 0.95
+        top_k            = 20
+        min_p            = 0.0
+        presence_penalty = 1.5
+        chat_template_kwargs = { enable_thinking = true }
 
         [[llm]]
-        name   = "Ornith 1.5, no thinking"
+        name   = "Qwen 3.5 4B, no thinking"
         server = "local"
-        model  = "Ornith-1.5"
-        params = { chat_template_kwargs = { enable_thinking = false } }
+        model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+        [llm.params]                     # and thinking off
+        temperature      = 0.7
+        top_p            = 0.8
+        top_k            = 20
+        min_p            = 0.0
+        presence_penalty = 1.5
+        chat_template_kwargs = { enable_thinking = false }
 
         [titler]
-        llm = "Ornith 1.5, no thinking"
+        llm = "Qwen 3.5 4B, no thinking"
 
         # Web search, through Brave or Exa; without a key, the agent has no web tools.
         # [search]

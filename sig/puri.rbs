@@ -472,14 +472,14 @@ module Puri
     #   max_concurrent_requests = 1      # optional; omitted, sized from the server's slots
     # 
     #   [[llm]]                          # one model on a box; the first is the conversations'
-    #   name           = "Ornith 1.5"
+    #   name           = "Qwen 3.5 4B"
     #   server         = "local"         # a [[server]] id, never a URL
-    #   model          = "Ornith-1.5"
+    #   model          = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
     #   context_window = 65536           # optional; omitted, pikuri asks the server
     #   params         = { … }           # optional; merged into every request, verbatim
     # 
     #   [titler]
-    #   llm = "Ornith 1.5, no thinking"  # an [[llm]] name; required
+    #   llm = "Qwen 3.5 4B, no thinking" # an [[llm]] name; required
     # 
     #   [search]                         # optional; without a key, the agent has no web tools
     #   brave_key = "…"                  # Brave's, Exa's or both: only they return page text

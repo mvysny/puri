@@ -44,7 +44,15 @@ exe/puri
 Puri has no built-in model: it talks to an OpenAI-compatible server you run, such as
 [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server`, and reads where it is from
 `~/.config/puri/config.toml`. Without that file Puri won't start, and prints an example to paste
-there:
+there.
+
+The example runs Qwen 3.5 4B, which fits on an 8 GB graphics card with Puri's 64K context. The
+first start downloads it with its vision projector, 3–4 GB, and `-ngl 99` puts all of it on the
+card:
+
+```sh
+llama-server -ngl 99 -c 65536 -hf ggml-org/Qwen3.5-4B-GGUF:Q4_K_M
+```
 
 ```toml
 [[server]]
@@ -54,25 +62,76 @@ url = "http://localhost:8080"
 # max_concurrent_requests = 1    # omitted, Puri asks the server how many slots it has
 
 [[llm]]
+name   = "Qwen 3.5 4B"
+server = "local"
+model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+[llm.params]                     # the model card's sampling, thinking on
+temperature      = 1.0
+top_p            = 0.95
+top_k            = 20
+min_p            = 0.0
+presence_penalty = 1.5
+chat_template_kwargs = { enable_thinking = true }
+
+[[llm]]
+name   = "Qwen 3.5 4B, no thinking"
+server = "local"
+model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+[llm.params]                     # and thinking off
+temperature      = 0.7
+top_p            = 0.8
+top_k            = 20
+min_p            = 0.0
+presence_penalty = 1.5
+chat_template_kwargs = { enable_thinking = false }
+
+[titler]
+llm = "Qwen 3.5 4B, no thinking"
+```
+
+Conversations run on the first `[[llm]]`: with its thinking on, Qwen got 76 % of our test tasks
+right rather than 63 %, and a graphics card, at 50–60 tokens a second, keeps the wait short.
+`[titler]` names the connection that titles them, the same model with its thinking off, so a
+title doesn't wait for any. `chmod 600` the file if it holds a key. Conversations are saved under
+`~/.local/state/puri/conversations/`. To run the model on a home server instead, see
+[A home server over Tailscale](#a-home-server-over-tailscale).
+
+### A smarter model: Ornith 1.5
+
+Ornith 1.5 got 92 % of the same tasks right, and Qwen fell for a planted scam that Ornith saw
+through: shown a mail saying a firm's bank account had changed, Qwen almost always passed the new
+account on as real, where Ornith warned every time. Ornith needs about 32 GB of memory for itself
+and its 64K context, more than most graphics cards have, but not too much for an integrated GPU
+that shares the system's memory, or for a home server. On an integrated GPU it is even the faster
+of the two. The first start downloads about 23 GB:
+
+```sh
+llama-server -ngl 99 -c 65536 -hf ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M
+```
+
+```toml
+[[llm]]
 name   = "Ornith 1.5"
 server = "local"
-model  = "Ornith-1.5"
+model  = "ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M"
+[llm.params]                     # the model card's sampling, thinking on (its default)
+temperature = 0.6
+top_p       = 0.95
+top_k       = 20
 
 [[llm]]
 name   = "Ornith 1.5, no thinking"
 server = "local"
-model  = "Ornith-1.5"
-params = { chat_template_kwargs = { enable_thinking = false } }
+model  = "ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M"
+[llm.params]
+temperature = 0.6
+top_p       = 0.95
+top_k       = 20
+chat_template_kwargs = { enable_thinking = false }
 
 [titler]
 llm = "Ornith 1.5, no thinking"
 ```
-
-Conversations run on the first `[[llm]]`. `[titler]` names the connection that titles them; the
-same model with its thinking switched off writes a title in about a second rather than thirty.
-`chmod 600` the file if it holds a key. Conversations are saved under
-`~/.local/state/puri/conversations/`. To run the model on a home server instead, see
-[A home server over Tailscale](#a-home-server-over-tailscale).
 
 To let Puri search the web, add a [Brave Search](https://api-dashboard.search.brave.com) or
 [Exa](https://exa.ai) key:
