@@ -83,15 +83,12 @@
 
     <section id="ornith">
       <h2>Switching to Ornith</h2>
-      <p>Point the model service from the install guide's <a href="install.html#step-model">step 3</a> at Ornith, and restart it. The first start downloads about 23 GB:</p>
+      <p>Download Ornith, about 23 GB, as the install guide's <a href="install.html#step-models">step 3</a> downloads Qwen:</p>
       <div class="term">
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">sed -i 's#ggml-org/Qwen3.5-4B-GGUF:Q4_K_M#ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M#' ~/.config/systemd/user/llama-server.service</span>
-<span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
-<span class="p">$ </span><span class="cmd">systemctl --user restart llama-server</span>
-<span class="p">$ </span><span class="cmd">journalctl --user -fu llama-server</span></pre>
+<pre><span class="p">$ </span><span class="cmd">hf download ornith-ai/Ornith-1.5-35B-A3B-GGUF Ornith-1.5-35B-Q4_K_M.gguf</span></pre>
       </div>
-      <p>Then, in <code>~/.config/puri/config.toml</code>, put these in place of the two Qwen <code>[[llm]]</code> tables and the <code>[titler]</code> under them, the settings from Ornith's model card:</p>
+      <p>Once it has finished, put these in <code>~/.config/puri/config.toml</code> in place of the two Qwen <code>[[llm]]</code> tables and the <code>[titler]</code> under them, the settings from Ornith's model card:</p>
 <pre class="file toml">[[llm]]
 name   = "Ornith 1.5"
 server = "local"
@@ -113,8 +110,8 @@ chat_template_kwargs = { enable_thinking = false }
 
 [titler]
 llm = "Ornith 1.5, no thinking"</pre>
-      <p>Quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>. Qwen stays in <code>~/.cache/huggingface/hub</code> until you delete its folder there, <code>models--ggml-org--Qwen3.5-4B-GGUF</code>.</p>
-      <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> once the log says the server is listening, Puri answers again.</span></p>
+      <p>Quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>: Puri now runs Ornith. Qwen stays in <code>~/.cache/huggingface/hub</code> until you delete its folder there, <code>models--ggml-org--Qwen3.5-4B-GGUF</code>.</p>
+      <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> Puri answers again, after a few seconds more the first time while Ornith loads. If Ornith won't start, <code>~/.local/state/puri/llama-server.log</code> says why; too little memory for the graphics is the usual reason, <a href="#igpu">below</a>.</span></p>
     </section>
 
     <section id="igpu">
@@ -137,11 +134,7 @@ llm = "Ornith 1.5, no thinking"</pre>
       <p><a href="https://github.com/niko1221/strata">Strata</a> runs large models on graphics cards too small to hold them. On it, Qwen 3.6 35B, a model of Ornith's size, has done well in pikuri's own apps, which Puri is built on; Strata probably has no Ornith.</p>
       <p>The catch is the context. Puri's instructions alone are about 10,000 tokens. An 8 GB card held an 8K context through Strata, too small; a 12 GB card may hold 32K or even 64K, but that hasn't been checked.</p>
       <p>Strata comes from its own releases, not from Ubuntu's archive: an AppImage that downloads its engine for your card, or an install script. That's the kind of install <a href="install.html#why">the install guide avoids</a>, so it's your call, and this page doesn't vouch for it. Its own instructions cover setting it up.</p>
-      <p>It serves the same kind of API as <code>llama-server</code>. Stop the model service, so the card is Strata's alone, then put the address Strata gives in <code>url</code> under <code>[[server]]</code>, and its model's name in each <code>[[llm]]</code>'s <code>model</code>:</p>
-      <div class="term">
-        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">systemctl --user disable --now llama-server</span></pre>
-      </div>
+      <p>It serves the same kind of API as <code>llama-server</code>. Put the address Strata gives in <code>url</code> under <code>[[server]]</code>, and its model's name in each <code>[[llm]]</code>'s <code>model</code>. With a <code>url</code> there, Puri runs no model of its own, so the card is Strata's alone.</p>
     </section>
 
     <section id="no-gpu">
@@ -160,10 +153,10 @@ llm = "Ornith 1.5, no thinking"</pre>
       <p>One computer at home runs both servers, the model and dictation, and <a href="https://tailscale.com">Tailscale</a> carries them over HTTPS to each computer you run Puri on: one name, port 443, the model at <code>/llama</code> and dictation at <code>/whisper</code>.</p>
 
       <h3>On the server</h3>
-      <p>Set up the two services as in the install guide's <a href="install.html#step-model">steps 3</a> and <a href="install.html#step-dictation">4</a>, with the model your server can hold. Both listen only on the server itself. Let them start at boot rather than when you log in:</p>
+      <p>The server runs the model and dictation as services of your own, rather than inside Puri. Install the two from Ubuntu's archive:</p>
       <div class="term">
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">sudo loginctl enable-linger $USER</span></pre>
+<pre><span class="p">$ </span><span class="cmd">sudo apt install llama.cpp-tools libggml0-backend-vulkan whisper.cpp wget</span></pre>
       </div>
       <p>Give the model server a key: a file only you can read, which <code>llama-server</code> reads with <code>--api-key-file</code>.</p>
       <div class="term">
@@ -171,12 +164,48 @@ llm = "Ornith 1.5, no thinking"</pre>
 <pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.config/llama-server</span>
 <span class="p">$ </span><span class="cmd">(umask 077; openssl rand -hex 32 &gt; ~/.config/llama-server/api-key)</span></pre>
       </div>
-      <p>In <code>~/.config/systemd/user/llama-server.service</code>, add <code>--api-key-file %h/.config/llama-server/api-key</code> to the <code>ExecStart</code> line, then:</p>
+      <p>The model's service. Its first start downloads the model into <code>~/.cache/huggingface/hub</code>: put the one your server can hold in place of Qwen, such as <code>ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q4_K_M</code>.</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.config/systemd/user</span>
+<span class="p">$ </span><span class="cmd">cat &gt; ~/.config/systemd/user/llama-server.service &lt;&lt;'EOF'
+[Unit]
+Description=llama-server, the model Puri talks to
+
+[Service]
+ExecStart=/usr/bin/llama-server -ngl 99 -c 65536 --api-key-file %h/.config/llama-server/api-key -hf ggml-org/Qwen3.5-4B-GGUF:Q4_K_M
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF</span></pre>
+      </div>
+      <p><code>-ngl 99</code> puts the whole model on the graphics card, and <code>-c 65536</code> gives it the 64K context Puri needs. Dictation's service, with Whisper's model downloaded first, about 470 MB:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.local/share/whisper</span>
+<span class="p">$ </span><span class="cmd">wget -P ~/.local/share/whisper https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin</span>
+<span class="p">$ </span><span class="cmd">cat &gt; ~/.config/systemd/user/whisper-server.service &lt;&lt;'EOF'
+[Unit]
+Description=whisper-server, Puri's dictation
+
+[Service]
+ExecStart=/usr/bin/whisper-server -m %h/.local/share/whisper/ggml-small.bin --port 8081 --inference-path /v1/audio/transcriptions -l auto
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF</span></pre>
+      </div>
+      <p>Start both, and let them start at boot rather than when you log in. Both listen only on the server itself.</p>
       <div class="term">
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
 <pre><span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
-<span class="p">$ </span><span class="cmd">systemctl --user restart llama-server</span></pre>
+<span class="p">$ </span><span class="cmd">systemctl --user enable --now llama-server whisper-server</span>
+<span class="p">$ </span><span class="cmd">sudo loginctl enable-linger $USER</span>
+<span class="p">$ </span><span class="cmd">journalctl --user -fu llama-server</span></pre>
       </div>
+      <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> once the model has downloaded, the log says the server is listening, and <code>systemctl --user is-active whisper-server</code> prints <code>active</code>. <kbd>Ctrl</kbd>+<kbd>C</kbd> stops watching the log.</span></p>
       <p>The key matters even inside your tailnet: Tailscale lets in every device on it, the virtual machines on them and everyone logged into one, and checks no key of its own. <code>llama-server</code>'s web page still opens without the key, but nothing on it works, as it should be.</p>
 
       <h3>Tailscale</h3>
@@ -197,7 +226,7 @@ llm = "Ornith 1.5, no thinking"</pre>
       <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> from your laptop, <code>https://box.tailXXXX.ts.net/llama/health</code> answers in the browser.</span></p>
 
       <h3>On each computer that runs Puri</h3>
-      <p>Point Puri's config at the server, with the key from the server's <code>~/.config/llama-server/api-key</code>. The <code>id</code> stays <code>local</code>: it's only a name the <code>[[llm]]</code> tables use.</p>
+      <p>Point Puri's config at the server: put these in place of its <code>[[server]]</code> and <code>[dictation]</code> tables, with the key from the server's <code>~/.config/llama-server/api-key</code>. The <code>id</code> stays <code>local</code>: it's only a name the <code>[[llm]]</code> tables use. With a <code>url</code>, Puri runs no model of its own.</p>
 <pre class="file toml">[[server]]
 id      = "local"
 url     = "https://box.tailXXXX.ts.net/llama"
@@ -205,11 +234,10 @@ api_key = "the key"
 
 [dictation]
 url = "https://box.tailXXXX.ts.net/whisper"</pre>
-      <p>Keep the key yours alone to read, stop the local servers if you set them up there, then quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>:</p>
+      <p>Keep the key yours alone to read, then quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>. The models in this computer's <code>~/.cache/huggingface/hub</code> are no longer used; delete them to free the space.</p>
       <div class="term">
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">chmod 600 ~/.config/puri/config.toml</span>
-<span class="p">$ </span><span class="cmd">systemctl --user disable --now llama-server whisper-server</span></pre>
+<pre><span class="p">$ </span><span class="cmd">chmod 600 ~/.config/puri/config.toml</span></pre>
       </div>
       <p><code>whisper-server</code> takes no key yet (<a href="https://github.com/ggml-org/whisper.cpp/issues/4197">whisper.cpp#4197</a>), so whoever reaches the server can transcribe on it. If others share your tailnet, a grant in its access policy can keep their devices off the server's port 443.</p>
     </section>

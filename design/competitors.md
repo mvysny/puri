@@ -68,7 +68,10 @@ It isn't a competitor, since it runs only on Apple hardware, but it is the bar f
   Core (3B) and Core Advanced, on "our most capable Apple silicon systems". Three run in Private
   Cloud Compute, and Cloud Pro runs on NVIDIA GPUs in Google Cloud.
   ([Apple](https://machinelearning.apple.com/research/introducing-third-generation-of-apple-foundation-models))
-  **[docs]**
+  **[docs]** Cloud Pro is Apple's own model "refined using outputs from Gemini frontier models",
+  per Federighi ([Macworld](https://www.macworld.com/article/3162330/how-much-gemini-is-really-in-the-new-siri-ai.html));
+  the often-quoted 1.2-trillion-parameter Gemini is a pre-WWDC Bloomberg report neither company
+  confirmed. **[unverified]**
 - It creates an event without asking, while a mail waits as a draft in Mail: `R_siri_popup`.
 - It is closed source and runs on Apple hardware only. **[docs]**
 

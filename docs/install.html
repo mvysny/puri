@@ -38,8 +38,7 @@
         <ol>
           <li><a href="#step-thunderbird">Thunderbird's search</a></li>
           <li><a href="#step-packages">The packages</a></li>
-          <li><a href="#step-model">The model</a></li>
-          <li><a href="#step-dictation">Dictation</a></li>
+          <li><a href="#step-models">The models</a></li>
           <li><a href="#step-puri">Puri</a></li>
           <li><a href="#step-config">The config</a></li>
           <li><a href="#step-index">Your documents</a></li>
@@ -79,7 +78,7 @@
 
     <section id="quickstart">
       <h2>Quickstart</h2>
-      <p>Nine steps, each ending in a check. The model's download is the slow part, so it starts early and runs while you do the rest.</p>
+      <p>Eight steps, each ending in a check. The models' download is the slow part, so it starts early and runs while you do the rest.</p>
 
       <section class="step" id="step-thunderbird">
         <h3><span class="n">1</span>Check Thunderbird's search</h3>
@@ -90,74 +89,33 @@
 
       <section class="step" id="step-packages">
         <h3><span class="n">2</span>Install the packages</h3>
-        <p>Puri's toolkit, Ruby, the model server, dictation, the office-file reader for your file index, and Rhythmbox, all from Ubuntu's archive:</p>
+        <p>Puri's toolkit, Ruby, llama.cpp to run the model, whisper.cpp for dictation, the office-file reader for your file index, and Rhythmbox, all from Ubuntu's archive. The second line adds <code>hf</code>, Hugging Face's own tool, which downloads the models in the next step; without <code>--no-install-recommends</code>, apt would add a hundred Python packages it never uses.</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">sudo apt install git wget ruby ruby-bundler ruby-dev build-essential \
+<pre><span class="p">$ </span><span class="cmd">sudo apt install git ruby ruby-bundler ruby-dev build-essential \
     ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
     llama.cpp-tools libggml0-backend-vulkan whisper.cpp \
-    localsearch-extractor-office rhythmbox</span></pre>
+    localsearch-extractor-office rhythmbox</span>
+<span class="p">$ </span><span class="cmd">sudo apt install --no-install-recommends python3-huggingface-hub</span></pre>
         </div>
-        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> apt finishes without an error.</span></p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> apt finishes without an error, both times.</span></p>
       </section>
 
-      <section class="step" id="step-model">
-        <h3><span class="n">3</span>Start the model</h3>
-        <p><code>llama-server</code> runs the model, Qwen 3.5 4B. These commands make it a service of your own, which starts whenever you log in, and start it now. The first start downloads the model, 3–4 GB, into <code>~/.cache/huggingface/hub</code>.</p>
+      <section class="step" id="step-models">
+        <h3><span class="n">3</span>Download the models</h3>
+        <p>Two models run on this computer: Qwen 3.5 4B, which answers, 3 GB, and Whisper's <code>small</code>, which turns your voice into text, half a gigabyte. Puri runs both itself, so there's no server to set up. These download them from Hugging Face into <code>~/.cache/huggingface/hub</code>:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.config/systemd/user</span>
-<span class="p">$ </span><span class="cmd">cat &gt; ~/.config/systemd/user/llama-server.service &lt;&lt;'EOF'
-[Unit]
-Description=llama-server, the model Puri talks to
-
-[Service]
-ExecStart=/usr/bin/llama-server -ngl 99 -c 65536 -hf ggml-org/Qwen3.5-4B-GGUF:Q4_K_M
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-EOF</span>
-<span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
-<span class="p">$ </span><span class="cmd">systemctl --user enable --now llama-server</span></pre>
+<pre><span class="p">$ </span><span class="cmd">hf download ggml-org/Qwen3.5-4B-GGUF Qwen3.5-4B-Q4_K_M.gguf</span>
+<span class="p">$ </span><span class="cmd">hf download ggerganov/whisper.cpp ggml-small.bin</span></pre>
         </div>
-        <p><code>-ngl 99</code> puts the whole model on your graphics card, and <code>-c 65536</code> gives it the 64K context Puri needs. To watch the download:</p>
-        <div class="term">
-          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">journalctl --user -fu llama-server</span></pre>
-        </div>
-        <p><kbd>Ctrl</kbd>+<kbd>C</kbd> stops watching, and the download carries on. Go on with the next steps meanwhile.</p>
-        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> once the log says the server is listening, <code>http://localhost:8080</code> opens llama-server's own chat page in your browser, and it answers a hello.</span></p>
-        <p class="hint">While it runs, the model holds most of an 8 GB card's memory. Before a game, see <a href="#games">Games</a>.</p>
-      </section>
-
-      <section class="step" id="step-dictation">
-        <h3><span class="n">4</span>Start dictation</h3>
-        <p><code>whisper-server</code> turns your voice into text, on this computer. apt ships the server but no model, so download one, about 470 MB, then make the server a service like the model's:</p>
-        <div class="term">
-          <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.local/share/whisper</span>
-<span class="p">$ </span><span class="cmd">wget -P ~/.local/share/whisper https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin</span>
-<span class="p">$ </span><span class="cmd">cat &gt; ~/.config/systemd/user/whisper-server.service &lt;&lt;'EOF'
-[Unit]
-Description=whisper-server, Puri's dictation
-
-[Service]
-ExecStart=/usr/bin/whisper-server -m %h/.local/share/whisper/ggml-small.bin --port 8081 --inference-path /v1/audio/transcriptions -l auto
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-EOF</span>
-<span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
-<span class="p">$ </span><span class="cmd">systemctl --user enable --now whisper-server</span></pre>
-        </div>
-        <p><code>small</code> understands many languages, and <code>-l auto</code> lets it tell which one you speak. <a href="#dictation">Dictation</a>, below, has the other models.</p>
-        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> <code>systemctl --user is-active whisper-server</code> prints <code>active</code>.</span></p>
+        <p>Leave them running, open a second tab with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>, and go on with the next steps there. If a download stops, run it again.</p>
+        <p><code>hf</code> warns that your requests are unauthenticated: the models need no Hugging Face account. It may also suggest <code>pip install hf_xet</code> or <code>hf update</code>; skip both, since <code>hf</code> comes from apt, which updates it.</p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> each command ends by printing where it saved its file, under <code>~/.cache/huggingface/hub</code>.</span></p>
       </section>
 
       <section class="step" id="step-puri">
-        <h3><span class="n">5</span>Install Puri</h3>
+        <h3><span class="n">4</span>Install Puri</h3>
         <p>Puri itself is plain Ruby, cloned into <code>~/puri</code>. It runs from that folder, so keep it. Bundler fetches the Ruby libraries Puri needs into the same folder, and <code>rake install</code> adds Puri to your desktop:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
@@ -173,7 +131,7 @@ EOF</span>
       </section>
 
       <section class="step" id="step-config">
-        <h3><span class="n">6</span>Copy the config</h3>
+        <h3><span class="n">5</span>Copy the config</h3>
         <p>One file says what Puri may use, and each part of it says what it does and what it sends out of your computer. Copy it, then read it:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
@@ -181,12 +139,12 @@ EOF</span>
 <span class="p">$ </span><span class="cmd">cp ~/puri/docs/config.toml ~/.config/puri/</span>
 <span class="p">$ </span><span class="cmd">gnome-text-editor ~/.config/puri/config.toml</span></pre>
         </div>
-        <p>Everything in it is on, except web search. Places and the weather send what you ask about to public services, as the file says; to turn one off, put a <code>#</code> before its lines. You can also <a href="https://github.com/mvysny/puri/blob/master/docs/config.toml">read the file here</a> before you install.</p>
+        <p>Everything in it is on, except web search. It has Puri run the two models from step 3 itself. Places and the weather send what you ask about to public services, as the file says; to turn one off, put a <code>#</code> before its lines. You can also <a href="https://github.com/mvysny/puri/blob/master/docs/config.toml">read the file here</a> before you install.</p>
         <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> <code>~/puri/exe/puri</code> opens Puri's search bar. If the config has a mistake, the terminal says what and where. Then press <kbd>Ctrl</kbd>+<kbd>Q</kbd> to quit this Puri: from now on, <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> starts it.</span></p>
       </section>
 
       <section class="step" id="step-index">
-        <h3><span class="n">7</span>Reindex your documents</h3>
+        <h3><span class="n">6</span>Reindex your documents</h3>
         <p>Puri finds your documents through GNOME's own file index, the one the Files app searches. Installing the office-file reader in step 2 doesn't reread what the index already holds, even after a restart (<a href="https://gitlab.gnome.org/GNOME/localsearch/-/work_items/476">a localsearch bug</a>), so rebuild it once:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
@@ -197,8 +155,8 @@ EOF</span>
       </section>
 
       <section class="step" id="step-try">
-        <h3><span class="n">8</span>Try it</h3>
-        <p>Press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and ask, one question per feature. When one fails, its section under <a href="#features">Each feature</a> says what it needs.</p>
+        <h3><span class="n">7</span>Try it</h3>
+        <p>Once both downloads from step 3 have finished, press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and ask, one question per feature. When one fails, its section under <a href="#features">Each feature</a> says what it needs.</p>
         <div class="list scroll-x">
           <table class="asks">
             <thead><tr><th>Ask</th><th>It tries</th></tr></thead>
@@ -214,12 +172,12 @@ EOF</span>
             </tbody>
           </table>
         </div>
-        <p>The first answer after the model starts takes longest: the model first reads Puri's instructions, which takes up to half a minute on integrated graphics.</p>
+        <p>The first answer after Puri starts takes longest: Puri loads the model, a few seconds, and the model then reads Puri's instructions, which takes up to half a minute on integrated graphics.</p>
         <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> each question gets its answer.</span></p>
       </section>
 
       <section class="step" id="step-search">
-        <h3><span class="n">9</span>Add a search key</h3>
+        <h3><span class="n">8</span>Add a search key</h3>
         <p>Web search is the one feature that needs a key of your own, from <a href="https://api-dashboard.search.brave.com">Brave Search</a> or <a href="https://exa.ai">Exa</a>. Puri sends each search query there, and a query may quote your mail; Exa's terms let it train on what you search for. Puri reads the engine's copy of each page and never opens a link itself.</p>
         <p>In your config, remove the <code>#</code> from the <code>[search]</code> line and the line of your engine's key, and put the key in:</p>
 <pre class="file toml">[search]
@@ -268,18 +226,17 @@ brave_key = "your key"</pre>
 
       <section id="dictation">
         <h3>Dictation</h3>
-        <p>Press <kbd>F5</kbd> or click the mic in the search bar, speak, and press <kbd>F5</kbd> again. The text lands at the cursor, for you to send with <kbd>Enter</kbd>; <kbd>Escape</kbd> drops it. Your voice stays on this computer. On a processor alone, <code>small</code> takes some 7 seconds even for a short clip; the graphics card makes it quicker. Your desktop's own dictation types into Puri too, as into any other field.</p>
-        <p>Other models come from the <a href="https://huggingface.co/ggerganov/whisper.cpp">same place</a> as step 4's: <code>base</code> is smaller and faster and makes more mistakes, <code>medium</code> is slower and makes fewer. A model whose name ends in <code>.en</code> understands only English, and turns any other language into English gibberish. To switch, download one, put its name in place of <code>ggml-small.bin</code> in <code>~/.config/systemd/user/whisper-server.service</code>, then:</p>
+        <p>Press <kbd>F5</kbd> or click the mic in the search bar, speak, and press <kbd>F5</kbd> again. The text lands at the cursor, for you to send with <kbd>Enter</kbd>; <kbd>Escape</kbd> drops it. Your voice stays on this computer: Puri runs Whisper on each clip, and nothing holds memory between clips. On a processor alone, <code>small</code> takes about 5 seconds for a short clip, and twice that while it works out which language you speak; <code>language = "de"</code>, or your own language's code, under <code>[dictation]</code> saves that. Integrated graphics take under a second. Your desktop's own dictation types into Puri too, as into any other field.</p>
+        <p>Other models come from the <a href="https://huggingface.co/ggerganov/whisper.cpp">same place</a> as step 3's: <code>base</code> is smaller and faster and makes more mistakes, <code>medium</code> is slower and makes fewer. A model whose name ends in <code>.en</code> understands only English, and turns any other language into English gibberish. To switch, download one, then put its name in place of <code>ggml-small.bin</code> under <code>[dictation]</code>, quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd>, and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">systemctl --user daemon-reload</span>
-<span class="p">$ </span><span class="cmd">systemctl --user restart whisper-server</span></pre>
+<pre><span class="p">$ </span><span class="cmd">hf download ggerganov/whisper.cpp ggml-medium.bin</span></pre>
         </div>
       </section>
 
       <section id="search">
         <h3>Web search</h3>
-        <p>Set up in <a href="#step-search">step 9</a>. With both keys, Puri picks an engine per query; <code>engines = ["brave"]</code> under <code>[search]</code> keeps it to one. DuckDuckGo isn't offered, because it returns no page text for Puri to read.</p>
+        <p>Set up in <a href="#step-search">step 8</a>. With both keys, Puri picks an engine per query; <code>engines = ["brave"]</code> under <code>[search]</code> keeps it to one. DuckDuckGo isn't offered, because it returns no page text for Puri to read.</p>
       </section>
 
       <section id="shortcut">
@@ -295,22 +252,14 @@ brave_key = "your key"</pre>
 
       <section id="model">
         <h3>The model</h3>
+        <p>Puri runs the model in <code>llama-server</code>, from step 2's <code>llama.cpp-tools</code>, which puts as much of it on your graphics as fits. It starts and stops with Puri, and writes its log to <code>~/.local/state/puri/llama-server.log</code>.</p>
         <p>Qwen 3.5 4B is small, a short download, and runs on most graphics cards. A smarter model needs far more memory: <a href="models.html">Choose a model</a> compares Qwen with <a href="models.html#ornith">Ornith 1.5</a>, says which computer runs which, and how to run the model on <a href="models.html#home-server">a home server of yours</a>.</p>
       </section>
     </section>
 
     <section id="games">
       <h2>Games and graphics memory</h2>
-      <p>While <code>llama-server</code> runs, the model holds most of an 8 GB graphics card's memory, so a big game may not start, or may stutter. Resources, Ubuntu's system monitor, shows how much of the card's memory is in use. Before you play, stop the model and dictation:</p>
-      <div class="term">
-        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">systemctl --user stop llama-server whisper-server</span></pre>
-      </div>
-      <p>Afterwards, start them again, or log out and in:</p>
-      <div class="term">
-        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
-<pre><span class="p">$ </span><span class="cmd">systemctl --user start llama-server whisper-server</span></pre>
-      </div>
+      <p>While Puri runs, its model holds most of an 8 GB graphics card's memory, so a big game may not start, or may stutter. Resources, Ubuntu's system monitor, shows how much of the card's memory is in use. Before you play, quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd>: the model stops with it, and dictation holds nothing between clips. Afterwards, press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>, and Puri loads the model again.</p>
       <p>On integrated graphics the model holds ordinary memory instead, the same way.</p>
     </section>
 
@@ -328,22 +277,20 @@ brave_key = "your key"</pre>
 
     <section id="uninstall">
       <h2>Uninstalling</h2>
-      <p>This takes Puri off your desktop and stops both servers:</p>
+      <p>Quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd>, which stops its model too, then take it off your desktop:</p>
       <div class="term">
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
 <pre><span class="p">$ </span><span class="cmd">cd ~/puri</span>
-<span class="p">$ </span><span class="cmd">bundle exec rake uninstall</span>
-<span class="p">$ </span><span class="cmd">systemctl --user disable --now llama-server whisper-server</span>
-<span class="p">$ </span><span class="cmd">rm ~/.config/systemd/user/llama-server.service ~/.config/systemd/user/whisper-server.service</span></pre>
+<span class="p">$ </span><span class="cmd">bundle exec rake uninstall</span></pre>
       </div>
       <p>What's left is yours to delete or keep:</p>
       <ul class="paths">
         <li><code>~/puri</code>, Puri itself</li>
         <li><code>~/.config/puri</code>, the config</li>
-        <li><code>~/.local/state/puri</code>, your conversations</li>
+        <li><code>~/.local/state/puri</code>, your conversations and the model's log</li>
         <li><code>~/.cache/puri</code>, Puri's copy of Thunderbird's mail index and calendar</li>
         <li><code>models--ggml-org--Qwen3.5-4B-GGUF</code> in <code>~/.cache/huggingface/hub</code>, the model, and Ornith's folder beside it if you switched</li>
-        <li><code>~/.local/share/whisper</code>, the dictation model</li>
+        <li><code>models--ggerganov--whisper.cpp</code> beside it, the dictation model</li>
         <li><code>Notes</code> in your Documents folder, your notes and what Puri remembered</li>
       </ul>
       <p>The apt packages stay too; remove them with apt if nothing else uses them.</p>
@@ -353,13 +300,13 @@ brave_key = "your key"</pre>
       <h2>When something doesn't work</h2>
       <div class="list faq">
         <details><summary><kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> does nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Start Puri in a terminal, where it says what's wrong: <code>~/puri/exe/puri</code>. A mistake in the config is the usual one.</p></details>
-        <details><summary>Puri can't reach the model<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p><code>systemctl --user status llama-server</code> says whether it runs, and <code>journalctl --user -u llama-server</code> why it stopped. On the first start it may still be downloading.</p></details>
-        <details><summary>The first answer takes long<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Before its first answer, the model reads Puri's instructions, about 10,000 tokens: up to half a minute on integrated graphics, less on a graphics card. Later questions start sooner.</p></details>
+        <details><summary>Puri says the model isn't downloaded, or won't start<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>It names the model it looked for: download it as in <a href="#step-models">step 3</a>, and let the download finish. When the model is there and still won't start, its log, <code>~/.local/state/puri/llama-server.log</code>, says why; too little memory is the usual reason. Once that's fixed, ask again: Puri starts the model over without a restart.</p></details>
+        <details><summary>The first answer takes long<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Before its first answer, Puri loads the model, and the model reads Puri's instructions, about 10,000 tokens: up to half a minute on integrated graphics, less on a graphics card. Later questions start sooner.</p></details>
         <details><summary>Mail search finds nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Thunderbird's global search is off, or still indexing your mail: see <a href="#step-thunderbird">step 1</a>.</p></details>
         <details><summary>The calendar is empty<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>A calendar on a server needs its Offline Support on, so that Thunderbird keeps a copy on your disk: see <a href="#step-thunderbird">step 1</a>.</p></details>
-        <details><summary>Office files are found by name only<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>The index holds them without their text: install <code>localsearch-extractor-office</code> and rebuild the index, <a href="#step-index">step 7</a>.</p></details>
+        <details><summary>Office files are found by name only<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>The index holds them without their text: install <code>localsearch-extractor-office</code> and rebuild the index, <a href="#step-index">step 6</a>.</p></details>
         <details><summary>Puri found two Thunderbird profiles<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Put the one you use in <code>profile_dir</code> under <code>[thunderbird]</code>: see <a href="#mail">Mail, contacts and calendar</a>.</p></details>
-        <details><summary>Dictation types nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p><code>systemctl --user status whisper-server</code> says whether it runs; its model must be where the service file says, <code>~/.local/share/whisper/ggml-small.bin</code>.</p></details>
+        <details><summary>Dictation types nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>The row under the search bar says why. Most often Whisper's model isn't downloaded yet: <a href="#step-models">step 3</a>. The next press of <kbd>F5</kbd> finds it, with no restart.</p></details>
         <details><summary>A game won't start<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>The model holds the graphics card's memory: see <a href="#games">Games and graphics memory</a>.</p></details>
       </div>
     </section>
@@ -367,12 +314,11 @@ brave_key = "your key"</pre>
     <section id="sources">
       <h2>Where each piece comes from</h2>
       <ul class="needs">
-        <li><strong>From Ubuntu's archive,</strong> signed and updated by apt with the rest of Ubuntu: GTK, libadwaita, Ruby, llama.cpp, whisper.cpp, localsearch and Rhythmbox.</li>
+        <li><strong>From Ubuntu's archive,</strong> signed and updated by apt with the rest of Ubuntu: GTK, libadwaita, Ruby, llama.cpp, whisper.cpp, Hugging Face's <code>hf</code>, localsearch and Rhythmbox.</li>
         <li><strong>Puri,</strong> a git clone of its source: plain Ruby you can read, with nothing compiled.</li>
         <li><strong>Its Ruby libraries,</strong> from rubygems.org through Bundler. Puri's <code>Gemfile.lock</code> pins each one's version and SHA-256, so <code>bundle install</code> refuses one that changed; pikuri's libraries come from GitHub, pinned to one commit. A few compile some C on your computer, which is why apt installs <code>build-essential</code>.</li>
-        <li><strong>The two models,</strong> from Hugging Face: the language model fetched by <code>llama-server</code>, the dictation model by <code>wget</code>. Both are weights, files of numbers that the servers read, not programs.</li>
+        <li><strong>The two models,</strong> from Hugging Face, fetched by <code>hf</code>. Both are weights, files of numbers that llama.cpp and whisper.cpp read, not programs.</li>
         <li><strong><code>rake install</code></strong> writes three files under your home, a desktop entry, a D-Bus service and an autostart entry, and sets one GNOME shortcut. It prints each file, never uses <code>sudo</code>, and <code>rake uninstall</code> removes them all.</li>
-        <li><strong>The two service files</strong> are the ones you wrote in steps 3 and 4.</li>
       </ul>
     </section>
   </article>

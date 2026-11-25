@@ -463,9 +463,10 @@ Ubuntu 26.04's llama.cpp b10438. **[verified 2026-11-25]**
   spawned it ends, the parent's `SIGKILL` included.
 - Qwen 3.5 4B Q4_K_M answers `/health` some 7 s after the spawn on the VM's CPU.
 
-## R_hub_cache — Hugging Face's hub cache, as llama.cpp's `-hf` uses it
+## R_hub_cache — Hugging Face's hub cache, as llama.cpp's `-hf` and apt's `hf` use it
 
-b10438, `HF_ENDPOINT` pointed at a dead port. **[verified 2026-11-25]**
+b10438, `HF_ENDPOINT` pointed at a dead port; `python3-huggingface-hub` 1.23.0 run from its
+unpacked `.deb`s. **[verified 2026-11-25]**
 
 - `-hf` reads and writes `~/.cache/huggingface/hub` in `huggingface_hub`'s layout:
   `models--<org>--<repo>/blobs/<sha256>`, `snapshots/<commit>/<file>` a link to its blob, and
@@ -475,6 +476,14 @@ b10438, `HF_ENDPOINT` pointed at a dead port. **[verified 2026-11-25]**
   named a made-up commit loaded.
 - Hugging Face's `/api/models/<repo>?blobs=true` lists the commit (`sha`) and each file's
   SHA-256 (`lfs.sha256`), what a hand-built cache is named by.
+- `hf download <repo> <file>` writes the same layout: its `--dry-run` counts a file `-hf` fetched
+  as present, and Puri's `HubCache` finds one it fetched.
+- Without the `hf_xet` package it fetches over plain HTTP, saying so and suggesting
+  `pip install hf_xet`, and it warns that the requests are unauthenticated.
+- Once a day it asks PyPI for a newer version and suggests `hf update`, unless
+  `HF_HUB_DISABLE_UPDATE_CHECK` is set. **[src]**
+- apt installs it with some 110 packages, matplotlib, scipy and pandas among them; with
+  `--no-install-recommends`, 10. (`apt-get -s`)
 
 ## R_tailscale_serve — Tailscale Serve in front of llama-server and whisper-server
 

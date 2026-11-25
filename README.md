@@ -25,8 +25,8 @@ play your music in Rhythmbox. The plan lives in `design/ideas/`.
 
 ## Install
 
-To use Puri, follow the [install guide](https://puri-ai.de/install.html): the packages, the model
-and dictation as services of your own, Puri, and its config, with a check after each step.
+To use Puri, follow the [install guide](https://puri-ai.de/install.html): the packages, the two
+models, Puri, and its config, with a check after each step.
 [Choose a model](https://puri-ai.de/models.html) covers a smarter model than the guide's, which
 computer runs which, and a home server over Tailscale. The rest of this README is for working on
 Puri.
@@ -45,10 +45,11 @@ exe/puri --dummy
 
 `exe/puri --dummy` runs a canned backend, with no config and no model: `search`, `note`, `table`,
 `long`, `coffee`, `drive`, `weather`, `fail`, `mail`, or `calendar` plus `reschedule` in a
-question walk the paths the tools will take. Plain `exe/puri` runs the real one, which needs a
-model server and `~/.config/puri/config.toml`: copy `docs/config.toml`, whose comments say what
-each part does. Without its `[[server]]`'s `url` line, Puri runs `llama-server` itself, on a
-model already in `~/.cache/huggingface/hub`. Escape hides the window, running `exe/puri` again
+question walk the paths the tools will take. Plain `exe/puri` runs the real one, which needs
+`~/.config/puri/config.toml`: copy `docs/config.toml`, whose comments say what each part does.
+As shipped, it has Puri run `llama-server` and `whisper-cli` itself, on models already in
+`~/.cache/huggingface/hub` (the install guide's step 3); a `url` under `[[server]]` or
+`[dictation]` points it at a server instead. Escape hides the window, running `exe/puri` again
 brings it back, and Ctrl+Q quits it, as does `gapplication action io.github.mvysny.Puri quit`.
 
 `bundle exec rake` runs the specs, rubocop, the type signatures and the doc checks, as CI does.

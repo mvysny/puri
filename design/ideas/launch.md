@@ -72,7 +72,7 @@ installed or run.
   owner's "GPU first, CPU fallback, never ask about VRAM", as llama.cpp's own behaviour.
   [unverified here]
 - **It also has router mode** (`--models-dir`, `--models-preset`, `LLAMA_ARG_MODELS_MAX`): several
-  models behind one server. That is `local-model.md`'s small tier plus big tier.
+  models behind one server, a small tier and a big one; `D_one_model` says why not.
 - **The GPU backends are separate packages.** `libggml0` 0.9.11 suggests the BLAS, CUDA, HIP and
   Vulkan backends. `libggml0-backend-vulkan` (55 MB installed) suggests `mesa-vulkan-drivers` and
   `nvidia-vulkan-icd`; `libggml0-backend-hip` is in the archive, `libggml0-backend-cuda` isn't. So
@@ -88,7 +88,7 @@ To test before the page relies on it:
 - **`--fit` on the 890M:** does it fit, and what context does it settle on?
 - **The `-hf` download:** does it work under the system unit?
 - **A clean 26.04 VM:** with no GPU at all.
-- **`wget`** on a clean 26.04 desktop, for the Whisper model's step.
+- **`hf`** from apt on a clean 26.04 desktop, `--no-install-recommends`, for the models' step.
 - **The install guide, top to bottom,** on a clean 26.04 VM. Its calendar click path (right-click
   the calendar → Properties → Offline Support) is written from memory; check it in Thunderbird.
 
@@ -114,7 +114,7 @@ bundle exec rake install AUTOSTART=1
   `Q_packaging` is for later.
 - **Which distros:** Ubuntu 26.04, which is what CI runs. Debian or Fedora only once tested.
 - **A system unit holds the model from boot,** for every user. On an 8 GB laptop that is several
-  GB gone all day, which is why the guide runs per-user services.
+  GB gone all day, which is why Puri runs the model itself, from login.
 
 ## The install guide
 
@@ -137,13 +137,12 @@ the README cut down to the developer setup.
   `rake install` writes three files under your home and one GNOME shortcut, prints each, and never
   runs sudo, so the guide's one sudo is `apt install`.
 - **The user walks the path** (owner): every download is a command the user types, and `rake
-  install` stays as it is. llama-server fetches its model with `-hf`; the Whisper model is a
-  `wget` line, or a link and the folder to save it in. The guide shows each service file, and the
-  user writes it.
+  install` stays as it is. Both models are `hf download` lines, and Puri runs the servers itself
+  (`D_embedded`, owner, 2026-11-25); the service files moved to `models.html`'s home server.
 - **The quickstart's steps,** each ending in a check that it worked: before you start (Ubuntu
   26.04 with GNOME, Thunderbird with your mail, the hardware, the disk); Thunderbird's global
-  search index and the calendar's Offline Support; one `apt install`; llama-server as a user
-  service; whisper-server as a user service, its model by `wget`; clone, `bundle install`, `rake
+  search index and the calendar's Offline Support; `apt install`, and `hf` without its
+  recommends; the two models by `hf download`; clone, `bundle install`, `rake
   install AUTOSTART=1`; the config, checked by running `exe/puri` in a terminal once, since a
   config error from the shortcut goes nowhere (owner, for now; `Q_startup_error`); `localsearch
   reset` and Search Locations; one question per
@@ -157,9 +156,9 @@ the README cut down to the developer setup.
   a spec loads it through Core's config, so a renamed key fails the gate. Dropped: Puri writing
   the config on first run. Puri reads it only at start, so after an edit the guide says Ctrl+Q,
   or `gapplication action io.github.mvysny.Puri quit`, then the shortcut.
-- **Both servers run as per-user systemd services** (owner), from login, rather than apt's system
-  unit, which holds the model from boot for every user. The model stays resident
-  (`D_model_resident`).
+- **Both servers run inside Puri** (owner, 2026-11-25; `D_embedded`), rather than apt's system
+  unit, which holds the model from boot for every user. A home server runs them as per-user
+  systemd services. The model stays resident (`D_model_resident`).
 - **One model for everyone, Qwen3.5-4B** (owner): small, the likeliest to run, a small download.
   Once it works, Ornith is the upgrade if the machine takes it. One `-hf` model per server, no
   router mode (`--models-preset`): these models take too much memory to load two. Titles come
@@ -181,7 +180,7 @@ the README cut down to the developer setup.
   2026-11-24) gives no context length.
 - **Games and VRAM** (owner): Qwen holds most of an 8 GB card, 2.8 GiB of weights and 2 GiB of
   cache at 64K before the projector and buffers, so a big game may not run until llama-server
-  stops. The guide gives `systemctl --user stop llama-server` and `start`, and sends the user to
+  stops. The guide says to quit Puri, which stops it, and sends the user to
   Resources, which shows the card's memory and comes with `ubuntu-desktop-minimal`. A sentence at
   the model step, a section of its own, and a troubleshooting entry.
 - **The Whisper model:** multilingual, since an `.en` model turns other languages into English
@@ -192,8 +191,8 @@ the README cut down to the developer setup.
 
 **Decided:** Qwen3.5-4B for everyone (owner, 2026-11-24), § The install guide. What led there:
 
-Gated on `Q_eval_suite` in `local-model.md`: a few dozen real requests, each with its expected
-tool call, run against each candidate. Candidates from `local-model/apple-on-device-models.md`:
+Gated on an eval suite, `model-eval.md`: a few dozen real requests, each with its expected
+tool call, run against each candidate. The candidates, from Hugging Face in November 2026:
 
 - **Nemotron 3.5 Bolt E4B 4GB:** tuned for device-assistant tool use, and the least prone to
   calling tools that don't exist.
@@ -237,9 +236,7 @@ first run; `small.en` is ~0.5 GB.
   residency. A holder living outside Germany has two weeks to name an authorised recipient in
   Germany, but only if DENIC asks, and DENIC asks only when someone wants to serve papers over a
   dispute about the domain (DENIC terms §3(4)).
-- **Not on it yet:** the tiers and the home server beyond one FAQ link, and dictation. The install
-  starts llama-server in the foreground on Qwen3.5-4B (owner, 2026-11-24), until the install guide
-  makes it a per-user service.
+- **Not on it yet:** the tiers and the home server beyond one FAQ link, and dictation.
 - **One home for the install:** the site, in the install guide; the README keeps the developer
   setup (owner, 2026-11-24).
 

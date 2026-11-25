@@ -265,12 +265,39 @@ llama-server lets any web page use the model by default (`R_llama_server_embedde
 gets a key and a free loopback port, kept for the whole run so a restart after a crash strands no
 open conversation; with the port new each run, a saved conversation resumes on it by model.
 `--offline` loads what the setup downloaded into the hub cache (`R_hub_cache`); Puri checks the
-file first, as llama-server's own message names none. `-c 65536` and no `-ngl`: llama.cpp places
-the model. A crash restarts it, three in a minute stop it with the log's tail, and the next
-agent's boot starts it over, as for a model missing: a resident Puri must not need a restart once
-the cause is gone. `setpriv
---pdeathsig`, not a pidfile the next run reads: the kernel stops the child however Puri dies. An
+file first, as llama-server's own message names none. The install guide's config runs both
+(owner, 2026-11-25), and the guide downloads both models with apt's `hf`, which writes that cache:
+llama-server downloads only by serving, and whisper.cpp has no download at all. `hf` comes
+`--no-install-recommends`, or apt adds a hundred Python packages. `-c 65536` and no `-ngl`:
+llama.cpp places the model. A crash restarts it, three in a minute stop it with the log's tail,
+and the next agent's boot starts it over, as for a model missing: a resident Puri must not need a
+restart once the cause is gone. `setpriv --pdeathsig`, not a pidfile the next run reads: the
+kernel stops the child however Puri dies. An
 agent on it waits at boot for the model, since pikuri-conversations caches a failed probe for a
 minute. Dictation is per clip, not a resident `whisper-server`, because the load costs 0.3–0.5 s
 on the 890M and a CPU alike (`R_whisper_cli`), and nothing, no memory and no keyless port, is held
 between clips. Its `language` defaults to `auto`; naming one saves a second encoder pass.
+
+## D_one_model — Why one model on the user's own machine, rather than Siri's small model on the device and bigger ones in a cloud?
+
+Siri runs a 3B model on the Mac and hands harder requests to bigger ones in Apple's Private Cloud
+Compute (`competitors.md`). Puri runs no cloud tier (owner, 2026-11-25): *local first*, and a user
+who wants a bigger model runs or rents one and gives its `url`, the conversation then leaving, as
+the config says. Nor would a small model in front of a big one buy speed on one machine: Ornith
+1.5 reads only some 3B of its weights a token, so Qwen 3.5 4B writes no faster, and on the 890M,
+both thinking, it took 33 s a turn to Ornith's 24 s and was right less often
+(`docs/models.html`). A router would add a model call before each answer. So each machine runs
+the one model that suits it, Ornith where its 32 GB fit, Qwen elsewhere, and never on the NPU
+(`D_no_npu`).
+
+## D_no_npu — Why the GPU and not the NPU, though the NPU draws half the power?
+
+Speed no longer rules it out: FastFlowLM, through Lemonade, runs Qwen 3.5 4B on the HX 370's NPU,
+reading a prompt as fast as the 890M and writing 1.3–1.5× slower, at 18.5 W above idle against
+35 W (`R_qwen_npu`). Four other things do (owner, 2026-11-25). It runs small models only, and an
+XDNA NPU always sits beside an iGPU, which runs the same Qwen faster, or Ornith where memory
+allows (`D_one_model`). The same weights did worse there: 74 % of the eval's first 14 tasks
+against 90 % on llama.cpp, looping on tool calls. The saving, 0.45 J a token, comes to a tenth of
+a watt-hour per thousand, and only while it answers: a loaded model idles on either chip. And
+Lemonade comes as a snap and FastFlowLM runs on AMD alone, neither from apt. FastFlowLM 1.0.11
+kept a `think: false` across requests, so 1.0.13 might lift the 74 %, but not the first reason.

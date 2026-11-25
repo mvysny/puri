@@ -6,8 +6,10 @@ one, for whoever just wants it running, and today's `install.html`, the long one
 user who wants every setting.
 
 Built (2026-11-25): Puri runs `llama-server` and `whisper-cli` itself when the config gives no
-`url` (`D_embedded`, `R_llama_server_embedded`, `R_whisper_cli`, `R_hub_cache`). Left: the setup
-script, the guides and the site.
+`url` (`D_embedded`, `R_llama_server_embedded`, `R_whisper_cli`, `R_hub_cache`), and that is the
+default: `docs/config.toml` gives no `url`, and the long guide downloads both models with apt's
+`hf`, `--no-install-recommends`, the service files kept for the home server in `models.html`
+(owner, 2026-11-25). Left: the setup script, and the site leading with it.
 
 ## Decided (owner, 2026-11-25)
 
@@ -18,8 +20,8 @@ script, the guides and the site.
 - **A setup script, plain CLI** (no Tuile, a progress bar at most). It checks everything, fixes
   what needs no sudo once the user says yes, and prints what needs sudo for the user to run. The
   big fix is the downloads: Qwen or Ornith, and the Whisper model.
-- **It writes the config only when there is none**, the long guide's config with the model and
-  dictation both embedded.
+- **It writes the config only when there is none**, the long guide's `docs/config.toml`
+  verbatim, both models embedded there already.
 
 ## The setup script, sketched
 
@@ -33,7 +35,8 @@ script, the guides and the site.
     `Range` and checking the SHA-256 that Hugging Face's API lists (`R_hub_cache`): Qwen or
     Ornith, `-hf`'s `org/repo:quant`, and Whisper's `ggerganov/whisper.cpp:ggml-small.bin`. Ornith
     only where `llama-server --list-devices` and the RAM say it fits (`models.html`'s rule); the
-    `ttm` kernel parameters printed, never applied;
+    `ttm` kernel parameters printed, never applied. Or it runs the long guide's `hf download`,
+    which resumes and writes the cache already, for one more line of apt packages;
   - the config, written when missing, never edited;
   - Thunderbird's global search and the calendar's Offline Support, printed as where to click;
   - localsearch: its status, the office extractor, `localsearch reset` after asking, Documents in
@@ -41,16 +44,15 @@ script, the guides and the site.
 - The quick path is then: the apt line, `git clone`, the setup script, the shortcut.
 - Once it exists, the "isn't downloaded" errors of `LlamaServer` and `WhisperCli` name it, in
   place of `llama-server -hf` and the cache's folder.
-- The long guide's per-user `llama-server` service reads the same cache, so switching between it
+- A home server's `llama-server` service, `-hf`, reads the same cache, so switching between it
   and embedded downloads nothing twice.
 
 ## Changes to what `launch.md` decided
 
 - *The user walks the path, every download a command the user types* holds for the long guide
   only; the quick path's script downloads.
-- *Both servers run as per-user systemd services* stays, as the user's own way beside the
-  embedded one: the long guide's way, and the home server's. Whether the long guide switches to
-  embedded too is `Q_long_guide`.
+- *Both servers run as per-user systemd services* holds for the home server alone; the long
+  guide runs embedded too (owner, 2026-11-25).
 
 ## The site
 
@@ -68,9 +70,4 @@ script, the guides and the site.
 
 ## Open questions
 
-- `Q_config_template`: one `docs/config.toml` for both paths, its `[[server]]` the embedded one,
-  with `url` commented as the way to a server of your own? Then the script copies it verbatim and
-  nothing drifts. Today it still names `localhost:8080`, the long guide's service.
-- `Q_long_guide`: does the long guide keep its service files, or use embedded too and keep the
-  service files for the home server alone?
 - `Q_setup_name`: `bin/setup`, `exe/puri-setup` or `rake setup`?

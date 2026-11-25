@@ -100,11 +100,12 @@ RSpec.describe Puri::Core::Config do
   end
 
   describe 'EXAMPLE, the config the install guide copies' do
-    it 'loads: the main model, the same one with its thinking off writing the titles' do
+    it 'loads: the main model on the llama-server Puri runs, the same one with its thinking off writing the titles' do
       write_example
       config = load
       assert_equal 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', config.primary_llm.model
-      assert_equal 'http://localhost:8080', config.primary_llm.server
+      assert_equal 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', config.embedded_server.model
+      assert_equal config.embedded_server.url, config.primary_llm.server
       assert_equal({ 'enable_thinking' => true }, config.primary_llm.params['chat_template_kwargs'])
       assert_equal({ 'enable_thinking' => false }, config.titler_llm.params['chat_template_kwargs'])
       assert_in_delta 0.7, config.titler_llm.params['temperature']
@@ -119,7 +120,8 @@ RSpec.describe Puri::Core::Config do
       assert_equal docs, config.documents.folder
       assert_equal 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', config.maps.tiles
       assert_equal Puri::Core::Weather::OpenMeteo::URL, config.weather.url
-      assert_equal 'http://127.0.0.1:8081', config.dictation.url
+      assert_nil config.dictation.url
+      assert_equal 'ggerganov/whisper.cpp:ggml-small.bin', config.dictation.model
     end
   end
 
@@ -466,8 +468,11 @@ RSpec.describe Puri::Core::Config do
       assert_predicate config.titler_llm.params, :frozen?
     end
 
-    it 'builds a pikuri transport from a connection, carrying its params' do
+    it "builds a pikuri transport from a connection, carrying its params, on the example's own url line" do
       write_example
+      example = File.read(described_class::EXAMPLE)
+      refute_nil example.sub!('# url     = "http://localhost:8080"', 'url = "http://localhost:8080"')
+      write(@home, example)
       transport = load.titler_llm.transport
       assert_equal 'http://localhost:8080/v1', transport.api_base
       assert_equal 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', transport.model

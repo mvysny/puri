@@ -8,11 +8,14 @@
 
 # ── The model ─────────────────────────────────────────────────────────────────────────────────
 
-# Where the model runs: llama-server on this computer.
+# Where the model runs: on this computer, in llama-server, which Puri starts and stops with itself.
+# Download the model first, as the install guide's step 3 does. With a url, Puri runs none and
+# talks to that server instead: a desktop PC or a home server of yours, or a hosted one, which
+# your conversations then leave this computer for.
 [[server]]
-id  = "local"
-url = "http://localhost:8080"
-# api_key = "…"   # only when the server asks for one, as a home server should
+id = "local"
+# url     = "http://localhost:8080"
+# api_key = "…"   # only with a url, when the server asks for one, as a home server should
 
 # Conversations run on the first [[llm]], here with its thinking on: slower, but right more often.
 # The numbers under [llm.params] are the model card's own; leave them be.
@@ -85,11 +88,14 @@ tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 
 # ── Dictation ─────────────────────────────────────────────────────────────────────────────────
 
-# Press F5, speak, and press F5 again: whisper-server on this computer types what you said, so
-# your voice stays here.
+# Press F5, speak, and press F5 again: Whisper, on this computer, types what you said, so your
+# voice stays here. Puri runs it once per clip, on the model below, which the install guide's
+# step 3 downloads.
 [dictation]
-url = "http://127.0.0.1:8081"
+model = "ggerganov/whisper.cpp:ggml-small.bin"
 # language = "de"   # the language you speak, as a code; without it, Whisper works it out, taking longer
+# For a whisper-server of your own instead, give its url and drop the model line: it has its own.
+# url = "http://127.0.0.1:8081"
 # api_key = "…"   # a hosted server only, and your voice then leaves this computer
 
 

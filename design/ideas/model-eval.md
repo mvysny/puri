@@ -1,6 +1,6 @@
 # Model eval: six models, pikuri's demo world, one day per run
 
-Goal: choose `local-model.md`'s v2 model by measuring it. A fixed set of real requests runs
+Goal: choose the model Puri recommends by measuring it. A fixed set of real requests runs
 through Puri's own prompts and tools against pikuri's demo world, once per candidate, and every
 candidate is compared with Ornith-1.5.
 
@@ -8,8 +8,8 @@ candidate is compared with Ornith-1.5.
 
 - **Quality:** did the model answer correctly, call the right tools, leave the right notes and
   drafts, and refuse the phishing? At a fixed quant this doesn't depend on the hardware.
-- **Cost:** time to first token, tokens/s, resident memory, watts. This needs the target
-  hardware (`local-model.md`'s `Q_target_hardware`).
+- **Cost:** time to first token, tokens/s, resident memory, watts. This needs the hardware it
+  runs on.
 
 For now one box does both: the owner's dedicated test machine, kept quiet, with nothing else
 running. Its iGPU has 16 GB of VRAM that can grow to 64 GB.

@@ -182,7 +182,9 @@ memory. On an iGPU Ornith is the faster of the two as well. Qwen repeating the f
   tokens/s and memory for Qwen and Bolt at Puri's 64K context, through llama.cpp on Vulkan, and
   the eval's timings there. Include Ornith with its experts in system RAM (llama.cpp's
   `--n-cpu-moe`): it is a 35B-A3B like the owner's 40 tok/s Qwen3.6, and if it's usable there it
-  stays the accuracy leader on the same card.
+  stays the accuracy leader on the same card. That card is the one place routing could pay, Qwen
+  answering on the card and Ornith in RAM taking the hard requests, which `D_one_model` rules out
+  on one GPU.
 - `Q_week_dates`: Qwen, Bolt and gpt-oss got "Thursday"'s date wrong in the smoke round, and a
   Qwen run took Saturday for 27 November on day two. The system prompt gives only today's date;
   spelling out the next seven days is our own prompt's change (`D_own_prompts`), now that day

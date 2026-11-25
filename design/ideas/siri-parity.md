@@ -81,7 +81,8 @@ report grew faster?" [docs]. Reviews find it works better from the popup than fr
   them (`D_extractors`). Files outside `[documents]`: the user picked them, so that's consent?
 - **A window or an area.** The xdg-desktop-portal Screenshot asks the user what to capture. It
   needs a model that takes images; Puri sends none today (`Config::Llm#transport` skips
-  pikuri's `with_detected_modalities`). Waits for `local-model.md`'s v2.
+  pikuri's `with_detected_modalities`), and the llama-server it runs loads no vision projector
+  (`--no-mmproj`, `D_embedded`).
 - `Q_selection_chip`: always offer the selection, or only when the question says "this"?
 
 ### Attachments
