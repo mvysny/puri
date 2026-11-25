@@ -24,7 +24,8 @@ the main loop; trying a UI change restarts pikuri too. So it is drawn as two, an
 as the divider meticulously: Core and Desktop share no constants, and every value crosses as JSON,
 so a split swaps only the connection. Only trouble with `ruby-gtk4` reopens the split
 (`D_ruby_gtk4`); Protocol then rides the D-Bus session bus, never a TCP port, not even on loopback,
-since *Local first* means no network listener. Why not separate gems to hold the line: `gtk4` comes
+which every user and program on the machine can reach, where the session bus admits only the
+user's own (*Private first*). Why not separate gems to hold the line: `gtk4` comes
 from apt, on the default load path whatever a gemspec says, so gems enforce nothing; a grep spec
 and a GTK-free load spec do. Packwerk would do the grep statically, but apt doesn't ship it.
 
@@ -226,8 +227,7 @@ GNOME's `org.gnome.GWeather4` (owner), so Puri says what GNOME Weather says.
 No standard can ask "the default player" for an artist, and GNOME Music can't be handed a track
 (`R_gnome_music_mpris`). Handing any player a shuffled `.m3u` works only where it plays a file it
 is given, Rhythmbox imports one as a playlist instead, and localsearch misses every tag but MP3's;
-Puri playing it itself would be a music player in *a desktop UI and nothing else*, the music dying
-with Puri. Rhythmbox is the owner's player (owner, 2026-11-21), and its D-Bus does it all
+Puri playing it itself would make Puri a music player, the music dying with it. Rhythmbox is the owner's player (owner, 2026-11-21), and its D-Bus does it all
 (`R_rhythmbox_dbus`): the library the owner sees, in every format it reads, a play queue, MPRIS.
 One `play_music(artist:, album:, song:, genre:)`, the model sorting a name into its kind (owner):
 names only, never a URI, which would let a mail's "play https://…" make the player fetch. A name
@@ -248,8 +248,8 @@ server, the model and the language, whisper.cpp from apt (`R_whisper_server`); P
 posts OpenAI's shape, so a bigger model or a hosted server, an explicit opt-in, changes nothing
 here. One clip per press, like Myna: phrases at each pause would each pay the encoder's 7 s floor,
 and a clip under 0.5 s isn't sent at all. The request goes through a RubyLLM context of Core's own
-against *a desktop UI and nothing else* (owner, 2026-11-21): a URL and a key share nothing of a
-chat's transport, and pikuri has no transcriber; should it grow one, Puri moves. `[dictation]`
+(owner, 2026-11-21): a URL and a key share nothing of a chat's transport, and pikuri has no
+transcriber; should it grow one, Puri moves. `[dictation]`
 names its URL, not a `[[server]]`, which is a chat server, throttled and slot-sized. The state
 shows in a row under the entry, not the turn's progress bar: the pill, where dictation mostly
 starts, hides the transcript, and a turn's `Activity` is what Escape and the queue read. Hiding

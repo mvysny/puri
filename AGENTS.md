@@ -15,10 +15,9 @@ conversation history beside it, and the resident process that keeps the agent wa
 
 ## Promises
 
-- **Local first.** The model runs on this machine whenever it can; a hosted provider is an explicit opt-in, and pikuri's *Privacy first* holds at this layer.
-- **Search, never fetch.** The agent talks only to the configured search engines and map services and never opens a URL; every other outbound leg — a mail, an invite, a place opened from the map — waits on the human.
-- **One window.** The popup, the running conversation and every earlier one live in one app; nothing needs a second app to find an old answer.
-- **A desktop UI and nothing else.** Loop, tools, transport, and every prompt their code depends on, stay pikuri's; a behaviour implemented on both sides drifts. The system prompts are ours, mixing our own text with the fragments pikuri's extensions bring (`D_own_prompts`).
+- **Private first.** What Puri reads reaches nobody the user didn't choose. Its tools break the lethal trifecta by design: the model chooses what to ask, never where it goes. *Search, never fetch*: the agent talks only to the configured search engines and the map and weather services, and opens no URL; every leg to a person or a page — a mail, an invite, a place opened from the map — waits on the user's click. No telemetry, no account.
+- **Easy, the Apple way.** One shortcut and one window: the popup, the running conversation and every earlier one. A desktop app, never a terminal or a browser tab, so whatever the user must see, an error included, shows in the window. It works before the user configures anything; each upgrade, a smarter model or a server of their own, waits until they want it. The model stays loaded, for speed (`D_model_resident`).
+- **Yours, local first.** The source is open, the model runs on hardware the user owns, and their conversations and notes are plain files on their disk. No cloud by default: a hosted model is the user's conscious choice, and Puri says plainly that their conversations then leave.
 
 ## Design docs
 

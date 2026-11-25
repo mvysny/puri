@@ -77,6 +77,11 @@ user who wants every setting.
 
 ## The site
 
+- **The funnel** (owner, 2026-11-25): a user who tried Puri locally and got hooked is the one who
+  later sets up a desktop PC or a home server for a smarter model. The quick install is the hook,
+  so it comes before new tools. The site then leads with the quick path, and `models.html`
+  becomes the upgrade story: Ornith, a home server over Tailscale, the laptop's battery spared.
+  It can also say what Siri can't: no account, no subscription, no server of ours.
 - The CPU-only warning links to `models.html#no-gpu`.
 - Untested: the install guide's own setup on a computer with no graphics card. It installs
   `libggml0-backend-vulkan`, and with Mesa's software Vulkan (lavapipe) beside it, llama.cpp may
