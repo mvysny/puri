@@ -29,6 +29,7 @@ conversation history beside it, and the resident process that keeps the agent wa
 | `design/architecture.md` | how the pieces compose — wiring, dependency direction, threads, the flows; normative | lazy |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |
 | `design/research.md` | what Siri, the GTK stack and the map services actually do — `R_` entries, each claim with provenance | lazy |
+| `design/competitors.md` | what a user weighs Puri against, and where each stands against the promises; Siri placed, its behaviour `research.md`'s | lazy |
 | `design/ideas/` | not yet decided — one file per idea, `ls` is the index, deleted on graduation | transient |
 | doc comments | what one symbol does and why it is shaped so | at the symbol |
 

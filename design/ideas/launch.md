@@ -50,13 +50,9 @@ A table on the page, which no other assistant seems to publish. It is honest mar
 
 ### On GNOME, look first
 
-A GNOME user compares Puri with these before OpenClaw. Check what they do before the page claims
-that Puri is "the only" anything:
-
-- **Newelle** is on Flathub, runs on llama.cpp, and its 1.2 added a command-execution tool. Seen in
-  a Phoronix headline only.
-- **Alpaca** is an Ollama chat client on Flathub [from memory]. It is a chat client, not an
-  assistant with your data, as far as known.
+A GNOME user compares Puri with Newelle, Moose and Alpaca, and soon Ubuntu's launcher, before
+OpenClaw. What each does is in `design/competitors.md`. Check there before the page claims that
+Puri is "the only" anything.
 
 ## Install: what apt already does
 
@@ -304,7 +300,8 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
 - `Q_demo_data`: where does the invented profile live? It's code that `dev/` would load, per the
   module map: a Dummy-side fixture, or a separate repo?
 - `Q_video_speed`: real time on the starter model, or a cut with a caption?
-- `Q_competitors`: Newelle and Alpaca, tried before the page compares?
+- `Q_competitors`: Newelle, Moose and Alpaca, tried before the page compares? Everything in
+  `design/competitors.md` comes from reading, none of it from running.
 
 ## Sources (2026-11-23)
 
