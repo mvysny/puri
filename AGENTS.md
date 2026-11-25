@@ -50,7 +50,7 @@ Every fact lives in exactly one of these; the others link to it.
 - `lib/puri/setup/` — `Puri::Setup`, what `bin/setup` checks and fixes, the install guide's steps as code; its first stage, which runs before `bundle install`, Ruby's stdlib alone.
 - `exe/puri` — the composition root: loads GTK, Adw and Shumate, wires Core to Desktop.
 - `bin/setup` — installs Puri for the user, and, run again, is its doctor (`D_setup`).
-- `dev/` — development only, loaded by `exe/puri --dummy`, `rake eval` and the specs, never otherwise: `Puri::Dummy`, the canned backend the GTK specs drive, and `Puri::Eval`, the model eval. Code a dev-only mode loads, never loose scripts.
+- `dev/` — development only, loaded by `exe/puri --dummy`, `rake eval`, `rake fresh_install` and the specs, never otherwise: `Puri::Dummy`, the canned backend the GTK specs drive, `Puri::Eval`, the model eval, and `Puri::FreshInstall`, `bin/setup` on a fresh Ubuntu. Code a dev-only mode loads, never loose scripts.
 
 ## Conventions
 
@@ -67,6 +67,7 @@ Every fact lives in exactly one of these; the others link to it.
 - `bundle lock --add-checksums` — after any Gemfile change, or CI's frozen bundle rejects the lockfile.
 - `ADW_DISABLE_PORTAL=1 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 dbus-run-session -- exe/puri --dummy` — the app on Broadway, canned answers, on a bus of its own so a resident Puri doesn't take the launch; natively just `exe/puri`.
 - `bin/setup` — the setup and doctor; `spec/setup_spec.rb` runs it against a scratch home, with stand-ins for dpkg-query, llama-server, localsearch and Hugging Face.
+- `bundle exec rake fresh_install` — the real thing, headless: the guide's apt line, a clone of HEAD and `bin/setup` twice, on a fresh Ubuntu 26.04 in podman, then checked; `MODELS=1` downloads the models too.
 - `bundle exec rake install` / `uninstall` — the per-user D-Bus activation and the global shortcut (`HOTKEY`, `AUTOSTART=1`; README); `spec/install_spec.rb` runs it against a scratch home.
 - GTK specs start their own `gtk4-broadwayd` on `:90`–`:99` unless `GDK_BACKEND` is set.
 - `bundle exec rake eval` — the model eval, on a llama.cpp router against pikuri's demo world; `dev/puri/eval.rb` has a day's setup, `R_model_eval` the results.

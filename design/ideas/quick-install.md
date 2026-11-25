@@ -30,6 +30,8 @@ is gone (owner, 2026-11-25). Left: `models.html`.
 - **What `llama-server --list-devices` reads on the 890M** (`R_llama_list_devices`): the
   firmware's share or what the kernel lends, with and without the owner's `ttm` options. The
   setup's Ornith tip assumes a GPU reporting 30 GiB or more holds it.
-- **Both paths, top to bottom,** on a clean 26.04 VM: the quick one, and the long guide, whose
-  calendar click path (right-click the calendar → Properties → Offline Support) was written from
-  memory; check it in Thunderbird.
+- **Both paths, top to bottom,** on a clean 26.04 VM. The quick one's headless half, the apt
+  line to the doctor's second run, is `rake fresh_install`; left for the VM are the shortcut
+  opening Puri in a real session, a GPU, and the long guide, whose calendar click path
+  (right-click the calendar → Properties → Offline Support) was written from memory; check it in
+  Thunderbird.
