@@ -229,7 +229,11 @@ prompt and a tool, then a short question.
   message sent twice took 17.9 s both times. **[verified 2026-11-25]**
 - In Puri's shape the first question's first token comes after 20.4 s (the 890M: 19.9 s) and the
   next questions' after 1.4 s (0.6 s), 10,270 tokens cached. **[verified 2026-11-25]**
-- Its power draw against the 890M's: not measured. **[unverified]**
+- On battery, btop's power reading is 9 W idle with the screen on, 27.5 W while the NPU reads or
+  writes (80–100 % busy), and 43.5–44 W while the 890M does (100 % busy, fans on): 18.5 W above
+  idle against 35 W. Under that load the NPU wrote 14.8 tok/s and read 547 tok/s, the 890M 20.4
+  and 490, slower than it reads cool. So a token written costs 1.25 J against 1.7 J, and a cold
+  10K-token prompt about 340 J against 720 J. **[verified 2026-11-25, the owner reading btop]**
 
 ## R_gnome_maps — GNOME Maps 49.3 answers no queries
 
