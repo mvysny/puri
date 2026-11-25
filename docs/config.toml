@@ -89,6 +89,7 @@ tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 # your voice stays here.
 [dictation]
 url = "http://127.0.0.1:8081"
+# language = "de"   # the language you speak, as a code; without it, Whisper works it out, taking longer
 # api_key = "…"   # a hosted server only, and your voice then leaves this computer
 
 

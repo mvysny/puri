@@ -166,6 +166,40 @@ RSpec.describe Puri::Core::PikuriCore do
     end
   end
 
+  context 'on the llama-server Puri runs' do
+    let(:hub) { Puri::Core::HubCache.new(env: { 'LLAMA_CACHE' => File.join(@root, 'hub') }) }
+    let(:embedded) { FakeLlamaServer.embedded }
+    let(:llama) do
+      Puri::Core::LlamaServer.new(embedded, cache: hub, env: { 'XDG_STATE_HOME' => File.join(@root, 'state') },
+                                            command: FakeLlamaServer.command(load: 0.5)).tap(&:start)
+    end
+    let(:transport) { Pikuri::Testing.fake_transport(gate:, api_base: "#{embedded.url}/v1", &script) }
+    let(:core) do
+      described_class.new(config:, models:, titler:, store:, llama_server: llama) do |event|
+        events << p.round_trip(event)
+      end
+    end
+
+    # As for the fake's own server: the probe has nothing to ask.
+    before { Pikuri::Conversations::Throttle.limit(embedded.url, nil) }
+
+    it 'waits for the model to load, saying so, then answers' do
+      FakeLlamaServer.download(hub)
+      id = core.ask(nil, 'hi')
+      assert_equal ['Keep it <b>cold</b>.'], finished(id).blocks.last.parts.map(&:markup)
+      statuses = drain.grep(p::ActivityChanged).map { _1.activity.status }.chunk_while { _1 == _2 }.map(&:first)
+      assert_equal ['Thinking…', 'Starting the model…', 'Thinking…'], statuses.first(3)
+    end
+
+    it "fails the boot, saying what to download, when the model isn't there" do
+      id = core.ask(nil, 'hi')
+      notice = nil
+      wait_until('the notice') { notice = core.load_conversation(id).blocks.grep(p::Notice).last }
+      assert_match(/\ACan't start the agent: The model #{Regexp.escape(FakeLlamaServer::MODEL)} isn't downloaded/,
+                   notice.text)
+    end
+  end
+
   # @param id [String]
   # @return [String]
   def title(id) = core.list_conversations.find { _1.id == id }.title

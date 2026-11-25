@@ -427,6 +427,54 @@ Ubuntu 26.04's whisper.cpp 1.8.3, `ggml-small.en.bin` on 4 CPU threads of a Ryze
   was no faster and lost the punctuation. **[verified]**
 - `pw-record --raw --rate 16000 --channels 1 --format s16 -` streams the PCM to stdout as it
   records, 32 KB/s. **[verified 2026-11-21]**
+- It honours a request's `language` field over its `-l`, `auto` included. **[verified 2026-11-25, 1.9.2]**
+
+## R_whisper_cli — whisper.cpp's `whisper-cli`, once per clip
+
+whisper.cpp 1.9.2, `ggml-small.bin`, a 3 s clip, `-l en`. **[verified 2026-11-25]**
+
+- The owner's VM, 4 of 8 vCPUs of the HX 370, no GPU: 4.6–4.8 s a clip, 0.2 s of it the load
+  from the page cache, 5.2 s cold; `whisper-server` 4.1 s a request, holding 680 MB idle.
+- The owner's host, the 890M through Vulkan: 0.63 s a clip, 1.1 s the first; `whisper-server`
+  0.31 s, 0.48 s the first.
+- It loads llama.cpp's `libggml0` backends, so `libggml0-backend-vulkan` puts it on the GPU.
+- `-l auto` runs the encoder twice, once to detect the language: 9.9–11.5 s for that clip on the
+  CPU. Both binaries default to `-l en`.
+- `-f - -otxt -np -nt` reads the WAV from stdin and prints only the text, a segment a line,
+  writing no file; `-f -` without `-otxt` prints nothing.
+- `-np` hides the reason for a failure too: a missing model says only "error: failed to
+  initialize whisper context", exit 3.
+
+## R_llama_server_embedded — `llama-server` as another program's child
+
+Ubuntu 26.04's llama.cpp b10438. **[verified 2026-11-25]**
+
+- Its default CORS approves every origin, credentials included, and it takes no key unless given
+  one, so a web page may use the model as far as the browser reaches `localhost`. `/slots` shows
+  no prompt text.
+- `--cors-origins localhost` stops a page reading an answer, but a request needing no preflight
+  still runs; only a key stops that.
+- `LLAMA_API_KEY` sets the key off the command line, which `/proc` shows every user: `/props`
+  answers 401 without it, 200 with it.
+- `--offline` on an empty cache exits at once, trying no download, and says only "exactly one out
+  metadata, path_model, and file must be defined".
+- `--fit`, on by default, adjusts only the arguments left unset (`llama-server --help`). **[docs]**
+- `setpriv --pdeathsig TERM` (util-linux) has the kernel signal the child when the thread that
+  spawned it ends, the parent's `SIGKILL` included.
+- Qwen 3.5 4B Q4_K_M answers `/health` some 7 s after the spawn on the VM's CPU.
+
+## R_hub_cache — Hugging Face's hub cache, as llama.cpp's `-hf` uses it
+
+b10438, `HF_ENDPOINT` pointed at a dead port. **[verified 2026-11-25]**
+
+- `-hf` reads and writes `~/.cache/huggingface/hub` in `huggingface_hub`'s layout:
+  `models--<org>--<repo>/blobs/<sha256>`, `snapshots/<commit>/<file>` a link to its blob, and
+  `refs/main` holding the commit.
+- `LLAMA_CACHE` wins over `HF_HUB_CACHE`; `HF_HOME` and `XDG_CACHE_HOME` each move it too.
+- Offline, it finds the file through `refs/main` alone: a hand-built cache whose `refs/main`
+  named a made-up commit loaded.
+- Hugging Face's `/api/models/<repo>?blobs=true` lists the commit (`sha`) and each file's
+  SHA-256 (`lfs.sha256`), what a hand-built cache is named by.
 
 ## R_tailscale_serve — Tailscale Serve in front of llama-server and whisper-server
 

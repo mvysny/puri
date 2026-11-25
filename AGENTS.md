@@ -11,7 +11,8 @@ hardware you own.
 
 [Pikuri](https://github.com/mvysny/pikuri) owns the agent loop, the LLM transport and most tools.
 Puri adds what it takes to run it on a desktop and serve you there: the popup window, the
-conversation history beside it, and the resident process that keeps the agent warm.
+conversation history beside it, and the resident process that keeps the agent warm, and, to
+start quickly, the model server itself.
 
 ## Promises
 

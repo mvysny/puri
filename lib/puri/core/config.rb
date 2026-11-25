@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require 'securerandom'
 require 'shellwords'
+require 'socket'
 require 'tomlrb'
 require 'typemap'
 
@@ -15,12 +17,13 @@ module Puri
     #   config.primary_llm   # => Llm(name:, server:, model:, api_key:, context_window:, params:)
     #   config.titler_llm    # => the [titler] connection, never nil
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
+    #   config.embedded_server   # => EmbeddedServer(id:, model:, port:, api_key:), or nil
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
     #   config.maps          # => MapsTable(tiles:), or nil without the table
     #   config.weather       # => WeatherTable(url:), or nil without the table
-    #   config.dictation     # => DictationTable(url:, api_key:, model:), or nil without the table
+    #   config.dictation     # => DictationTable(url:, api_key:, model:, language:), or nil without the table
     #
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -29,8 +32,8 @@ module Puri
     #
     #   [[server]]                       # one box: its URL and key, stated once
     #   id      = "local"
-    #   url     = "http://localhost:8080"
-    #   api_key = "…"                    # optional; a local llama-server needs none
+    #   url     = "http://localhost:8080"  # optional; omitted, Puri runs llama-server itself
+    #   api_key = "…"                    # optional, and only with a url; a local llama-server needs none
     #   max_concurrent_requests = 1      # optional; omitted, sized from the server's slots
     #
     #   [[llm]]                          # one model on a box; the first is the conversations'
@@ -62,9 +65,17 @@ module Puri
     #   url = "https://api.open-meteo.com"   # optional, the default; a self-hosted Open-Meteo
     #
     #   [dictation]                      # optional; omitted, the prompt has no mic
-    #   url     = "http://127.0.0.1:8081"  # required; an OpenAI-style transcription server
-    #   api_key = "…"                    # optional; a local whisper-server needs none
-    #   model   = "whisper-1"            # optional, the default; whisper-server ignores it
+    #   url      = "http://127.0.0.1:8081"  # optional; an OpenAI-style transcription server, and
+    #                                       # without it Puri runs whisper-cli once per clip
+    #   api_key  = "…"                   # optional, and only with a url
+    #   model    = "whisper-1"           # with a url, optional, the default, which whisper-server
+    #                                    # ignores; without, required: the file whisper-cli loads,
+    #                                    # "ggerganov/whisper.cpp:ggml-small.bin"
+    #   language = "auto"                # optional, the default; or a code such as "de"
+    #
+    # A `[[server]]` without a `url` is the llama-server Puri runs itself (`D_embedded`), on the one
+    # model every `[[llm]]` on it names, `org/repo:quant` as `-hf` takes it; at most one may lack
+    # a `url`.
     #
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -94,7 +105,9 @@ module Puri
       # @!attribute [r] id
       #   @return [String] what an `[[llm]]`'s `server` names; never shown, never stored
       # @!attribute [r] url
-      #   @return [String] base URL, with or without `/v1`; pikuri strips it either way
+      #   @return [String, nil] base URL, with or without `/v1`; pikuri strips it either way. Nil
+      #     only as the file writes the server Puri runs itself: {Config.load} fills in its
+      #     {EmbeddedServer#url}.
       # @!attribute [r] api_key
       #   @return [String, nil] the key, stored literally, or nil for a server that needs none.
       #     In this file rather than an env var, which every subprocess would inherit.
@@ -108,16 +121,41 @@ module Puri
         constrain :max_concurrent_requests, in: (1..)
 
         # @param id [String]
-        # @param url [String]
+        # @param url [String, nil]
         # @param api_key [String, nil]
         # @param max_concurrent_requests [Integer, nil]
-        def initialize(id:, url:, api_key: nil, max_concurrent_requests: nil) = super
+        def initialize(id:, url: nil, api_key: nil, max_concurrent_requests: nil) = super
 
         # Names the entry in a schema error: `server[1] "local".url: required`.
         #
         # @param raw [Hash{String => Object}] the entry as written, unchecked
         # @return [Object] its `id`
         def self.entry_name(raw) = raw['id']
+      end
+
+      # The llama-server Puri runs itself, for the `[[server]]` with no `url` (`D_embedded`): the
+      # one model its `[[llm]]`s name, and the loopback port and key {Config.load} picks for this
+      # run, the same for every restart within it.
+      #
+      #   config.embedded_server.url   # => "http://127.0.0.1:41235"
+      #
+      # @!attribute [r] id
+      #   @return [String] its `[[server]]`'s
+      # @!attribute [r] model
+      #   @return [String] `org/repo:quant`, what `-hf` loads
+      # @!attribute [r] port
+      #   @return [Integer] a free one on 127.0.0.1
+      # @!attribute [r] api_key
+      #   @return [String] fresh each run, so nothing else on the machine may use the model
+      class EmbeddedServer < Data.define(:id, :model, :port, :api_key)
+        # @return [String] what its `[[llm]]`s connect to
+        def url = "http://127.0.0.1:#{port}"
+
+        # Data's own would print the key into any log line.
+        #
+        # @return [String]
+        def inspect = "#<#{self.class} id=#{id.inspect} model=#{model.inspect} port=#{port} api_key=[REDACTED]>"
+        alias to_s inspect
       end
 
       # One model connection, its `[[server]]` resolved into it; its fields are
@@ -282,26 +320,38 @@ module Puri
         def initialize(url: Weather::OpenMeteo::URL) = super
       end
 
-      # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): an
-      # OpenAI-style transcription server of the user's own, whisper.cpp's `whisper-server` on
-      # this machine unless they opt into a hosted one. Its own URL, not a `[[server]]` id: those
-      # are chat servers.
+      # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): with a
+      # `url`, an OpenAI-style transcription server of the user's own, whisper.cpp's
+      # `whisper-server` unless they opt into a hosted one; without, `whisper-cli` on this
+      # machine, run once per clip (`D_embedded`). Its own URL, not a `[[server]]` id: those are
+      # chat servers.
       #
       # @!attribute [r] url
-      #   @return [String] base URL, with or without `/v1`
+      #   @return [String, nil] base URL, with or without `/v1`; nil for `whisper-cli`
       # @!attribute [r] api_key
       #   @return [String, nil] the key, or nil for a server that needs none
       # @!attribute [r] model
-      #   @return [String] what the request names; `whisper-server` ignores it
-      class DictationTable < Data.define(:url, :api_key, :model)
+      #   @return [String, nil] with a `url`, what the request names, which `whisper-server`
+      #     ignores; without, the file `whisper-cli` loads, `org/repo:file` in the {HubCache}.
+      #     Nil only as the file writes it: {Config.load} fills in `whisper-1` for a server.
+      # @!attribute [r] language
+      #   @return [String] what is spoken, a code such as `de`, or {AUTO}
+      class DictationTable < Data.define(:url, :api_key, :model, :language)
         extend Typemap::Constrain
 
-        constrain :url, :model, not_blank: true
+        # Whisper detects the language: `whisper-cli` at the price of a second encoder pass,
+        # 4.6 s more for a clip on a CPU (`R_whisper_cli`); a server is left its own `-l`.
+        #
+        # @return [String]
+        AUTO = 'auto'
 
-        # @param url [String]
+        constrain :url, :model, :language, not_blank: true
+
+        # @param url [String, nil]
         # @param api_key [String, nil]
-        # @param model [String]
-        def initialize(url:, api_key: nil, model: 'whisper-1') = super
+        # @param model [String, nil]
+        # @param language [String]
+        def initialize(url: nil, api_key: nil, model: nil, language: AUTO) = super
       end
 
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
@@ -384,8 +434,8 @@ module Puri
       #   their own
       # @return [Puri::Core::Config]
       # @raise [Error] when no file exists, a file can't be read or parsed, a value breaks the
-      #   schema, no `[[llm]]` or `[titler]` is defined, `[search]` names an engine it can't use, or
-      #   `[weather]` comes without `[maps]`
+      #   schema, no `[[llm]]` or `[titler]` is defined, the `[[server]]` Puri runs itself breaks
+      #   its rules, `[search]` names an engine it can't use, or `[weather]` comes without `[maps]`
       def self.load(env: ENV)
         files = candidate_paths(env).select { |path| File.file?(path) }
         raise Error, "no config file found. #{copy_example(env)}" if files.empty?
@@ -399,9 +449,14 @@ module Puri
         raise Error, "no [[llm]] is defined; #{EXAMPLE} has one, commented" if root.llm.empty?
         raise Error, "no [titler] names the connection that writes titles; #{EXAMPLE} has one" unless root.titler
 
-        servers = root.server.to_h { |server| [server.id, server] }
-        llms = root.llm.map { |table| resolve_llm(table, servers) }
-        new(llms:, servers: root.server, titler_llm: resolve_titler(root.titler, llms),
+        embedded = resolve_embedded(root.server, root.llm)
+        servers = root.server.filter_map do |server|
+          next server if server.url
+
+          server.with(url: embedded.url, api_key: embedded.api_key) if embedded
+        end
+        llms = root.llm.map { |table| resolve_llm(table, servers.to_h { [_1.id, _1] }) }
+        new(llms:, servers:, embedded_server: embedded, titler_llm: resolve_titler(root.titler, llms),
             search: resolve_search(root.search), thunderbird: resolve_thunderbird(root.thunderbird),
             documents: root.documents && resolve_documents(root.documents, env),
             maps: root.maps && resolve_maps(root.maps),
@@ -412,6 +467,8 @@ module Puri
       # @param llms [Array<Puri::Core::Config::Llm>] never empty
       # @param servers [Array<Puri::Core::Config::Server>] the `[[server]]` entries `llms` were
       #   resolved against
+      # @param embedded_server [Puri::Core::Config::EmbeddedServer, nil] the llama-server Puri runs
+      #   itself, or nil
       # @param titler_llm [Puri::Core::Config::Llm]
       # @param search [Puri::Core::Config::SearchTable, nil] a keyed `[search]`, or nil
       # @param thunderbird [Puri::Core::Config::ThunderbirdTable, nil] an enabled `[thunderbird]`,
@@ -420,10 +477,11 @@ module Puri
       # @param maps [Puri::Core::Config::MapsTable, nil] the `[maps]` table, or nil
       # @param weather [Puri::Core::Config::WeatherTable, nil] the `[weather]` table, or nil
       # @param dictation [Puri::Core::Config::DictationTable, nil] the `[dictation]` table, or nil
-      def initialize(llms:, servers:, titler_llm:, search: nil, thunderbird: nil, documents: nil, maps: nil,
-                     weather: nil, dictation: nil)
+      def initialize(llms:, servers:, titler_llm:, embedded_server: nil, search: nil, thunderbird: nil,
+                     documents: nil, maps: nil, weather: nil, dictation: nil)
         @llms = llms.freeze
         @servers = servers.freeze
+        @embedded_server = embedded_server
         @titler_llm = titler_llm
         @search = search
         @thunderbird = thunderbird
@@ -437,9 +495,14 @@ module Puri
       # @return [Array<Puri::Core::Config::Llm>] every connection, in file order; never empty
       attr_reader :llms
 
-      # @return [Array<Puri::Core::Config::Server>] every `[[server]]`, in file order, those no
-      #   `[[llm]]` names included
+      # @return [Array<Puri::Core::Config::Server>] every `[[server]]`, in file order, with a
+      #   `url` each: those no `[[llm]]` names included, but not one with no `url` that none names,
+      #   since Puri runs no server without a model
       attr_reader :servers
+
+      # @return [Puri::Core::Config::EmbeddedServer, nil] the llama-server Puri runs itself; nil
+      #   when every `[[server]]` an `[[llm]]` names has a `url`
+      attr_reader :embedded_server
 
       # @return [Puri::Core::Config::Llm] the connection `[titler]` names
       attr_reader :titler_llm
@@ -542,6 +605,49 @@ module Puri
         MAPPER.load(Root, merged, source: :toml)
       rescue Typemap::DataError => e
         raise Error, e.message
+      end
+
+      # The `[[server]]` with no `url`, if any `[[llm]]` names it, given a free port on loopback and
+      # a fresh key.
+      #
+      # @param servers [Array<Puri::Core::Config::Server>] as the file writes them
+      # @param llms [Array<Puri::Core::Config::LlmTable>]
+      # @return [Puri::Core::Config::EmbeddedServer, nil]
+      # @raise [Error] for two servers with no `url`, a key on one, or its `[[llm]]`s naming two
+      #   models, or one `-hf` can't take
+      def self.resolve_embedded(servers, llms)
+        bare = servers.reject(&:url)
+        if bare.size > 1
+          raise Error, "#{bare.map { "server #{_1.id.inspect}" }.join(' and ')} have no url, and Puri runs " \
+                       'one llama-server of its own; give all but one a url'
+        end
+        server = bare.first or return nil
+        if server.api_key
+          raise Error, "server #{server.id.inspect}: an api_key goes with a url; Puri makes its own key " \
+                       'for the llama-server it runs'
+        end
+        on = llms.select { _1.server == server.id }
+        models = on.map(&:model).uniq
+        return nil if models.empty?
+
+        unless models.one?
+          raise Error, "#{on.map { "llm #{_1.name.inspect}" }.join(', ')}: server #{server.id.inspect} is the " \
+                       'llama-server Puri runs, on one model; name the same model'
+        end
+        unless models.first.match?(HubCache::GGUF_MODEL)
+          raise Error, "llm #{on.first.name.inspect}: #{models.first.inspect} is no Hugging Face repo, " \
+                       'org/repo:quant, for the llama-server Puri runs on server ' \
+                       "#{server.id.inspect}; e.g. ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+        end
+        EmbeddedServer.new(id: server.id, model: models.first, port: free_port, api_key: SecureRandom.hex(32))
+      end
+
+      # @return [Integer] a port on 127.0.0.1 nothing listens on, as of now
+      def self.free_port
+        socket = TCPServer.new('127.0.0.1', 0)
+        socket.addr[1]
+      ensure
+        socket&.close
       end
 
       # @param table [Puri::Core::Config::LlmTable]
@@ -651,10 +757,24 @@ module Puri
       end
 
       # @param table [Puri::Core::Config::DictationTable]
-      # @return [Puri::Core::Config::DictationTable] `table`
-      # @raise [Error] when `url` isn't http(s)
+      # @return [Puri::Core::Config::DictationTable] `table`, `model` filled in for a server
+      # @raise [Error] for a language that's no code, a `url` that isn't http(s), or, without
+      #   one, a key, or a `model` that names no file of a repo
       def self.resolve_dictation(table)
-        raise Error, "dictation.url: #{table.url} is no http(s) URL" unless table.url.match?(%r{\Ahttps?://}i)
+        unless table.language.match?(/\A(?:#{DictationTable::AUTO}|[a-z]{2,3})\z/o)
+          raise Error, "dictation.language: #{table.language.inspect} is no language code such as en or de, " \
+                       "nor #{DictationTable::AUTO}"
+        end
+        if table.url
+          raise Error, "dictation.url: #{table.url} is no http(s) URL" unless table.url.match?(%r{\Ahttps?://}i)
+
+          return table.with(model: table.model || 'whisper-1')
+        end
+        raise Error, 'dictation.api_key: a key goes with a url; whisper-cli here takes none' if table.api_key
+        unless table.model&.match?(HubCache::FILE_MODEL)
+          raise Error, 'dictation.model: without a url, Puri runs whisper-cli, which needs the model it loads, ' \
+                       'org/repo:file, e.g. ggerganov/whisper.cpp:ggml-small.bin'
+        end
 
         table
       end
@@ -668,7 +788,8 @@ module Puri
       end
 
       private_class_method :candidate_paths, :home, :config_home, :warn_loose_perms, :keys?, :parse_file,
-                           :deep_merge, :map, :resolve_llm, :resolve_titler, :resolve_search,
+                           :deep_merge, :map, :resolve_embedded, :free_port, :resolve_llm, :resolve_titler,
+                           :resolve_search,
                            :resolve_thunderbird, :resolve_documents, :desktop_documents, :resolve_maps,
                            :resolve_weather, :resolve_dictation, :copy_example
     end

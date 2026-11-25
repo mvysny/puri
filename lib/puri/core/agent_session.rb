@@ -71,6 +71,11 @@ module Puri
           files.map { File.read(File.join(PROMPTS, _1)).rstrip }.join("\n")
         end
 
+        # What a conversation shows while its agent waits for the llama-server Puri runs.
+        #
+        # @return [Puri::Protocol::Activity]
+        STARTING_MODEL = Protocol::Activity.new(state: 'working', status: 'Starting the model…')
+
         # @return [Confirmer, nil] the latest agent's; nil until one has booted
         attr_reader :confirmer
 
@@ -85,8 +90,10 @@ module Puri
         # @param open_meteo [Puri::Core::Weather::OpenMeteo, nil] what `weather` asks, beside the
         #   place tools; nil wires none
         # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what `play_music` plays in; nil wires none
+        # @param llama_server [Puri::Core::LlamaServer, nil] the one Puri runs, which an agent on it
+        #   waits for
         def initialize(config, conversation, lock:, library: nil, cache_dir: PikuriCore.cache_dir, osm: nil,
-                       notebook: nil, open_meteo: nil, rhythmbox: nil)
+                       notebook: nil, open_meteo: nil, rhythmbox: nil, llama_server: nil)
           @config = config
           @conversation = conversation
           @lock = lock
@@ -96,6 +103,7 @@ module Puri
           @notebook = notebook
           @open_meteo = @osm && open_meteo
           @rhythmbox = rhythmbox
+          @llama_server = llama_server
           @confirmer = nil
         end
 
@@ -134,10 +142,16 @@ module Puri
         # extension, and the documents' search and file tools. An extension is built afresh for
         # each agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         #
+        # An agent on the llama-server Puri runs first waits for its model to load, showing
+        # {STARTING_MODEL}: its turn's first request would fail, and the gem's probe would then
+        # forget the server for a minute (`D_embedded`). A cancel waits for the load too.
+        #
         # @param configurator [Pikuri::Agent::Configurator]
-        # @param _conversation [Pikuri::Conversations::Conversation] this session's
+        # @param conversation [Pikuri::Conversations::Conversation] this session's
         # @return [void]
-        def configure(configurator, _conversation)
+        # @raise [Puri::Core::LlamaServer::Error] when that model can't load, which fails the boot
+        def configure(configurator, conversation)
+          await_model(conversation)
           @confirmer = Confirmer.new(@conversation, lock: @lock)
           configurator.add_tool(Pikuri::Tool::CALCULATOR)
           configurator.add_tools(web_tools)
@@ -155,6 +169,15 @@ module Puri
         end
 
         private
+
+        # @param conversation [Pikuri::Conversations::Conversation] the one booting
+        # @return [void]
+        def await_model(conversation)
+          return unless @llama_server&.serves?(conversation.status.model)
+
+          @conversation.step(STARTING_MODEL) unless @llama_server.ready?
+          @llama_server.wait_ready
+        end
 
         # The memory is read once per agent, so a change the agent makes reaches the prompt in
         # the next conversation: rewriting this one's would cost the server's cache of it, for a
@@ -241,8 +264,10 @@ module Puri
       # @param open_meteo [Puri::Core::Weather::OpenMeteo, nil] what its weather tool asks; nil, or
       #   no `[weather]`, wires none
       # @param rhythmbox [Puri::Core::Music::Rhythmbox, nil] what `play_music` plays in; nil wires none
+      # @param llama_server [Puri::Core::LlamaServer, nil] the one Puri runs, which an agent on it
+      #   waits for
       def initialize(conversation, entry:, store:, conversations:, transport:, models:, config:, lock:, saved:,
-                     library: nil, osm: nil, open_meteo: nil, rhythmbox: nil)
+                     library: nil, osm: nil, open_meteo: nil, rhythmbox: nil, llama_server: nil)
         super()
         @conversation = conversation
         @entry = entry
@@ -256,7 +281,7 @@ module Puri
         @initializer = self.class::Initializer.new(config, conversation, lock:, library:,
                                                                          osm: (osm if config.maps), notebook: @notebook,
                                                                          open_meteo: (open_meteo if config.weather),
-                                                                         rhythmbox:)
+                                                                         rhythmbox:, llama_server:)
         @lock = lock
         @saved = saved
         @untitled = !saved || store.stamp_titled?(entry) || entry.title == Conversation::NEW_TITLE

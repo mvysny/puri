@@ -5,10 +5,10 @@ require 'monitor'
 module Puri
   module Core
     # The mic in the prompt (`D_dictation`): one clip per press, recorded by {Recorder},
-    # transcribed by {Transcriber} on the user's own server, every step a
-    # {Protocol::DictationChanged}.
+    # transcribed by {Transcriber} on the user's own server or by {WhisperCli} on this machine,
+    # every step a {Protocol::DictationChanged}.
     #
-    #   dictation = Dictation.new(transcriber: Dictation::Transcriber.new(config.dictation)) { |event| … }
+    #   dictation = Dictation.new(transcriber: Dictation.transcriber(config.dictation)) { |event| … }
     #   dictation.toggle   # listening, its level ~15 times a second
     #   dictation.toggle   # transcribing, then idle with text: "Buy avocados."
     #   dictation.cancel   # Escape: idle, nothing inserted; a late transcription is dropped
@@ -30,7 +30,24 @@ module Puri
       # @return [Logger]
       LOGGER = Pikuri.logger_for('Dictation')
 
-      # @param transcriber [Puri::Core::Dictation::Transcriber, #transcribe]
+      # @param table [Puri::Core::Config::DictationTable]
+      # @return [Puri::Core::Dictation::Transcriber, Puri::Core::Dictation::WhisperCli] the
+      #   server's with a `url`, else `whisper-cli`
+      def self.transcriber(table) = table.url ? Transcriber.new(table) : WhisperCli.new(table)
+
+      # What to insert of Whisper's text:
+      #
+      #   Dictation.squeeze(" Buy avocados\n and limes.\n")   # => "Buy avocados and limes."
+      #   Dictation.squeeze(" [BLANK_AUDIO]\n")                # => ""
+      #
+      # @param text [String] as Whisper wrote it, a segment a line
+      # @return [String] squeezed to single spaces; empty when Whisper heard only its bracketed tags
+      def self.squeeze(text)
+        squeezed = text.split.join(' ')
+        squeezed.gsub(/\[[^\]]*\]/, '').strip.empty? ? '' : squeezed
+      end
+
+      # @param transcriber [Puri::Core::Dictation::Transcriber, Puri::Core::Dictation::WhisperCli, #transcribe]
       # @param command [Array<String>] the {Recorder}'s
       # @yieldparam event [Puri::Protocol::DictationChanged] on whichever thread caused it
       # @yieldreturn [void]

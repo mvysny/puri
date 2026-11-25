@@ -453,12 +453,13 @@ module Puri
     #   config.primary_llm   # => Llm(name:, server:, model:, api_key:, context_window:, params:)
     #   config.titler_llm    # => the [titler] connection, never nil
     #   config.servers       # => [Server(id:, url:, api_key:, max_concurrent_requests:)]
+    #   config.embedded_server   # => EmbeddedServer(id:, model:, port:, api_key:), or nil
     #   config.search        # => SearchTable(brave_key:, exa_key:, engines:), or nil with no key
     #   config.thunderbird   # => ThunderbirdTable(enabled:, profile_dir:), or nil when switched off
     #   config.documents     # => Documents(folder:), or nil without the table
     #   config.maps          # => MapsTable(tiles:), or nil without the table
     #   config.weather       # => WeatherTable(url:), or nil without the table
-    #   config.dictation     # => DictationTable(url:, api_key:, model:), or nil without the table
+    #   config.dictation     # => DictationTable(url:, api_key:, model:, language:), or nil without the table
     # 
     # The file is Puri's own, `$XDG_CONFIG_HOME/puri/config.toml` (default `~/.config`), never
     # the `pikuri/config.toml` pikuri-tui and pikuri-web share; no other app writes it, so the
@@ -467,8 +468,8 @@ module Puri
     # 
     #   [[server]]                       # one box: its URL and key, stated once
     #   id      = "local"
-    #   url     = "http://localhost:8080"
-    #   api_key = "…"                    # optional; a local llama-server needs none
+    #   url     = "http://localhost:8080"  # optional; omitted, Puri runs llama-server itself
+    #   api_key = "…"                    # optional, and only with a url; a local llama-server needs none
     #   max_concurrent_requests = 1      # optional; omitted, sized from the server's slots
     # 
     #   [[llm]]                          # one model on a box; the first is the conversations'
@@ -500,9 +501,17 @@ module Puri
     #   url = "https://api.open-meteo.com"   # optional, the default; a self-hosted Open-Meteo
     # 
     #   [dictation]                      # optional; omitted, the prompt has no mic
-    #   url     = "http://127.0.0.1:8081"  # required; an OpenAI-style transcription server
-    #   api_key = "…"                    # optional; a local whisper-server needs none
-    #   model   = "whisper-1"            # optional, the default; whisper-server ignores it
+    #   url      = "http://127.0.0.1:8081"  # optional; an OpenAI-style transcription server, and
+    #                                       # without it Puri runs whisper-cli once per clip
+    #   api_key  = "…"                   # optional, and only with a url
+    #   model    = "whisper-1"           # with a url, optional, the default, which whisper-server
+    #                                    # ignores; without, required: the file whisper-cli loads,
+    #                                    # "ggerganov/whisper.cpp:ggml-small.bin"
+    #   language = "auto"                # optional, the default; or a code such as "de"
+    # 
+    # A `[[server]]` without a `url` is the llama-server Puri runs itself (`D_embedded`), on the one
+    # model every `[[llm]]` on it names, `org/repo:quant` as `-hf` takes it; at most one may lack
+    # a `url`.
     # 
     # `params` is a passthrough, since how to switch thinking off differs per server and per chat
     # template; only its shape is checked here.
@@ -537,6 +546,8 @@ module Puri
       # 
       # _@param_ `servers` — the `[[server]]` entries `llms` were resolved against
       # 
+      # _@param_ `embedded_server` — the llama-server Puri runs itself, or nil
+      # 
       # _@param_ `titler_llm`
       # 
       # _@param_ `search` — a keyed `[search]`, or nil
@@ -554,6 +565,7 @@ module Puri
                         llms: ::Array[Puri::Core::Config::Llm],
                         servers: ::Array[Puri::Core::Config::Server],
                         titler_llm: Puri::Core::Config::Llm,
+                        ?embedded_server: Puri::Core::Config::EmbeddedServer?,
                         ?search: Puri::Core::Config::SearchTable?,
                         ?thunderbird: Puri::Core::Config::ThunderbirdTable?,
                         ?documents: Puri::Core::Config::Documents?,
@@ -607,6 +619,17 @@ module Puri
 
       # _@param_ `merged`
       def self.map: (::Hash[String, Object] merged) -> Puri::Core::Config::Root
+
+      # The `[[server]]` with no `url`, if any `[[llm]]` names it, given a free port on loopback and
+      # a fresh key.
+      # 
+      # _@param_ `servers` — as the file writes them
+      # 
+      # _@param_ `llms`
+      def self.resolve_embedded: (::Array[Puri::Core::Config::Server] servers, ::Array[Puri::Core::Config::LlmTable] llms) -> Puri::Core::Config::EmbeddedServer?
+
+      # _@return_ — a port on 127.0.0.1 nothing listens on, as of now
+      def self.free_port: () -> Integer
 
       # _@param_ `table`
       # 
@@ -667,7 +690,7 @@ module Puri
 
       # _@param_ `table`
       # 
-      # _@return_ — `table`
+      # _@return_ — `table`, `model` filled in for a server
       def self.resolve_dictation: (Puri::Core::Config::DictationTable table) -> Puri::Core::Config::DictationTable
 
       # _@param_ `env`
@@ -678,9 +701,14 @@ module Puri
       # _@return_ — every connection, in file order; never empty
       attr_reader llms: ::Array[Puri::Core::Config::Llm]
 
-      # _@return_ — every `[[server]]`, in file order, those no
-      # `[[llm]]` names included
+      # _@return_ — every `[[server]]`, in file order, with a
+      # `url` each: those no `[[llm]]` names included, but not one with no `url` that none names,
+      # since Puri runs no server without a model
       attr_reader servers: ::Array[Puri::Core::Config::Server]
+
+      # _@return_ — the llama-server Puri runs itself; nil
+      # when every `[[server]]` an `[[llm]]` names has a `url`
+      attr_reader embedded_server: Puri::Core::Config::EmbeddedServer?
 
       # _@return_ — the connection `[titler]` names
       attr_reader titler_llm: Puri::Core::Config::Llm
@@ -719,7 +747,9 @@ module Puri
       # @!attribute [r] id
       #   @return [String] what an `[[llm]]`'s `server` names; never shown, never stored
       # @!attribute [r] url
-      #   @return [String] base URL, with or without `/v1`; pikuri strips it either way
+      #   @return [String, nil] base URL, with or without `/v1`; pikuri strips it either way. Nil
+      #     only as the file writes the server Puri runs itself: {Config.load} fills in its
+      #     {EmbeddedServer#url}.
       # @!attribute [r] api_key
       #   @return [String, nil] the key, stored literally, or nil for a server that needs none.
       #     In this file rather than an env var, which every subprocess would inherit.
@@ -738,7 +768,7 @@ module Puri
         # _@param_ `max_concurrent_requests`
         def initialize: (
                           id: String,
-                          url: String,
+                          ?url: String?,
                           ?api_key: String?,
                           ?max_concurrent_requests: Integer?
                         ) -> void
@@ -753,8 +783,10 @@ module Puri
         # _@return_ — what an `[[llm]]`'s `server` names; never shown, never stored
         attr_reader id: String
 
-        # _@return_ — base URL, with or without `/v1`; pikuri strips it either way
-        attr_reader url: String
+        # _@return_ — base URL, with or without `/v1`; pikuri strips it either way. Nil
+        # only as the file writes the server Puri runs itself: {Config.load} fills in its
+        # {EmbeddedServer#url}.
+        attr_reader url: String?
 
         # _@return_ — the key, stored literally, or nil for a server that needs none.
         # In this file rather than an env var, which every subprocess would inherit.
@@ -763,6 +795,40 @@ module Puri
         # _@return_ — a `Pikuri::Conversations::Throttle` limit, or nil to size it from
         # the server's own `total_slots`
         attr_reader max_concurrent_requests: Integer?
+      end
+
+      # The llama-server Puri runs itself, for the `[[server]]` with no `url` (`D_embedded`): the
+      # one model its `[[llm]]`s name, and the loopback port and key {Config.load} picks for this
+      # run, the same for every restart within it.
+      # 
+      #   config.embedded_server.url   # => "http://127.0.0.1:41235"
+      # 
+      # @!attribute [r] id
+      #   @return [String] its `[[server]]`'s
+      # @!attribute [r] model
+      #   @return [String] `org/repo:quant`, what `-hf` loads
+      # @!attribute [r] port
+      #   @return [Integer] a free one on 127.0.0.1
+      # @!attribute [r] api_key
+      #   @return [String] fresh each run, so nothing else on the machine may use the model
+      class EmbeddedServer
+        # _@return_ — what its `[[llm]]`s connect to
+        def url: () -> String
+
+        # Data's own would print the key into any log line.
+        def inspect: () -> String
+
+        # _@return_ — its `[[server]]`'s
+        attr_reader id: String
+
+        # _@return_ — `org/repo:quant`, what `-hf` loads
+        attr_reader model: String
+
+        # _@return_ — a free one on 127.0.0.1
+        attr_reader port: Integer
+
+        # _@return_ — fresh each run, so nothing else on the machine may use the model
+        attr_reader api_key: String
       end
 
       # One model connection, its `[[server]]` resolved into it; its fields are
@@ -998,35 +1064,53 @@ module Puri
         attr_reader url: String
       end
 
-      # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): an
-      # OpenAI-style transcription server of the user's own, whisper.cpp's `whisper-server` on
-      # this machine unless they opt into a hosted one. Its own URL, not a `[[server]]` id: those
-      # are chat servers.
+      # The `[dictation]` table, which turns on the mic in the prompt (`D_dictation`): with a
+      # `url`, an OpenAI-style transcription server of the user's own, whisper.cpp's
+      # `whisper-server` unless they opt into a hosted one; without, `whisper-cli` on this
+      # machine, run once per clip (`D_embedded`). Its own URL, not a `[[server]]` id: those are
+      # chat servers.
       # 
       # @!attribute [r] url
-      #   @return [String] base URL, with or without `/v1`
+      #   @return [String, nil] base URL, with or without `/v1`; nil for `whisper-cli`
       # @!attribute [r] api_key
       #   @return [String, nil] the key, or nil for a server that needs none
       # @!attribute [r] model
-      #   @return [String] what the request names; `whisper-server` ignores it
+      #   @return [String, nil] with a `url`, what the request names, which `whisper-server`
+      #     ignores; without, the file `whisper-cli` loads, `org/repo:file` in the {HubCache}.
+      #     Nil only as the file writes it: {Config.load} fills in `whisper-1` for a server.
+      # @!attribute [r] language
+      #   @return [String] what is spoken, a code such as `de`, or {AUTO}
       class DictationTable
         extend Typemap::Constrain
+        AUTO: String
 
         # _@param_ `url`
         # 
         # _@param_ `api_key`
         # 
         # _@param_ `model`
-        def initialize: (url: String, ?api_key: String?, ?model: String) -> void
+        # 
+        # _@param_ `language`
+        def initialize: (
+                          ?url: String?,
+                          ?api_key: String?,
+                          ?model: String?,
+                          ?language: String
+                        ) -> void
 
-        # _@return_ — base URL, with or without `/v1`
-        attr_reader url: String
+        # _@return_ — base URL, with or without `/v1`; nil for `whisper-cli`
+        attr_reader url: String?
 
         # _@return_ — the key, or nil for a server that needs none
         attr_reader api_key: String?
 
-        # _@return_ — what the request names; `whisper-server` ignores it
-        attr_reader model: String
+        # _@return_ — with a `url`, what the request names, which `whisper-server`
+        # ignores; without, the file `whisper-cli` loads, `org/repo:file` in the {HubCache}.
+        # Nil only as the file writes it: {Config.load} fills in `whisper-1` for a server.
+        attr_reader model: String?
+
+        # _@return_ — what is spoken, a code such as `de`, or {AUTO}
+        attr_reader language: String
       end
 
       # The folder the agent searches and reads, and writes only in its {#notes}. Search goes
@@ -1166,7 +1250,8 @@ module Puri
       def name_for: (Pikuri::Agent::ChatTransport transport) -> String
 
       # `meta.json` keeps the model and the server, not the params, so of two connections that
-      # differ only in params the first in the file wins.
+      # differ only in params the first in the file wins. The llama-server Puri runs gets a new
+      # port every run, so failing the server, a connection to it on the same model will do.
       # 
       # _@param_ `entry`
       # 
@@ -1178,10 +1263,22 @@ module Puri
       #   @return [String]
       # @!attribute [r] transport
       #   @return [Pikuri::Agent::ChatTransport]
+      # @!attribute [r] embedded
+      #   @return [Boolean] whether it runs on the llama-server Puri runs itself
       class Choice
+        # _@param_ `name`
+        # 
+        # _@param_ `transport`
+        # 
+        # _@param_ `embedded`
+        def initialize: (name: String, transport: Pikuri::Agent::ChatTransport, ?embedded: bool) -> void
+
         attr_reader name: String
 
         attr_reader transport: Pikuri::Agent::ChatTransport
+
+        # _@return_ — whether it runs on the llama-server Puri runs itself
+        attr_reader embedded: bool
       end
     end
 
@@ -2458,10 +2555,10 @@ module Puri
     end
 
     # The mic in the prompt (`D_dictation`): one clip per press, recorded by {Recorder},
-    # transcribed by {Transcriber} on the user's own server, every step a
-    # {Protocol::DictationChanged}.
+    # transcribed by {Transcriber} on the user's own server or by {WhisperCli} on this machine,
+    # every step a {Protocol::DictationChanged}.
     # 
-    #   dictation = Dictation.new(transcriber: Dictation::Transcriber.new(config.dictation)) { |event| … }
+    #   dictation = Dictation.new(transcriber: Dictation.transcriber(config.dictation)) { |event| … }
     #   dictation.toggle   # listening, its level ~15 times a second
     #   dictation.toggle   # transcribing, then idle with text: "Buy avocados."
     #   dictation.cancel   # Escape: idle, nothing inserted; a late transcription is dropped
@@ -2476,10 +2573,26 @@ module Puri
       MIN_SECONDS: Float
       LOGGER: Logger
 
+      # _@param_ `table`
+      # 
+      # _@return_ — the
+      # server's with a `url`, else `whisper-cli`
+      def self.transcriber: (Puri::Core::Config::DictationTable table) -> (Puri::Core::Dictation::Transcriber | Puri::Core::Dictation::WhisperCli)
+
+      # What to insert of Whisper's text:
+      # 
+      #   Dictation.squeeze(" Buy avocados\n and limes.\n")   # => "Buy avocados and limes."
+      #   Dictation.squeeze(" [BLANK_AUDIO]\n")                # => ""
+      # 
+      # _@param_ `text` — as Whisper wrote it, a segment a line
+      # 
+      # _@return_ — squeezed to single spaces; empty when Whisper heard only its bracketed tags
+      def self.squeeze: (String text) -> String
+
       # _@param_ `transcriber`
       # 
       # _@param_ `command` — the {Recorder}'s
-      def initialize: (transcriber: (Puri::Core::Dictation::Transcriber | untyped), ?command: ::Array[String]) ?{ (Puri::Protocol::DictationChanged event) -> void } -> void
+      def initialize: (transcriber: (Puri::Core::Dictation::Transcriber | Puri::Core::Dictation::WhisperCli | untyped), ?command: ::Array[String]) ?{ (Puri::Protocol::DictationChanged event) -> void } -> void
 
       # F5: starts listening, or stops and transcribes what was heard; a press while it
       # transcribes does nothing. {DictationChanged} reports each step, its `idle` carrying the
@@ -2614,6 +2727,116 @@ module Puri
         class Error < StandardError
         end
       end
+
+      # Turns a clip into text with apt's `whisper-cli`, run once per clip on the `[dictation]`
+      # model, so no process holds that model between clips (`D_embedded`):
+      # 
+      #   whisper = WhisperCli.new(config.dictation)
+      #   whisper.transcribe(pcm)   # => "Buy avocados and limes."
+      # 
+      # The WAV goes in on stdin and the text comes out on stdout, so the voice never touches the
+      # disk. The model is looked up in the {HubCache} at every clip: one downloaded while Puri runs
+      # works from the next press.
+      # 
+      # == Implementation details
+      # 
+      # `-np` keeps whisper.cpp's log off stderr, its own reason for a failure with it: a missing
+      # model reads only "failed to initialize whisper context", hence the lookup first
+      # (`R_whisper_cli`).
+      # 
+      # Thread-safe.
+      class WhisperCli
+        COMMAND: ::Array[String]
+        TIMEOUT: Integer
+
+        # _@param_ `table` — one with no `url`
+        # 
+        # _@param_ `cache` — where the model is
+        # 
+        # _@param_ `command` — what runs `whisper-cli`; specs run a stand-in
+        # 
+        # _@param_ `timeout` — seconds a clip may take; specs shorten it
+        def initialize: (
+                          Puri::Core::Config::DictationTable table,
+                          ?cache: Puri::Core::HubCache,
+                          ?command: ::Array[String],
+                          ?timeout: Numeric
+                        ) -> void
+
+        # _@param_ `pcm` — 16 kHz mono s16le, as {Recorder#stop} returns it
+        # 
+        # _@return_ — see {Dictation.squeeze}
+        def transcribe: (String pcm) -> String
+
+        # _@param_ `model` — the file's path
+        # 
+        # _@param_ `wav`
+        # 
+        # _@return_ — stdout, stderr and how it ended
+        def run: (String model, String wav) -> [String, String, Process::Status]
+
+        # _@param_ `stdin`
+        # 
+        # _@param_ `wav`
+        def feed: (IO stdin, String wav) -> void
+
+        # _@param_ `pid`
+        def kill: (Integer pid) -> void
+
+        # _@param_ `err`
+        def last_line: (String err) -> String?
+
+        # Raised when the model isn't downloaded, or whisper-cli can't run or fails.
+        class Error < StandardError
+        end
+      end
+    end
+
+    # Hugging Face's hub cache, where llama-server's `-hf` keeps the models it downloads: Puri
+    # looks there for the models it runs itself, llama-server's and whisper-cli's alike.
+    # 
+    #   cache = HubCache.new
+    #   cache.gguf('ggml-org/Qwen3.5-4B-GGUF:Q4_K_M')      # => ".../snapshots/8d43…/Qwen3.5-4B-Q4_K_M.gguf"
+    #   cache.file('ggerganov/whisper.cpp:ggml-small.bin')  # => ".../snapshots/5359…/ggml-small.bin"
+    #   cache.file('ggerganov/whisper.cpp:ggml-base.bin')   # => nil: not downloaded
+    # 
+    # The layout is `huggingface_hub`'s: `models--<org>--<repo>/refs/main` names a commit, and
+    # `snapshots/<commit>/<file>` links to the file's blob. Offline, llama.cpp finds a file the
+    # same way (`R_hub_cache`).
+    # 
+    # Immutable.
+    class HubCache
+      GGUF_MODEL: Regexp
+      FILE_MODEL: Regexp
+      DEFAULT_QUANT: String
+
+      # _@param_ `env` — where `LLAMA_CACHE`, `HF_HUB_CACHE`, `HF_HOME`, `XDG_CACHE_HOME` and `HOME` come from, in that order, as llama.cpp reads them; specs pass their own
+      def initialize: (?env: untyped) -> void
+
+      # _@param_ `env`
+      def self.root: (untyped env) -> String
+
+      # The GGUF file `-hf model` loads: the first whose path in the snapshot holds the quant, case
+      # aside, never a vision projector. A big model's split parts may sit in a folder named for
+      # the quant, `UD-Q4_K_XL/…-00001-of-00003.gguf`.
+      # 
+      # _@param_ `model` — matching {GGUF_MODEL}
+      # 
+      # _@return_ — its path; nil when it isn't downloaded
+      def gguf: (String model) -> String?
+
+      # _@param_ `model` — matching {FILE_MODEL}
+      # 
+      # _@return_ — its path; nil when it isn't downloaded
+      def file: (String model) -> String?
+
+      # _@param_ `repo` — `org/repo`
+      # 
+      # _@return_ — the snapshot `refs/main` names, when it exists
+      def snapshot: (String repo) -> String?
+
+      # _@return_ — the cache's directory, perhaps missing
+      attr_reader root: String
     end
 
     # The backend: each conversation a pikuri agent on the configured model, hosted by
@@ -2646,7 +2869,8 @@ module Puri
       # return the page text the reader reads (`D_search_engines`). Without a Brave or Exa key it
       # logs an error and wires no web tools, and the system prompt says so. With `[documents]`,
       # builds that folder's {Library}; with `[maps]`, the place tools, and with `[weather]` too,
-      # the weather tool, both on one {Http}; with `[dictation]`, the mic's {Dictation::Transcriber}. Also sets each
+      # the weather tool, both on one {Http}; with `[dictation]`, the mic's transcriber. Starts
+      # the {LlamaServer} of a `[[server]]` with no `url`, which {#close} stops. Also sets each
       # `[[server]]`'s `max_concurrent_requests` as that server's
       # `Pikuri::Conversations::Throttle.limit`, which is process-wide; a server stating none is
       # sized from its own slot count.
@@ -2702,6 +2926,8 @@ module Puri
       # _@param_ `rhythmbox` — what every agent's `play_music` plays in; nil wires none
       # 
       # _@param_ `transcriber` — what the mic's clips go to; nil, and the prompt has no mic
+      # 
+      # _@param_ `llama_server` — the one Puri runs, started; {#close} stops it
       def initialize: (
                         config: Puri::Core::Config,
                         models: Puri::Core::Models,
@@ -2711,7 +2937,8 @@ module Puri
                         ?osm: Puri::Core::Places::Osm?,
                         ?open_meteo: Puri::Core::Weather::OpenMeteo?,
                         ?rhythmbox: Puri::Core::Music::Rhythmbox?,
-                        ?transcriber: Puri::Core::Dictation::Transcriber?
+                        ?transcriber: (Puri::Core::Dictation::Transcriber | Puri::Core::Dictation::WhisperCli)?,
+                        ?llama_server: Puri::Core::LlamaServer?
                       ) ?{ (Data event) -> void } -> void
 
       # Sends the user's message. With a confirmation pending, the message answers it as a
@@ -2774,7 +3001,8 @@ module Puri
       def cancel_dictation: () -> void
 
       # Closes every conversation, cancelling its turn, and waits for each turn to be saved and
-      # its agent closed; stops the mic. Not under the core's lock: a turn's save takes it.
+      # its agent closed; stops the mic, then the llama-server Puri runs. Not under the core's
+      # lock: a turn's save takes it.
       def close: () -> void
 
       # _@param_ `id`
@@ -2925,6 +3153,126 @@ module Puri
       attr_reader id: String
 
       attr_reader started_at: Time
+    end
+
+    # The llama-server Puri runs itself, for the `[[server]]` with no `url` (`D_embedded`): apt's
+    # binary as a child on loopback, behind the run's key, restarted when it crashes and stopped
+    # when Puri quits.
+    # 
+    #   server = LlamaServer.new(config.embedded_server)
+    #   server.start                  # returns at once; the model loads in the child's own time
+    #   server.serves?(transport)     # => true for a connection to it
+    #   server.wait_ready             # once /health answers; raises Error saying why it can't
+    #   server.close
+    # 
+    # A model missing from the {HubCache} fails without a child, saying what to download, since
+    # `--offline` alone says only "exactly one out metadata, path_model, and file must be defined".
+    # A crash restarts the child after {BACKOFF} seconds, doubling, and the {CRASHES}th within
+    # {CRASH_WINDOW} seconds gives up, the log's tail in the error. Either way the next
+    # {#wait_ready} starts over, so a model downloaded since, or memory freed since, works without
+    # restarting Puri. The log is `$XDG_STATE_HOME/puri/llama-server.log`, emptied at each {#start}.
+    # 
+    # == Implementation details
+    # 
+    # One thread spawns the child and waits on it, and another polls `/health` until it answers.
+    # The child runs under `setpriv --pdeathsig TERM`, which the kernel ties to the thread that
+    # spawned it: the waiting one, which ends only after the child, so a killed Puri leaves no
+    # model loaded (`R_llama_server_embedded`). The key goes in `LLAMA_API_KEY`, never on the
+    # command line, which `/proc` shows every user.
+    # 
+    # Thread-safe.
+    class LlamaServer
+      COMMAND: ::Array[String]
+      DEATH_SIGNAL: ::Array[String]
+      CONTEXT: Integer
+      BACKOFF: Float
+      CRASHES: Integer
+      CRASH_WINDOW: Integer
+      READY_TIMEOUT: Integer
+      STOP_SECONDS: Integer
+      POLL: Float
+      LOGGER: Logger
+
+      # _@param_ `embedded`
+      # 
+      # _@param_ `cache` — where the model is
+      # 
+      # _@param_ `env` — where `XDG_STATE_HOME` comes from, for the log
+      # 
+      # _@param_ `command` — what runs `llama-server`; specs run a stand-in
+      # 
+      # _@param_ `backoff` — seconds before the first restart; specs shorten it
+      def initialize: (
+                        Puri::Core::Config::EmbeddedServer embedded,
+                        ?cache: Puri::Core::HubCache,
+                        ?env: untyped,
+                        ?command: ::Array[String],
+                        ?backoff: Float
+                      ) -> void
+
+      # Starts the child, unless it runs already; returns at once.
+      def start: () -> void
+
+      # _@param_ `transport`
+      # 
+      # _@return_ — whether it connects to this server
+      def serves?: (Pikuri::Agent::ChatTransport transport) -> bool
+
+      # _@return_ — whether `/health` has answered since the child last started
+      def ready?: () -> bool
+
+      # Blocks until the model is loaded, starting over a server that failed: Puri is resident, and
+      # a cause gone since must not need its restart.
+      # 
+      # _@param_ `timeout` — seconds
+      def wait_ready: (?timeout: Numeric) -> void
+
+      # Stops the child and any restart, killing it after {STOP_SECONDS}.
+      def close: () -> void
+
+      # The watcher thread: the child's whole life, and each restart.
+      def watch: () -> void
+
+      # _@return_ — the child's pid; nil once closed, or when it can't start
+      def launch: () -> Integer?
+
+      def command_line: () -> ::Array[String]
+
+      # Under the lock.
+      # 
+      # _@param_ `status`
+      # 
+      # _@return_ — seconds to wait before the restart; nil for none
+      def exited: (Process::Status status) -> Float?
+
+      # The poller thread, killed when the child exits.
+      # 
+      # _@param_ `pid`
+      def poll: (Integer pid) -> void
+
+      def healthy?: () -> bool
+
+      # Under the lock.
+      # 
+      # _@param_ `error`
+      def failed: (String error) -> void
+
+      # _@param_ `pid`
+      # 
+      # _@param_ `name`
+      def signal: (Integer? pid, String name) -> void
+
+      # _@return_ — the log's last lines
+      def tail: () -> String
+
+      def clock: () -> Float
+
+      # _@return_ — where the child's output goes
+      attr_reader log: String
+
+      # Raised by {#wait_ready} when the model can't be served.
+      class Error < StandardError
+      end
     end
 
     # A reply's Markdown as it streams in, as {Protocol::Reply} parts: each finished block is
@@ -3138,6 +3486,8 @@ module Puri
       # _@param_ `open_meteo` — what its weather tool asks; nil, or no `[weather]`, wires none
       # 
       # _@param_ `rhythmbox` — what `play_music` plays in; nil wires none
+      # 
+      # _@param_ `llama_server` — the one Puri runs, which an agent on it waits for
       def initialize: (
                         Puri::Core::Conversation conversation,
                         entry: Pikuri::Conversations::Store::Entry,
@@ -3151,7 +3501,8 @@ module Puri
                         ?library: Puri::Core::Library?,
                         ?osm: Puri::Core::Places::Osm?,
                         ?open_meteo: Puri::Core::Weather::OpenMeteo?,
-                        ?rhythmbox: Puri::Core::Music::Rhythmbox?
+                        ?rhythmbox: Puri::Core::Music::Rhythmbox?,
+                        ?llama_server: Puri::Core::LlamaServer?
                       ) -> void
 
       # Fills a saved conversation's blocks from its history, the first time only; the agent
@@ -3244,6 +3595,7 @@ module Puri
       class Initializer
         include Pikuri::Conversations::AgentInitializer
         PROMPTS: String
+        STARTING_MODEL: Puri::Protocol::Activity
 
         # Our system prompt, and the fragments that say what the agent can reach; {#system_prompt}
         # appends the date, and the memory.
@@ -3282,6 +3634,8 @@ module Puri
         # _@param_ `open_meteo` — what `weather` asks, beside the place tools; nil wires none
         # 
         # _@param_ `rhythmbox` — what `play_music` plays in; nil wires none
+        # 
+        # _@param_ `llama_server` — the one Puri runs, which an agent on it waits for
         def initialize: (
                           Puri::Core::Config config,
                           Puri::Core::Conversation conversation,
@@ -3291,7 +3645,8 @@ module Puri
                           ?osm: Puri::Core::Places::Osm?,
                           ?notebook: Puri::Core::Places::Notebook?,
                           ?open_meteo: Puri::Core::Weather::OpenMeteo?,
-                          ?rhythmbox: Puri::Core::Music::Rhythmbox?
+                          ?rhythmbox: Puri::Core::Music::Rhythmbox?,
+                          ?llama_server: Puri::Core::LlamaServer?
                         ) -> void
 
         # The machine's time zone, for the prompt:
@@ -3318,10 +3673,17 @@ module Puri
         # extension, and the documents' search and file tools. An extension is built afresh for
         # each agent as pikuri asks, and one that asks before it acts takes {#confirmer}.
         # 
+        # An agent on the llama-server Puri runs first waits for its model to load, showing
+        # {STARTING_MODEL}: its turn's first request would fail, and the gem's probe would then
+        # forget the server for a minute (`D_embedded`). A cancel waits for the load too.
+        # 
         # _@param_ `configurator`
         # 
-        # _@param_ `_conversation` — this session's
-        def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation _conversation) -> void
+        # _@param_ `conversation` — this session's
+        def configure: (Pikuri::Agent::Configurator configurator, Pikuri::Conversations::Conversation conversation) -> void
+
+        # _@param_ `conversation` — the one booting
+        def await_model: (Pikuri::Conversations::Conversation conversation) -> void
 
         # The memory is read once per agent, so a change the agent makes reaches the prompt in
         # the next conversation: rewriting this one's would cost the server's cache of it, for a

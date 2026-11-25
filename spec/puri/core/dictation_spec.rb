@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'fileutils'
 require 'rbconfig'
 require 'tmpdir'
 
@@ -43,13 +44,15 @@ RSpec.describe Puri::Core::Dictation do
   #
   # @param bodies [Array<Hash>]
   # @param requests [Array<Faraday::Env>] gets each request
+  # @param forms [Array<String>] gets each request's multipart body, which the answer replaces
   # @param gate [Queue, nil] popped before each answer, so a spec can hold the server
   # @return [Class]
-  def whisper(*bodies, requests: [], gate: nil)
+  def whisper(*bodies, requests: [], forms: [], gate: nil)
     Class.new(Faraday::Adapter) do
       define_method(:call) do |env|
         super(env)
         requests << env
+        forms << env.body.read
         gate&.pop
         save_response(env, 200, JSON.generate(bodies.shift), { 'Content-Type' => 'application/json' }, nil)
         @app.call(env)
@@ -111,6 +114,17 @@ RSpec.describe Puri::Core::Dictation do
       assert_equal ['RIFF', 'WAVE', 1, 1, 16_000, 16], wav.unpack('a4x4a4x8vvVx6v')
     end
 
+    it 'names the language when the table sets one, and leaves auto to the server' do
+      forms = []
+      table = Puri::Core::Config::DictationTable.new(url: 'http://127.0.0.1:8081', model: 'whisper-1', language: 'sk')
+      Puri::Core::Dictation::Transcriber.new(table, faraday_adapter: whisper({ text: 'ahoj' }, forms:))
+                                        .transcribe(tone(1))
+      transcriber(whisper({ text: 'hi' }, forms:)).transcribe(tone(1))
+      sk, auto = forms
+      assert_includes sk, %(name="language"\r\n\r\nsk\r\n)
+      refute_includes auto, 'name="language"', 'auto leaves the language to the server'
+    end
+
     if ENV['WHISPER_URL']
       it 'transcribes speech on a real whisper-server' do
         wav = File.binread('/usr/share/sounds/debian/samples/en-Wikipedia-Ignore_All_Rules.wav')
@@ -119,6 +133,101 @@ RSpec.describe Puri::Core::Dictation do
         text = Puri::Core::Dictation::Transcriber.new(Puri::Core::Config::DictationTable.new(url: ENV['WHISPER_URL']))
                                                  .transcribe(pcm)
         assert_match(/wikipedia/i, text)
+      end
+    end
+  end
+
+  describe Puri::Core::Dictation::WhisperCli do
+    let(:model) { 'ggerganov/whisper.cpp:ggml-small.bin' }
+
+    # Writes its arguments and the clip's size and first bytes to its second argument, then by
+    # its first: `speak` prints two segments, `silence` Whisper's tag, `hang` nothing ever, `fail`
+    # an error on stderr.
+    let(:fake) do
+      <<~'RUBY'
+        mode, record, *args = ARGV
+        wav = $stdin.binmode.read
+        File.write(record, "#{args.join(' ')}\n#{wav.bytesize} #{wav[0, 4]}")
+        case mode
+        when 'speak' then puts 'Buy avocados', ' and limes.'
+        when 'silence' then puts '[BLANK_AUDIO]'
+        when 'hang' then sleep
+        else
+          warn 'error: failed to initialize whisper context'
+          exit 3
+        end
+      RUBY
+    end
+    let(:cache) { Puri::Core::HubCache.new(env: { 'LLAMA_CACHE' => File.join(@dir, 'hub') }) }
+    let(:record) { File.join(@dir, 'record') }
+
+    # @return [String] the model's path, in the cache as the setup leaves it
+    def download
+      base = File.join(cache.root, 'models--ggerganov--whisper.cpp')
+      FileUtils.mkdir_p([File.join(base, 'snapshots', 'c0ffee'), File.join(base, 'refs')])
+      File.write(File.join(base, 'refs', 'main'), 'c0ffee')
+      File.join(base, 'snapshots', 'c0ffee', 'ggml-small.bin').tap { File.write(_1, 'ggml') }
+    end
+
+    # @param mode [String] the stand-in's
+    # @param language [String]
+    # @param timeout [Numeric] seconds
+    # @return [Puri::Core::Dictation::WhisperCli]
+    def whisper_cli(mode = 'speak', language: 'auto', timeout: 10)
+      command = [RbConfig.ruby, '--disable=gems,rubyopt', '-e', fake, mode, record]
+      described_class.new(Puri::Core::Config::DictationTable.new(model:, language:), cache:, command:, timeout:)
+    end
+
+    it 'pipes the clip in as a WAV, on the model in the cache, and squeezes the text' do
+      path = download
+      assert_equal 'Buy avocados and limes.', whisper_cli.transcribe(tone(1))
+      args, clip = File.read(record).lines
+      assert_equal "-m #{path} -f - -l auto -nt -otxt -np\n", args
+      assert_equal "#{44 + bytes_per_second} RIFF", clip
+    end
+
+    it 'speaks the language the table names' do
+      download
+      whisper_cli(language: 'sk').transcribe(tone(1))
+      assert_includes File.read(record), ' -l sk '
+    end
+
+    it "inserts nothing for Whisper's [BLANK_AUDIO]" do
+      download
+      assert_equal '', whisper_cli('silence').transcribe(tone(1, amplitude: 0))
+    end
+
+    it 'fails in whisper-cli its own last words' do
+      download
+      err = assert_raises(described_class::Error) { whisper_cli('fail').transcribe(tone(1)) }
+      assert_equal 'whisper-cli failed: error: failed to initialize whisper context', err.message
+    end
+
+    it 'kills a whisper-cli that takes too long, and says so' do
+      download
+      cli = whisper_cli('hang', timeout: 0.5)
+      err = assert_raises(described_class::Error) { cli.transcribe(tone(1)) }
+      assert_equal 'whisper-cli took over 0.5 s', err.message
+    end
+
+    it "says which model isn't downloaded, and where it looked, running nothing" do
+      err = assert_raises(described_class::Error) { whisper_cli.transcribe(tone(1)) }
+      assert_equal "the model #{model} isn't downloaded: it isn't in #{cache.root}", err.message
+      refute File.exist?(record)
+    end
+
+    it "says it can't run a whisper-cli that isn't installed" do
+      download
+      table = Puri::Core::Config::DictationTable.new(model:)
+      cli = described_class.new(table, cache:, command: [File.join(@dir, 'whisper-cli')])
+      err = assert_raises(described_class::Error) { cli.transcribe(tone(1)) }
+      assert_match(/\Acan't run .*whisper-cli: No such file/, err.message)
+    end
+
+    if ENV['WHISPER_MODEL']
+      it 'runs the real whisper-cli on a model in the hub cache' do
+        cli = described_class.new(Puri::Core::Config::DictationTable.new(model: ENV['WHISPER_MODEL']))
+        assert_kind_of String, cli.transcribe(tone(1, amplitude: 0))
       end
     end
   end

@@ -12,7 +12,8 @@ leaves your computer.
 
 [Pikuri](https://github.com/mvysny/pikuri) owns the agent loop, the LLM transport and most tools.
 Puri adds what it takes to run it on a desktop and serve you there: the popup window, the
-conversation history beside it, and the resident process that keeps the agent warm.
+conversation history beside it, and the resident process that keeps the agent warm, and, to
+start quickly, the model server itself.
 
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."
@@ -46,8 +47,9 @@ exe/puri --dummy
 `long`, `coffee`, `drive`, `weather`, `fail`, `mail`, or `calendar` plus `reschedule` in a
 question walk the paths the tools will take. Plain `exe/puri` runs the real one, which needs a
 model server and `~/.config/puri/config.toml`: copy `docs/config.toml`, whose comments say what
-each part does. Escape hides the window, running `exe/puri` again brings it back, and Ctrl+Q
-quits it, as does `gapplication action io.github.mvysny.Puri quit`.
+each part does. Without its `[[server]]`'s `url` line, Puri runs `llama-server` itself, on a
+model already in `~/.cache/huggingface/hub`. Escape hides the window, running `exe/puri` again
+brings it back, and Ctrl+Q quits it, as does `gapplication action io.github.mvysny.Puri quit`.
 
 `bundle exec rake` runs the specs, rubocop, the type signatures and the doc checks, as CI does.
 `AGENTS.md` has the module map, the conventions and the rest of the commands; `design/` the
