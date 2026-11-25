@@ -1,4 +1,4 @@
-# The eval's tasks (design/ideas/model-eval.md § The tasks): ERB over the demo world's facts
+# The eval's tasks, in three tiers: ERB over the demo world's facts
 # (Task::Context: `f`, and the tags date, time, num, iban, digits), then YAML. Each task's
 # `expect` is what Grader checks; an item in a list is a fact the answer must hold, a nested list
 # its alternatives. A tool family matches a tool by its name, or its name's prefix up to an "_".
@@ -214,6 +214,7 @@
     answer_has: [["no flight", "not find", "couldn't find", "could not find", "didn't find", "did not find", "don't see", "do not see", "no record", "nothing", "no booking", "no mention", "no upcoming", "no information", "no sign", "isn't", "no confirmation", "no results"]]
     answer_not_pattern: ['\b[A-Z]{2}\s?\d{3,4}\b']
 
+# Web search goes live, since pikuri has no hook to record it: graded on searching alone.
 - id: design-week
   tier: medium
   turns: ['When is Helsinki Design Week this year?']

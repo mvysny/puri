@@ -6,7 +6,8 @@ require 'uri'
 
 module Puri
   module Eval
-    # The test box: llama.cpp's router, reached as the config's `[[server]]` says.
+    # The test box: llama.cpp's router with `presets.ini`, reached as the config's `[[server]]`
+    # says.
     #
     #   box = Box.new(url: server.url, api_key: server.api_key)
     #   box.only('Qwen3.5-4B', among: presets)   # unloads the others, loads this one

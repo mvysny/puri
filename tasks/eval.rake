@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-# The model eval (design/ideas/model-eval.md), a dev-only mode: dev/puri/eval.rb says what it
-# needs running first. Results go to ~/.local/state/puri/eval/<today>/, never into the repo.
+# The model eval, a dev-only mode: dev/puri/eval.rb says what it needs running first, and
+# `R_model_eval` what it found. Results go to ~/.local/state/puri/eval/<today>/, never into the
+# repo.
 #
 #   DISPLAY=:99 DISABLE_WAYLAND=1 rake eval     # every configuration, every task, 3 runs each
 #   rake eval CONFIGS='Qwen3.5-4B;Granite-4.2-3B' TASKS=thursday,rain REPEATS=1

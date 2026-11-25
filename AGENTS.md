@@ -50,7 +50,7 @@ Every fact lives in exactly one of these; the others link to it.
 - `lib/puri/setup/` — `Puri::Setup`, what `bin/setup` checks and fixes, the install guide's steps as code; its first stage, which runs before `bundle install`, Ruby's stdlib alone.
 - `exe/puri` — the composition root: loads GTK, Adw and Shumate, wires Core to Desktop.
 - `bin/setup` — installs Puri for the user, and, run again, is its doctor (`D_setup`).
-- `dev/` — development only, loaded by `exe/puri --dummy` and the specs, never otherwise: `Puri::Dummy`, the canned backend the GTK specs drive. Code a dev-only mode loads, never loose scripts.
+- `dev/` — development only, loaded by `exe/puri --dummy`, `rake eval` and the specs, never otherwise: `Puri::Dummy`, the canned backend the GTK specs drive, and `Puri::Eval`, the model eval. Code a dev-only mode loads, never loose scripts.
 
 ## Conventions
 
@@ -69,6 +69,7 @@ Every fact lives in exactly one of these; the others link to it.
 - `bin/setup` — the setup and doctor; `spec/setup_spec.rb` runs it against a scratch home, with stand-ins for dpkg-query, llama-server, localsearch and Hugging Face.
 - `bundle exec rake install` / `uninstall` — the per-user D-Bus activation and the global shortcut (`HOTKEY`, `AUTOSTART=1`; README); `spec/install_spec.rb` runs it against a scratch home.
 - GTK specs start their own `gtk4-broadwayd` on `:90`–`:99` unless `GDK_BACKEND` is set.
+- `bundle exec rake eval` — the model eval, on a llama.cpp router against pikuri's demo world; `dev/puri/eval.rb` has a day's setup, `R_model_eval` the results.
 - `design/verify_design_tripwires.sh` — the doc-layer tripwire.
 - `python3 -m http.server -d docs` — the web page locally; it loads nothing from other sites, and its footer says so.
 

@@ -191,28 +191,8 @@ the README cut down to the developer setup.
 
 ## The starter model
 
-**Decided:** Qwen3.5-4B for everyone (owner, 2026-11-24), § The install guide. What led there:
-
-Gated on an eval suite, `model-eval.md`: a few dozen real requests, each with its expected
-tool call, run against each candidate. The candidates, from Hugging Face in November 2026:
-
-- **Nemotron 3.5 Bolt E4B 4GB:** tuned for device-assistant tool use, and the least prone to
-  calling tools that don't exist.
-- **Qwen3.5-4B:** best on Tau2, but the most prone to calling tools that don't exist.
-- **Granite 4.2 3B.**
-- **LFM3-1.7B:** about 1 GB; its deferred tools shrink the prompt.
-
-What to measure on each:
-
-- the eval's pass rate;
-- time to first token with Puri's full prefix (about 20 tools plus the system prompt), on CPU only
-  and on the 890M over Vulkan;
-- tokens/s;
-- RAM at the context `--fit` settles on;
-- the download size.
-
-Download size probably isn't what decides it. Time to first token on a CPU-only laptop may be.
-Per `D_own_prompts`, the winner may need a system prompt of its own.
+**Decided:** Qwen3.5-4B for everyone (owner, 2026-11-24): `D_starter_model`, measured by
+`rake eval` (`R_model_eval`), and on a CPU alone `R_llama_server_cpu`.
 
 The page then offers two tiers. The starter model runs on 8 GB of RAM. Ornith 1.5, or a sparse
 model from the research file, runs on a bigger box or on a home server over Tailscale (the README

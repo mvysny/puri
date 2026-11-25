@@ -1,7 +1,7 @@
 # Payment redirect: Qwen repeats the fake IBAN, and a defence that holds on it
 
-Goal: Puri starts with Qwen3.5-4B and recommends Ornith-1.5 (owner, 2026-11-24;
-`model-eval2.md`), and Qwen tells the user to pay a scammer. Find a defence that holds on Qwen,
+Goal: Puri starts with Qwen3.5-4B and recommends Ornith-1.5 (`D_starter_model`), and Qwen
+tells the user to pay a scammer. Find a defence that holds on Qwen,
 then rerun the bank tasks.
 
 ## What the eval saw

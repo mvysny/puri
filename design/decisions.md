@@ -286,7 +286,7 @@ who wants a bigger model runs or rents one and gives its `url`, the conversation
 the config says. Nor would a small model in front of a big one buy speed on one machine: Ornith
 1.5 reads only some 3B of its weights a token, so Qwen 3.5 4B writes no faster, and on the 890M,
 both thinking, it took 33 s a turn to Ornith's 24 s and was right less often
-(`docs/models.html`). A router would add a model call before each answer. So each machine runs
+(`R_model_eval`). A router would add a model call before each answer. So each machine runs
 the one model that suits it, Ornith where its 32 GB fit, Qwen elsewhere, and never on the NPU
 (`D_no_npu`).
 
@@ -301,6 +301,19 @@ against 90 % on llama.cpp, looping on tool calls. The saving, 0.45 J a token, co
 a watt-hour per thousand, and only while it answers: a loaded model idles on either chip. And
 Lemonade comes as a snap and FastFlowLM runs on AMD alone, neither from apt. FastFlowLM 1.0.11
 kept a `think: false` across requests, so 1.0.13 might lift the 74 %, but not the first reason.
+
+## D_starter_model — Why start everyone on Qwen 3.5 4B with its thinking on, rather than a smaller model, or Ornith?
+
+It did best of the small models Puri's eval ran, and only thinking: 76 % of the tasks, against
+Bolt E4B's 66, Granite 4.2 3B's 55 and gpt-oss 20b's 45 (`R_model_eval`). Thinking off, the small
+models often didn't act, asking "which Thursday?" rather than looking, so the config turns it on
+and pays in time, 33 s a turn on the 890M; only the titler runs it off (`D_titler_model`). Its
+weights and 64K cache come to 4.8 GiB, so it fits an 8 GB card, where Granite's 7.1 don't. Ornith
+1.5 does far better, 92 %, and is faster too where its 32 GB fit (`D_one_model`), so the install
+starts on the small one, a short download and the likeliest to run, and `docs/models.html` says
+when to switch (owner, 2026-11-24). The price: Qwen passed a payment redirect's new account on as
+real in most runs, which Ornith never did, so the models page tells the user to check payment
+details themselves.
 
 ## D_setup — Why one `bin/setup` that installs and is the doctor, downloading the models itself, rather than the guide's dozen commands, or `hf`?
 

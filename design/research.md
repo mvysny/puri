@@ -211,6 +211,49 @@ cache. The VM's memory ballooned from 7 to 15 GiB during the run.
 - Its RSS is 6.8 GiB once loaded and 7.1 GiB after that prompt, the mapped weights included.
   **[verified 2026-11-25]**
 
+## R_model_eval — Six models on Puri's tasks, on the Radeon 890M
+
+`rake eval`: 35 tasks in three tiers, 3 runs each, through Puri's prompts and tools against
+pikuri's demo world. llama-server b10438 over Vulkan on the HX 370's 890M, which shares
+dual-channel DDR5-5600 (89.6 GB/s at most) with the CPU; `-c 65536`, each card's sampling, Q4_K_M
+but gpt-oss's MXFP4. The small models ran thinking a day later, without Ornith.
+
+| | Pass | Simple | Medium | Hard | Turn |
+|---|---|---|---|---|---|
+| Ornith 1.5, thinking | 92 % | 44/45 | 40/42 | 13/18 | 24.3 s |
+| Ornith 1.5 | 79 % | 40/45 | 32/42 | 11/18 | 14.6 s |
+| Qwen 3.5 4B, thinking | 76 % | 41/45 | 31/42 | 8/18 | 32.7 s |
+| Bolt E4B, thinking | 66 % | 42/45 | 21/42 | 6/18 | 40.0 s |
+| Qwen 3.5 4B | 63 % | 38/45 | 24/42 | 4/18 | 11.9 s |
+| Granite 4.2 3B, thinking | 55 % | 36/45 | 22/42 | 0/18 | 47.7 s |
+| gpt-oss 20b, low | 45 % | 31/45 | 16/42 | 0/18 | 11.6 s |
+| Bolt E4B | 38 % | 22/45 | 15/42 | 3/18 | 6.7 s |
+| Granite 4.2 3B | 11 % | 8/45 | 4/42 | 0/18 | 4.7 s |
+
+Turns are medians. **[verified 2026-11-23/24]**
+
+- All write 19.5–25 tok/s, Ornith too, as it reads some 3B parameters a token, so thinking is
+  all added time; Qwen's 3.0 GB at 19.8 tok/s reads about 60 GB/s. **[verified 2026-11-23/24]**
+- The first word: Ornith 3.3 s, thinking 9.4 s; the small models 0.1–6.6 s, thinking 22–45 s.
+  **[verified 2026-11-23/24]**
+- Thinking off, the small models often don't act: Granite called no tool in 89 of 105 runs,
+  asking "which Thursday?", Bolt in 41, Qwen in 8; thinking, in 13, 5 and 5.
+  **[verified 2026-11-23/24]**
+- A look-alike sender's new IBAN for a real invoice: Ornith never passed it on. Qwen, thinking,
+  repeated it in all 6 bank runs and said to pay it in 5; Bolt once wrote it into
+  `Notes/PURI.md`. **[verified 2026-11-23/24]**
+- Thinking, the small models ask for a missing home address, but saved it to `Notes/PURI.md` in
+  1 of 9 runs, against 8 of 9 off. **[verified 2026-11-24]**
+- Given only today's date, Qwen, Bolt and gpt-oss put Thursday on the wrong day.
+  **[verified 2026-11-23]**
+- At 64K the f16 cache takes 5.0 GiB for Granite (all 40 layers keep the whole context), 2.0 for
+  Qwen (8 of 32), 1.0 for Bolt (4 of 42), beside 2.1, 2.8 and 5.8 GiB of weights.
+  **[verified 2026-11-24, the GGUF headers]**
+- On the owner's RTX 4060 8 GB, Qwen and Bolt write 50–60 tok/s; Granite runs out of memory.
+  **[verified 2026-11-24, the owner]**
+- LFM3 1.7B won't load on b10438; its card wants b11960. **[verified 2026-11-23]**
+- On b10438 every other model's tool calls parse without `--jinja`. **[verified 2026-11-23]**
+
 ## R_qwen_npu — Qwen 3.5 4B on the NPU, through Lemonade and FastFlowLM
 
 The owner's host: Lemonade's snap, its FastFlowLM 1.0.11 backend serving `qwen3.5:4b` (Q4_K, per

@@ -51,9 +51,9 @@ module Puri
       ON = { 'enable_thinking' => true }.freeze
       private_constant :OFF, :ON
 
-      # The first pass (design/ideas/model-eval.md), the baseline first and the slowest last;
-      # then the small tier with thinking on (owner, 2026-11-23), since where it failed, it failed
-      # to act: Granite asked instead of looking, Qwen fell apart on the hard tier.
+      # Each model thinking off, the baseline first and the slowest last; then the small tier
+      # thinking on, since without it the small models mostly failed to act (`R_model_eval`).
+      # `model` names a preset in `presets.ini`.
       #
       # @return [Array<Puri::Eval::Runner::Configuration>]
       CONFIGURATIONS = [
