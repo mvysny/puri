@@ -9,7 +9,8 @@ module Puri
   #   ✓ Puri's Ruby libraries                       {Bundle}: `bundle install`
   #   ✓ Puri is on your desktop: Super+Alt+Space    {Install}, what `rake install` writes
   #   ✓ The config, ~/.config/puri/config.toml      written only when there is none
-  #   ✓ The model, ggml-org/Qwen3.5-4B-GGUF:Q4_K_M  {HubDownload}, after {Hardware}'s warning
+  #   ✓ The model, ggml-org/Qwen3.5-4B-GGUF:Q4_K_M  {HubDownload}, after {Hardware}'s warning;
+  #     or, on a server of the user's, ✓ The model, Ornith-1.5, on http://…   {ModelServer}
   #   ✗ Thunderbird's global search is off: …       {Calendars} too, printed as where to click
   #   ✓ Your documents, ~/Documents, are indexed    {SearchLocations}, {FileIndex}
   #

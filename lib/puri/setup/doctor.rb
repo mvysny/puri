@@ -18,7 +18,8 @@ module Puri
     #   exit Doctor.new.run
     #
     # The config decides the rest: the models are the ones it names, downloaded where it runs them
-    # here, and Thunderbird and the documents are checked where it turns them on. A broken config
+    # here and asked of the server where it gives one a `url` ({ModelServer}), and Thunderbird and
+    # the documents are checked where it turns them on. A broken config
     # stops the checks after it. The config is written only when there is none, the install guide's
     # `docs/config.toml` as it is.
     class Doctor
@@ -123,6 +124,7 @@ module Puri
           gpu(hardware) if path
           ornith(hardware) if embedded.model.start_with?("#{QWEN}:")
         end
+        served(config)
         dictation = config.dictation
         return unless dictation && !dictation.url
 
@@ -130,6 +132,30 @@ module Puri
           download.file(dictation.model)
         end
       end
+
+      # The models a server with a `url` runs, each asked of its server.
+      #
+      # @param config [Puri::Core::Config]
+      # @return [void]
+      def served(config)
+        embedded = config.embedded_server&.url
+        config.llms.reject { _1.server == embedded }.group_by { [_1.server, _1.api_key] }.each do |(url, key), llms|
+          server = ModelServer.new(url, api_key: key)
+          llms.map(&:model).uniq.each do |model|
+            next @terminal.done("The model, #{model}, on #{url}") if server.serves?(model)
+
+            others = server.models
+            only = ", only #{some(others)}" unless others.empty?
+            @terminal.todo("The model's server, #{url}, has no #{model}#{only}; the config names it under [[llm]].")
+          end
+        rescue ModelServer::Error => e
+          @terminal.todo("Puri can't ask the model's server, #{url}, for its models: #{e.message}.")
+        end
+      end
+
+      # @param names [Array<String>]
+      # @return [String] the first few, and how many more
+      def some(names) = names.size > 4 ? "#{names.first(3).join(', ')} and #{names.size - 3} more" : names.join(', ')
 
       # @return [Puri::Setup::Hardware, nil] nil when llama-server can't say
       def probe

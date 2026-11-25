@@ -4,6 +4,7 @@ require 'fileutils'
 require 'open3'
 require 'tmpdir'
 require_relative 'support/fake_hugging_face'
+require_relative 'support/fake_model_server'
 require_relative 'support/scratch_gsettings'
 
 # `bin/setup` as the user runs it, from the apt check to the last line, against a scratch home:
@@ -110,6 +111,36 @@ RSpec.describe 'bin/setup' do
     assert_includes out, 'sudo apt install whisper.cpp'
     refute_includes out, 'Ruby libraries'
     refute File.exist?("#{@home}/config/puri"), 'nothing is written before the packages are in'
+  end
+
+  it "asks a server of the user's for the models the config names on it, and downloads none" do
+    server = FakeModelServer.new(FakeModelServer.router('Ornith-1.5', 'Qwen3.5-4B'))
+    FileUtils.mkdir_p("#{@home}/config/puri")
+    File.write("#{@home}/config/puri/config.toml", <<~TOML)
+      [[server]]
+      id = "box"
+      url = "#{server.url}"
+      [[llm]]
+      name = "Ornith"
+      server = "box"
+      model = "Ornith-1.5"
+      [[llm]]
+      name = "Gone"
+      server = "box"
+      model = "Gone-1"
+      [titler]
+      llm = "Ornith"
+      [thunderbird]
+      enabled = false
+    TOML
+    out, status = setup("y\n")
+    assert_equal 1, status.exitstatus, out
+    assert_includes out, "✓ The model, Ornith-1.5, on #{server.url}"
+    assert_includes out, "✗ The model's server, #{server.url}, has no Gone-1, only Ornith-1.5, Qwen3.5-4B;"
+    assert_equal ['/v1/models'], server.requests, 'asked once for both'
+    refute_includes out, 'Hugging Face'
+  ensure
+    server&.close
   end
 
   it 'stops after a broken config, saying what is wrong' do

@@ -573,6 +573,17 @@ b10438 on the owner's VM, no GPU backend installed. **[verified 2026-11-25]**
 - Unverified: what an integrated GPU's total reads, the firmware's share or what the kernel
   lends it besides.
 
+## R_llama_models — What llama-server's `/v1/models` lists
+
+apt's 8681, one model, on the owner's VM, and the owner's router. **[verified 2026-11-25]**
+
+- A router lists every preset, `{"id": "Ornith-1.5", "aliases": [], "owned_by": "llamacpp",
+  "status": {"value": "unloaded"}, …}`, and the listing loads none of them.
+- A llama-server of one model lists it by its file's name, `SmolLM2-135M-Q4_K_M.gguf`, with no
+  `status`, and answers a chat request whatever model it names.
+- `/v1/models` and `/health` answer without the key, or with a wrong one; chat and `/props` say
+  401.
+
 ## R_localsearch_cli — localsearch 3.11's command line, as the setup asks it
 
 localsearch 3.11.2 on the owner's VM. **[verified 2026-11-25]**

@@ -4039,7 +4039,8 @@ module Puri
   #   ✓ Puri's Ruby libraries                       {Bundle}: `bundle install`
   #   ✓ Puri is on your desktop: Super+Alt+Space    {Install}, what `rake install` writes
   #   ✓ The config, ~/.config/puri/config.toml      written only when there is none
-  #   ✓ The model, ggml-org/Qwen3.5-4B-GGUF:Q4_K_M  {HubDownload}, after {Hardware}'s warning
+  #   ✓ The model, ggml-org/Qwen3.5-4B-GGUF:Q4_K_M  {HubDownload}, after {Hardware}'s warning;
+  #     or, on a server of the user's, ✓ The model, Ornith-1.5, on http://…   {ModelServer}
   #   ✗ Thunderbird's global search is off: …       {Calendars} too, printed as where to click
   #   ✓ Your documents, ~/Documents, are indexed    {SearchLocations}, {FileIndex}
   # 
@@ -4087,7 +4088,8 @@ module Puri
     #   exit Doctor.new.run
     # 
     # The config decides the rest: the models are the ones it names, downloaded where it runs them
-    # here, and Thunderbird and the documents are checked where it turns them on. A broken config
+    # here and asked of the server where it gives one a `url` ({ModelServer}), and Thunderbird and
+    # the documents are checked where it turns them on. A broken config
     # stops the checks after it. The config is written only when there is none, the install guide's
     # `docs/config.toml` as it is.
     class Doctor
@@ -4111,6 +4113,16 @@ module Puri
 
       # _@param_ `config`
       def models: (Puri::Core::Config config) -> void
+
+      # The models a server with a `url` runs, each asked of its server.
+      # 
+      # _@param_ `config`
+      def served: (Puri::Core::Config config) -> void
+
+      # _@param_ `names`
+      # 
+      # _@return_ — the first few, and how many more
+      def some: (::Array[String] names) -> String
 
       # _@return_ — nil when llama-server can't say
       def probe: () -> Puri::Setup::Hardware?
@@ -4784,6 +4796,44 @@ module Puri
 
         # _@return_ — bytes in the cache already, a download stopped halfway included
         attr_reader fetched: Integer
+      end
+    end
+
+    # A model server the config gives a `url`, asked whether it serves a model:
+    # 
+    #   server = ModelServer.new('http://192.168.122.1:9081')
+    #   server.serves?('Ornith-1.5')   # => true
+    #   server.models                  # => ["Granite-4.2-3B", "Ornith-1.5", …]
+    # 
+    # One `GET /v1/models`, which every OpenAI-compatible server answers and which loads no model,
+    # even on a llama.cpp router; a llama-server of one model serves whatever name Puri asks for
+    # (`R_llama_models`). The key isn't checked: Puri's first answer says when it's wrong.
+    class ModelServer
+      TIMEOUT: Integer
+
+      # _@param_ `url` — as the config has it, with or without `/v1`
+      # 
+      # _@param_ `api_key`
+      def initialize: (String url, ?api_key: String?) -> void
+
+      # _@param_ `model` — an `[[llm]]`'s
+      def serves?: (String model) -> bool
+
+      # _@return_ — each model's id, in the server's order
+      def models: () -> ::Array[String]
+
+      # _@return_ — the answer's `data`, asked for once
+      def listing: () -> ::Array[::Hash[String, Object]]
+
+      # _@return_ — the body
+      def fetch: () -> String
+
+      # _@param_ `body`
+      def parse: (String body) -> ::Array[::Hash[String, Object]]
+
+      # Raised when the server can't be asked, its message what the user reads after a colon:
+      # "connection refused".
+      class Error < StandardError
       end
     end
 
