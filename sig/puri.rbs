@@ -4401,7 +4401,8 @@ module Puri
       # _@param_ `text` — what the user must do before Puri works fully
       def todo: (String text) -> void
 
-      # Asks until the answer is yes or no.
+      # Asks until the answer is yes or no. Reads no further than the answer's line, so the
+      # answers piped in after it are left for the doctor `bin/setup` execs into.
       # 
       # _@param_ `question`
       # 
@@ -4425,6 +4426,11 @@ module Puri
       # 
       # _@return_ — in decimal units, as the site states sizes: "3.0 GB", "488 MB"
       def self.size: (Integer bytes) -> String
+
+      # A byte at a time: `gets` reads ahead from a pipe, into a buffer `exec` drops.
+      # 
+      # _@return_ — nil at the end of input
+      def read_line: () -> String?
 
       # _@param_ `mark` — one character, or '' for none
       # 

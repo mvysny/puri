@@ -34,6 +34,17 @@ RSpec.describe Puri::Setup::Terminal do
     assert_includes out.string, '? Download it? [y/N] '
   end
 
+  it "leaves a pipe's later answers in it, for the doctor bin/setup execs into" do
+    reader, writer = IO.pipe
+    writer.write("y\nn\n")
+    writer.close
+    assert described_class.new(input: reader, output: StringIO.new).ask?('Fetch them?')
+    # A second IO on the same pipe, as the doctor's $stdin is: no buffer shared with the first.
+    assert_equal "n\n", IO.new(reader.fileno, autoclose: false).read
+  ensure
+    reader&.close
+  end
+
   it 'says a path from home with ~, and a size as the site does' do
     assert_equal '~/puri', described_class.tilde(File.join(Dir.home, 'puri'))
     assert_equal '/opt/puri', described_class.tilde('/opt/puri')

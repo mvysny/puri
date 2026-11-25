@@ -34,7 +34,8 @@ module Puri
           return false
         end
         bundle?('config', 'set', '--local', 'path', 'vendor/bundle') unless path?
-        if system(@env, 'bundle', 'install', chdir: @root) && bundle?('check')
+        # Stdin holds the answers to the questions after this one.
+        if system(@env, 'bundle', 'install', chdir: @root, in: File::NULL) && bundle?('check')
           terminal.done("Puri's Ruby libraries")
           return true
         end
@@ -47,7 +48,7 @@ module Puri
       # @param args [Array<String>]
       # @return [Boolean] whether `bundle` succeeded, quietly
       def bundle?(*args)
-        system(@env, 'bundle', *args, chdir: @root, out: File::NULL, err: File::NULL) || false
+        system(@env, 'bundle', *args, chdir: @root, in: File::NULL, out: File::NULL, err: File::NULL) || false
       end
 
       # @return [Boolean] whether Bundler has a path to install into, from any of its settings

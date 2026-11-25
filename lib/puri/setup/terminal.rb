@@ -65,7 +65,8 @@ module Puri
         emit('✗', text)
       end
 
-      # Asks until the answer is yes or no.
+      # Asks until the answer is yes or no. Reads no further than the answer's line, so the
+      # answers piped in after it are left for the doctor `bin/setup` execs into.
       #
       # @param question [String]
       # @param default [Boolean] what Enter alone answers
@@ -76,7 +77,7 @@ module Puri
           lines = wrap("#{question} #{default ? '[Y/n]' : '[y/N]'}", width - 2)
           @output.print(lines.each_with_index.map { |line, i| "#{i.zero? ? '?' : ' '} #{line}" }.join("\n"), ' ')
           @output.flush
-          answer = @input.gets
+          answer = read_line
           @output.puts if answer.nil?
           return false if answer.nil?
 
@@ -164,6 +165,17 @@ module Puri
       end
 
       private
+
+      # A byte at a time: `gets` reads ahead from a pipe, into a buffer `exec` drops.
+      #
+      # @return [String, nil] nil at the end of input
+      def read_line
+        line = String.new
+        line << @input.readpartial(1) until line.end_with?("\n")
+        line
+      rescue EOFError
+        line.empty? ? nil : line
+      end
 
       # @param mark [String] one character, or '' for none
       # @param text [String] perhaps several lines
