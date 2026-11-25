@@ -38,6 +38,7 @@
       <li><a href="#ornith">Switching to Ornith</a></li>
       <li><a href="#igpu">Ornith on integrated graphics</a></li>
       <li><a href="#strata">A 12 or 16 GB card</a></li>
+      <li><a href="#no-gpu">No graphics card</a></li>
       <li><a href="#home-server">A home server</a></li>
     </ol>
   </nav>
@@ -73,9 +74,11 @@
         <li><strong>A graphics card with about 32 GB:</strong> Ornith, all of it on the card.</li>
         <li><strong>Integrated graphics and 48 GB of memory or more:</strong> Ornith, which there is both better and faster than Qwen, once the graphics may use enough of that memory (<a href="#igpu">below</a>).</li>
         <li><strong>Integrated graphics and less memory:</strong> Qwen.</li>
+        <li><strong>No graphics card at all:</strong> Qwen, very slowly (<a href="#no-gpu">below</a>).</li>
         <li><strong>A computer at home with more memory than this one:</strong> run the model there, on <a href="#home-server">a home server</a>.</li>
       </ul>
       <p>Ornith needs about 32 GB for itself, so a computer with exactly 32 GB has nothing left for GNOME, Thunderbird and your browser: hence the 48.</p>
+      <p>The model stays loaded while Puri runs, so it holds that memory all day, and on a laptop every answer costs battery, Ornith's most of all. Running it on this computer is the quickest way to try Puri. For daily use, a desktop PC or a small server at home is the better place for the model, with Puri on your laptop reaching it over your own network: see <a href="#home-server">a home server</a>.</p>
     </section>
 
     <section id="ornith">
@@ -139,6 +142,17 @@ llm = "Ornith 1.5, no thinking"</pre>
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
 <pre><span class="p">$ </span><span class="cmd">systemctl --user disable --now llama-server</span></pre>
       </div>
+    </section>
+
+    <section id="no-gpu">
+      <h2>A computer with no graphics card</h2>
+      <p>With no graphics to run on, the model runs on the processor alone. Everything stays just as private, but it is slow. This is Qwen 3.5 4B on eight cores of an AMD Ryzen AI 9 HX 370, a fast laptop processor, with its graphics left out:</p>
+      <ul class="needs">
+        <li><strong>Over three minutes before the first answer</strong> after the model starts, while it reads Puri's instructions. The same processor's integrated graphics take 16 seconds. Later questions start sooner, since the model keeps what it has read.</li>
+        <li><strong>About 9 tokens a second</strong> as it writes, against 50–60 on an 8 GB card. Qwen thinks before it answers, so one answer can take a minute or more, and each mail or document it reads slows it down again.</li>
+        <li><strong>About 7 GB of memory</strong> for as long as it runs, so a computer with 8 GB has almost nothing left for your desktop.</li>
+      </ul>
+      <p>A slower processor takes longer still. For a Puri that answers in seconds, run the model on another computer of yours that has a graphics card, a desktop PC or a home server, and Puri on this one, as below.</p>
     </section>
 
     <section id="home-server">

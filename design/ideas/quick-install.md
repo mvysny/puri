@@ -72,10 +72,12 @@ user who wants every setting.
 
 ## The site
 
-- The page the CPU-only warning links to doesn't exist yet: `models.html` gets a section for a
-  computer with no graphics card, saying how slow it is (`R_llama_server_cpu`: over three minutes
-  before the first answer, 8.6 tok/s after) and pointing at the home server.
-  `install.html`'s *Before you start* still says such a computer "hasn't been tried yet".
+- The CPU-only warning links to `models.html#no-gpu`.
+- Untested: the install guide's own setup on a computer with no graphics card. It installs
+  `libggml0-backend-vulkan`, and with Mesa's software Vulkan (lavapipe) beside it, llama.cpp may
+  take lavapipe for a GPU (`launch.md`'s *lavapipe*). The numbers on the page are llama.cpp's CPU
+  backend with no GPU backend installed. Testing it on the owner's VM needs that package
+  installed there.
 
 ## Open questions
 
