@@ -22,10 +22,6 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
 
 ## Open questions
 
-- `Q_packaging`: one day `apt install puri`? git clone and `bin/setup` do for the early adopters
-  a launch reaches. Options: a Launchpad PPA, which builds from source with the gems vendored;
-  Debian packages for pikuri's gems, slow; or Flatpak, whose sandbox would need holes for the
-  Thunderbird profile, localsearch, podman and Rhythmbox's D-Bus.
 - `Q_competitors`: Newelle, Moose and Alpaca, tried before the page compares? Everything in
   `design/competitors.md` comes from reading, none of it from running. Check there before the
   page claims that Puri is "the only" anything.

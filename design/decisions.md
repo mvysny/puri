@@ -328,7 +328,7 @@ when to switch (owner, 2026-11-24). The price: Qwen passed a payment redirect's 
 real in most runs, which Ornith never did, so the models page tells the user to check payment
 details themselves.
 
-## D_setup — Why one `bin/setup` that installs and is the doctor, downloading the models itself, rather than the guide's dozen commands, or `hf`?
+## D_setup — Why one `bin/setup` that installs and is the doctor, downloading the models itself, rather than the guide's dozen commands, a package, or `hf`?
 
 So a user who isn't a programmer gets Puri running with nothing to understand (owner,
 2026-11-25): the apt line, `git clone`, `bin/setup`, the shortcut. Run again, it checks each piece
@@ -339,4 +339,8 @@ net-http than the ones already loaded. The config decides the models (owner): wr
 missing, `docs/config.toml` as it is, so Qwen; switching to Ornith is an edit and a rerun, and
 where Ornith fits the setup says so. It downloads them itself, resuming and checking each SHA-256
 (`R_hub_cache`), where `hf` would cost an apt line, its warnings, and a restart from zero after a
-stop. `bin/setup` is Rails' name for this job; `rake setup` can't run before the gems.
+stop. `bin/setup` is Rails' name for this job; `rake setup` can't run before the gems. No
+package, apt's or Flatpak's, until Puri is popular enough to warrant one (owner, 2026-11-25):
+git is enough. A Flatpak's sandbox would need holes for the Thunderbird profile, localsearch,
+podman and Rhythmbox's D-Bus; a Launchpad PPA, building from source with the gems vendored, is
+the likelier road.
