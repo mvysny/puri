@@ -30,10 +30,6 @@ is gone (owner, 2026-11-25). Left: `models.html`.
 - **What `llama-server --list-devices` reads on the 890M** (`R_llama_list_devices`): the
   firmware's share or what the kernel lends, with and without the owner's `ttm` options. The
   setup's Ornith tip assumes a GPU reporting 30 GiB or more holds it.
-- **lavapipe:** a computer with no graphics card, `libggml0-backend-vulkan` and Mesa's software
-  Vulkan beside it. Does `--list-devices` list lavapipe, and does llama.cpp then run on it,
-  slower than on the CPU alone? The setup counts it as no GPU and warns; llama.cpp may still
-  pick it.
 - **Both paths, top to bottom,** on a clean 26.04 VM: the quick one, and the long guide, whose
   calendar click path (right-click the calendar → Properties → Offline Support) was written from
   memory; check it in Thunderbird.

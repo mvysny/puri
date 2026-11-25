@@ -481,6 +481,8 @@ whisper.cpp 1.9.2, `ggml-small.bin`, a 3 s clip, `-l en`. **[verified 2026-11-25
 - The owner's host, the 890M through Vulkan: 0.63 s a clip, 1.1 s the first; `whisper-server`
   0.31 s, 0.48 s the first.
 - It loads llama.cpp's `libggml0` backends, so `libggml0-backend-vulkan` puts it on the GPU.
+  With lavapipe the only Vulkan device, ggml finds none and it stays on the CPU (1.8.3,
+  `R_llama_list_devices`).
 - `-l auto` runs the encoder twice, once to detect the language: 9.9–11.5 s for that clip on the
   CPU. Both binaries default to `-l en`.
 - `-f - -otxt -np -nt` reads the WAV from stdin and prints only the text, a segment a line,
@@ -559,8 +561,17 @@ b10438 on the owner's VM, no GPU backend installed. **[verified 2026-11-25]**
   format string in `libllama-common.so`): its name, its description, its memory in all and
   free. `Vulkan0: AMD Radeon 890M Graphics (RADV …) (… MiB, … MiB free)` is the shape.
 - With no device but the CPU, "  (none)": the CPU is never listed.
+- Mesa's lavapipe isn't listed: apt's 8681 with `libggml0-backend-vulkan`, on the VM whose only
+  Vulkan device is lavapipe (its virtio-gpu has virgl, no Venus), says "ggml_vulkan: No devices
+  found." and prints the header alone, not even "(none)". ggml skips a Vulkan device of the CPU
+  type unless `GGML_VK_VISIBLE_DEVICES` names it; `=0` lists `Vulkan0: llvmpipe (LLVM 21.1.8, 256
+  bits) (8767 MiB, 6321 MiB free)` and warns "Device type is CPU. This is probably not the device
+  you want." **[verified 2026-11-25]**
+- Forced, lavapipe is 15–55× slower than ggml's own CPU backend on the VM's 8 vCPUs
+  (`llama-bench`, `-ngl 99`): SmolLM2 135M Q4_K_M 33 t/s reading the prompt and 14 t/s writing,
+  against 941 and 269; Qwen 3.5 4B Q4_K_M 1.2 and 1.0, against 66 and 13. **[verified 2026-11-25]**
 - Unverified: what an integrated GPU's total reads, the firmware's share or what the kernel
-  lends it besides, and whether Mesa's lavapipe is listed as a device.
+  lends it besides.
 
 ## R_localsearch_cli — localsearch 3.11's command line, as the setup asks it
 
