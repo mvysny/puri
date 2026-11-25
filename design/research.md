@@ -181,6 +181,35 @@ timed by watching screenshots or logs, not instrumented.
   `web_read_cached` read nothing measurable; an answer after two searches takes 30–57 s.
   **[verified 2026-11-15]**
 
+## R_llama_server_reload — Loading and unloading a model on llama-server, and its prompt cache
+
+The owner's llama-server b10438 in router mode on a Radeon 890M over Vulkan, `-c 65536 -ngl 99`;
+a load is `POST /models/load` until `/models` says `loaded`. The prompts are 10,108 tokens, the
+size of Puri's prefix, with `max_tokens: 1`.
+
+- A load takes 2.2–3.1 s for Qwen 3.5 4B Q4_K_M and 3.3–6.7 s for Ornith 1.5 Q4_K_M, the slower
+  when less of the file is in the page cache; an unload 0.16–0.27 s. **[verified 2026-11-25]**
+- A question sent to an unloaded model loads it first; a one-word answer then takes 2.3–2.6 s on
+  Qwen and 3.5–4.0 s on Ornith. **[verified 2026-11-25]**
+- An unload drops the prompt cache: the prefix then prefills in 16.4 s on Qwen (618 tok/s) and
+  32 s on Ornith (315 tok/s), against 0.3–0.4 s cached; on a CPU alone, `R_llama_server_cpu`.
+  **[verified 2026-11-25]**
+- Both models' chat templates render the tool definitions before the system prompt, so a changed
+  system prompt keeps the tools' part of the cache (`/apply-template`). **[verified 2026-11-25]**
+
+## R_llama_server_cpu — Qwen 3.5 4B on a CPU alone
+
+The owner's VM: 8 threads of the same Ryzen AI 9 HX 370, no GPU backend, llama-server b10438
+`-hf ggml-org/Qwen3.5-4B-GGUF:Q4_K_M -c 65536 --no-mmproj`, its default 4 slots sharing the 64K
+cache. The VM's memory ballooned from 7 to 15 GiB during the run.
+
+- A load takes 2.9–4.5 s from the page cache. **[verified 2026-11-25]**
+- A cold 10,108-token prompt, the size of Puri's prefix, prefills in 198 s (51 tok/s); cached,
+  0.3 s. **[verified 2026-11-25]**
+- It generates 8.6 tok/s. **[verified 2026-11-25]**
+- Its RSS is 6.8 GiB once loaded and 7.1 GiB after that prompt, the mapped weights included.
+  **[verified 2026-11-25]**
+
 ## R_gnome_maps — GNOME Maps 49.3 answers no queries
 
 Ubuntu 26.04's package, its JavaScript read out of the GResource.

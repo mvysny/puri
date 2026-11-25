@@ -162,8 +162,8 @@ the README cut down to the developer setup.
   the config on first run. Puri reads it only at start, so after an edit the guide says Ctrl+Q,
   or `gapplication action io.github.mvysny.Puri quit`, then the shortcut.
 - **Both servers run as per-user systemd services** (owner), from login, rather than apt's system
-  unit, which holds the model from boot for every user. The model stays resident, for an instant
-  answer; no `--sleep-idle-seconds` (owner), and a game is the one time to stop the service.
+  unit, which holds the model from boot for every user. The model stays resident
+  (`D_model_resident`).
 - **One model for everyone, Qwen3.5-4B** (owner): small, the likeliest to run, a small download.
   Once it works, Ornith is the upgrade if the machine takes it. One `-hf` model per server, no
   router mode (`--models-preset`): these models take too much memory to load two. Titles come

@@ -103,7 +103,7 @@
 
       <section class="step" id="step-model">
         <h3><span class="n">3</span>Start the model</h3>
-        <p><code>llama-server</code> runs the model, Qwen 3.5 4B. These commands make it a service of your own, which starts whenever you log in, and start it now. The first start downloads the model, 3–4 GB, into <code>~/.cache/llama.cpp</code>.</p>
+        <p><code>llama-server</code> runs the model, Qwen 3.5 4B. These commands make it a service of your own, which starts whenever you log in, and start it now. The first start downloads the model, 3–4 GB, into <code>~/.cache/huggingface/hub</code>.</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
 <pre><span class="p">$ </span><span class="cmd">mkdir -p ~/.config/systemd/user</span>
@@ -342,7 +342,7 @@ brave_key = "your key"</pre>
         <li><code>~/.config/puri</code>, the config</li>
         <li><code>~/.local/state/puri</code>, your conversations</li>
         <li><code>~/.cache/puri</code>, Puri's copy of Thunderbird's mail index and calendar</li>
-        <li><code>~/.cache/llama.cpp</code>, the model</li>
+        <li><code>models--ggml-org--Qwen3.5-4B-GGUF</code> in <code>~/.cache/huggingface/hub</code>, the model, and Ornith's folder beside it if you switched</li>
         <li><code>~/.local/share/whisper</code>, the dictation model</li>
         <li><code>Notes</code> in your Documents folder, your notes and what Puri remembered</li>
       </ul>

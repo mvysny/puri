@@ -119,6 +119,17 @@ beside it, on a one-slot server, the title wins the permit and the answer waits 
 for it. The cost is a "New conversation" row until the answer is in. Why no slot is pinned:
 pinning the turn lost its cached prefix.
 
+## D_model_resident — Why keep the model loaded all day, rather than unloading it while Puri sits idle?
+
+An unload costs little in itself: a reload takes 2–4 s on the owner's 890M, even Ornith's 22 GB
+(`R_llama_server_reload`), and 3–4.5 s on a CPU alone (`R_llama_server_cpu`). What goes with it is
+the prompt cache, and Puri's prefix, some 10K tokens of tools and system prompt, then prefills
+again before the first token: 16 s on Qwen 3.5 4B, 32 s on Ornith, over three minutes on a CPU
+alone, against under half a second cached. Every first question after an idle spell would wait
+that long, so nothing unloads the model: no `--sleep-idle-seconds`, no router idling (owner,
+2026-11-25). The price is the memory it holds all day; a game is the time to give it back, by
+stopping the server.
+
 ## D_search_engines — Why Brave or Exa with page text, no DuckDuckGo, and no confirmation per search?
 
 *Search, never fetch* leaves the agent the snippets, and snippets alone rarely answer. Brave and
@@ -175,9 +186,7 @@ finds a place by name, Nominatim what's nearby by kind and its opening hours, wh
 and FOSSGIS's OSRM the drive, every hit's in one `table` request (`R_osm_services`). They are free,
 keyless, and their terms are met: Puri's User-Agent with the repository as contact (owner,
 2026-11-21), a request a second per host, answers cached. Not self-hosted, and no leave-by times
-from the calendar (owner, 2026-11-21). The tools live here against *a gap is a missing pikuri
-primitive* (owner, 2026-11-21), to settle first; their home is probably pikuri-workshop. Each
-place found is numbered, `[3]`, up through the conversation, and `route` takes a number, an
+from the calendar (owner, 2026-11-21). Each place found is numbered, `[3]`, up through the conversation, and `route` takes a number, an
 address or coordinates: a small model copies a number where it slips on ten digits of an OSM id
 or four of coordinates, and each end comes back as "name (category), address", so a wrong match
 shows. No `home` keyword: the model passes the address it keeps in `Notes/PURI.md`, which it asks
@@ -202,8 +211,7 @@ and its URL would be a stranger's to fetch.
 ## D_weather — Why a weather tool of Puri's own, on Open-Meteo, its credit on the tool line, rather than MET Norway, or a card?
 
 Open-Meteo is free, keyless and asks for no User-Agent; MET Norway, as solid, wants one naming a
-version Puri lacks (owner, 2026-11-22; `R_open_meteo`). It lives here against *a gap is a missing
-pikuri primitive*, like the place tools (owner), and needs `[maps]`: Photon finds the place, a
+version Puri lacks (owner, 2026-11-22; `R_open_meteo`). It needs `[maps]`: Photon finds the place, a
 street address included, which Open-Meteo's GeoNames can't, and `Places::Ends` numbers it for
 `route`. Only the point leaves for Open-Meteo, rounded to 0.01°. Dates are the model's only by
 choice: no dates gives a week, a line a day with its weekday, so "this weekend" is a line to read,
@@ -230,8 +238,7 @@ it endless, the queue never loops, and a listener refilling it couldn't tell it 
 the user picking other music. An album plays in order once, a song alone. No confirmation: no
 outbound leg, and a pause undoes it. Rhythmbox's window opens or rises, so the music shows even
 with the sound off (owner). No pause or next tool: the media keys and GNOME's widget have them
-(owner). It lives here against *a gap is a missing pikuri primitive*, like the place tools, to
-settle first (owner, 2026-11-21), on ruby-dbus, since Core must not load GLib.
+(owner). It talks ruby-dbus, since Core must not load GLib.
 
 ## D_dictation — Why a mic of Puri's own, on the user's whisper-server through RubyLLM, rather than Myna's key, or pikuri?
 
