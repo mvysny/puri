@@ -2754,7 +2754,14 @@ module Puri
         # _@param_ `cache` — where the model is
         # 
         # _@param_ `command` — what runs `whisper-cli`; specs run a stand-in
-        def initialize: (Puri::Core::Config::DictationTable table, ?cache: Puri::Core::HubCache, ?command: ::Array[String]) -> void
+        # 
+        # _@param_ `timeout` — seconds a clip may take; specs shorten it
+        def initialize: (
+                          Puri::Core::Config::DictationTable table,
+                          ?cache: Puri::Core::HubCache,
+                          ?command: ::Array[String],
+                          ?timeout: Numeric
+                        ) -> void
 
         # _@param_ `pcm` — 16 kHz mono s16le, as {Recorder#stop} returns it
         # 
@@ -2772,6 +2779,9 @@ module Puri
         # 
         # _@param_ `wav`
         def feed: (IO stdin, String wav) -> void
+
+        # _@param_ `pid`
+        def kill: (Integer pid) -> void
 
         # _@param_ `err`
         def last_line: (String err) -> String?
@@ -2806,8 +2816,9 @@ module Puri
       # _@param_ `env`
       def self.root: (untyped env) -> String
 
-      # The GGUF file `-hf model` loads: the first whose name holds the quant, case aside, never a
-      # vision projector.
+      # The GGUF file `-hf model` loads: the first whose path in the snapshot holds the quant, case
+      # aside, never a vision projector. A big model's split parts may sit in a folder named for
+      # the quant, `UD-Q4_K_XL/…-00001-of-00003.gguf`.
       # 
       # _@param_ `model` — matching {GGUF_MODEL}
       # 
@@ -3155,11 +3166,11 @@ module Puri
     #   server.close
     # 
     # A model missing from the {HubCache} fails without a child, saying what to download, since
-    # `--offline` alone says only "exactly one out metadata, path_model, and file must be defined";
-    # {#wait_ready} looks again, so a model downloaded since works. A crash restarts the child
-    # after {BACKOFF} seconds, doubling, and the {CRASHES}th within {CRASH_WINDOW} seconds gives
-    # up, the log's tail in the error. The log is `$XDG_STATE_HOME/puri/llama-server.log`, emptied
-    # at each {#start}.
+    # `--offline` alone says only "exactly one out metadata, path_model, and file must be defined".
+    # A crash restarts the child after {BACKOFF} seconds, doubling, and the {CRASHES}th within
+    # {CRASH_WINDOW} seconds gives up, the log's tail in the error. Either way the next
+    # {#wait_ready} starts over, so a model downloaded since, or memory freed since, works without
+    # restarting Puri. The log is `$XDG_STATE_HOME/puri/llama-server.log`, emptied at each {#start}.
     # 
     # == Implementation details
     # 
@@ -3210,7 +3221,8 @@ module Puri
       # _@return_ — whether `/health` has answered since the child last started
       def ready?: () -> bool
 
-      # Blocks until the model is loaded, starting over a server that failed for a model missing.
+      # Blocks until the model is loaded, starting over a server that failed: Puri is resident, and
+      # a cause gone since must not need its restart.
       # 
       # _@param_ `timeout` — seconds
       def wait_ready: (?timeout: Numeric) -> void
@@ -3243,9 +3255,7 @@ module Puri
       # Under the lock.
       # 
       # _@param_ `error`
-      # 
-      # _@param_ `missing` — whether it failed for the model missing, which {#wait_ready} looks for again
-      def failed: (String error, ?missing: bool) -> void
+      def failed: (String error) -> void
 
       # _@param_ `pid`
       # 

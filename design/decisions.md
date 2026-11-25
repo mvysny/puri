@@ -266,7 +266,9 @@ gets a key and a free loopback port, kept for the whole run so a restart after a
 open conversation; with the port new each run, a saved conversation resumes on it by model.
 `--offline` loads what the setup downloaded into the hub cache (`R_hub_cache`); Puri checks the
 file first, as llama-server's own message names none. `-c 65536` and no `-ngl`: llama.cpp places
-the model. A crash restarts it, three in a minute stop it with the log's tail. `setpriv
+the model. A crash restarts it, three in a minute stop it with the log's tail, and the next
+agent's boot starts it over, as for a model missing: a resident Puri must not need a restart once
+the cause is gone. `setpriv
 --pdeathsig`, not a pidfile the next run reads: the kernel stops the child however Puri dies. An
 agent on it waits at boot for the model, since pikuri-conversations caches a failed probe for a
 minute. Dictation is per clip, not a resident `whisper-server`, because the load costs 0.3–0.5 s

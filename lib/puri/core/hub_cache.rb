@@ -52,8 +52,9 @@ module Puri
         File.join(cache, 'huggingface', 'hub')
       end
 
-      # The GGUF file `-hf model` loads: the first whose name holds the quant, case aside, never a
-      # vision projector.
+      # The GGUF file `-hf model` loads: the first whose path in the snapshot holds the quant, case
+      # aside, never a vision projector. A big model's split parts may sit in a folder named for
+      # the quant, `UD-Q4_K_XL/…-00001-of-00003.gguf`.
       #
       # @param model [String] matching {GGUF_MODEL}
       # @return [String, nil] its path; nil when it isn't downloaded
@@ -61,10 +62,9 @@ module Puri
         repo, quant = model.split(':', 2)
         quant = (quant || DEFAULT_QUANT).downcase
         dir = snapshot(repo) or return nil
-        name = Dir.children(dir).sort.find do |child|
-          lower = child.downcase
-          lower.end_with?('.gguf') && lower.include?(quant) && !lower.include?('mmproj') &&
-            File.file?(File.join(dir, child))
+        name = Dir.glob('**/*.gguf', File::FNM_CASEFOLD, base: dir).sort.find do |path|
+          lower = path.downcase
+          lower.include?(quant) && !File.basename(lower).include?('mmproj') && File.file?(File.join(dir, path))
         end
         name && File.join(dir, name)
       end

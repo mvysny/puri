@@ -15,7 +15,7 @@ RSpec.describe Puri::Core::HubCache do
   let(:cache) { described_class.new(env: { 'LLAMA_CACHE' => @root }) }
 
   # @param repo [String] `org/repo`
-  # @param files [Array<String>] each a link to a blob of its own
+  # @param files [Array<String>] each a link to a blob of its own, perhaps in a folder
   # @param commit [String]
   # @return [String] the snapshot's folder
   def download(repo, *files, commit: 'abc123')
@@ -24,7 +24,8 @@ RSpec.describe Puri::Core::HubCache do
     FileUtils.mkdir_p([snapshot, File.join(base, 'blobs'), File.join(base, 'refs')])
     files.each_with_index do |name, i|
       File.write(File.join(base, 'blobs', "blob#{i}"), name)
-      File.symlink("../../blobs/blob#{i}", File.join(snapshot, name))
+      FileUtils.mkdir_p(File.dirname(File.join(snapshot, name)))
+      File.symlink("#{'../' * (2 + name.count('/'))}blobs/blob#{i}", File.join(snapshot, name))
     end
     File.write(File.join(base, 'refs', 'main'), commit)
     snapshot
@@ -36,6 +37,13 @@ RSpec.describe Puri::Core::HubCache do
                      'Qwen3.5-4B-Q8_0.gguf')
       assert_equal File.join(dir, 'Qwen3.5-4B-Q4_K_M.gguf'), cache.gguf('ggml-org/Qwen3.5-4B-GGUF:q4_k_m')
       assert_equal File.join(dir, 'Qwen3.5-4B-Q8_0.gguf'), cache.gguf('ggml-org/Qwen3.5-4B-GGUF:Q8_0')
+    end
+
+    it "finds a split model's first part in its quant's folder" do
+      dir = download('unsloth/Big-GGUF', 'UD-Q4_K_XL/Big-UD-Q4_K_XL-00002-of-00002.gguf',
+                     'UD-Q4_K_XL/Big-UD-Q4_K_XL-00001-of-00002.gguf')
+      assert_equal File.join(dir, 'UD-Q4_K_XL/Big-UD-Q4_K_XL-00001-of-00002.gguf'),
+                   cache.gguf('unsloth/Big-GGUF:UD-Q4_K_XL')
     end
 
     it "defaults to llama.cpp's Q4_K_M" do

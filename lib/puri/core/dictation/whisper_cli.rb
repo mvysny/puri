@@ -35,11 +35,13 @@ module Puri
         # @param table [Puri::Core::Config::DictationTable] one with no `url`
         # @param cache [Puri::Core::HubCache] where the model is
         # @param command [Array<String>] what runs `whisper-cli`; specs run a stand-in
-        def initialize(table, cache: HubCache.new, command: COMMAND)
+        # @param timeout [Numeric] seconds a clip may take; specs shorten it
+        def initialize(table, cache: HubCache.new, command: COMMAND, timeout: TIMEOUT)
           @model = table.model
           @language = table.language
           @cache = cache
           @command = command
+          @timeout = timeout
         end
 
         # @param pcm [String] 16 kHz mono s16le, as {Recorder#stop} returns it
@@ -59,18 +61,19 @@ module Puri
         # @param model [String] the file's path
         # @param wav [String]
         # @return [Array(String, String, Process::Status)] stdout, stderr and how it ended
-        # @raise [Error] when it can't start, or takes longer than {TIMEOUT}
+        # @raise [Error] when it can't start, or takes longer than the timeout
         def run(model, wav)
           argv = [*@command, '-m', model, '-f', '-', '-l', @language, '-nt', '-otxt', '-np']
           Open3.popen3(*argv) do |stdin, stdout, stderr, wait|
             writer = Thread.new { feed(stdin, wav) }
             out = Thread.new { stdout.read }
             err = Thread.new { stderr.read }
-            unless wait.join(TIMEOUT)
-              Process.kill('KILL', wait.pid)
-              raise Error, "whisper-cli took over #{TIMEOUT} s"
-            end
-            writer.join
+            late = !wait.join(@timeout)
+            kill(wait.pid) if late
+            # Before popen3 closes the pipes, which would fail a read still under way.
+            [writer, out, err].each(&:join)
+            raise Error, "whisper-cli took over #{@timeout} s" if late
+
             [out.value, err.value, wait.value]
           end
         rescue SystemCallError => e
@@ -87,6 +90,14 @@ module Puri
           nil # it exited before reading the clip, and says why on stderr
         ensure
           stdin.close unless stdin.closed?
+        end
+
+        # @param pid [Integer]
+        # @return [void]
+        def kill(pid)
+          Process.kill('KILL', pid)
+        rescue Errno::ESRCH
+          nil # it ended as the timeout ran out
         end
 
         # @param err [String]

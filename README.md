@@ -48,8 +48,8 @@ exe/puri --dummy
 question walk the paths the tools will take. Plain `exe/puri` runs the real one, which needs a
 model server and `~/.config/puri/config.toml`: copy `docs/config.toml`, whose comments say what
 each part does. Without its `[[server]]`'s `url` line, Puri runs `llama-server` itself, on a
-model already in `~/.cache/huggingface/hub`. Escape hides the window, running `exe/puri` again brings it back, and Ctrl+Q
-quits it, as does `gapplication action io.github.mvysny.Puri quit`.
+model already in `~/.cache/huggingface/hub`. Escape hides the window, running `exe/puri` again
+brings it back, and Ctrl+Q quits it, as does `gapplication action io.github.mvysny.Puri quit`.
 
 `bundle exec rake` runs the specs, rubocop, the type signatures and the doc checks, as CI does.
 `AGENTS.md` has the module map, the conventions and the rest of the commands; `design/` the

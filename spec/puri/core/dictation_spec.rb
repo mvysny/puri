@@ -141,7 +141,8 @@ RSpec.describe Puri::Core::Dictation do
     let(:model) { 'ggerganov/whisper.cpp:ggml-small.bin' }
 
     # Writes its arguments and the clip's size and first bytes to its second argument, then by
-    # its first: `speak` prints two segments, `silence` Whisper's tag, `fail` an error on stderr.
+    # its first: `speak` prints two segments, `silence` Whisper's tag, `hang` nothing ever, `fail`
+    # an error on stderr.
     let(:fake) do
       <<~'RUBY'
         mode, record, *args = ARGV
@@ -150,6 +151,7 @@ RSpec.describe Puri::Core::Dictation do
         case mode
         when 'speak' then puts 'Buy avocados', ' and limes.'
         when 'silence' then puts '[BLANK_AUDIO]'
+        when 'hang' then sleep
         else
           warn 'error: failed to initialize whisper context'
           exit 3
@@ -169,10 +171,11 @@ RSpec.describe Puri::Core::Dictation do
 
     # @param mode [String] the stand-in's
     # @param language [String]
+    # @param timeout [Numeric] seconds
     # @return [Puri::Core::Dictation::WhisperCli]
-    def whisper_cli(mode = 'speak', language: 'auto')
+    def whisper_cli(mode = 'speak', language: 'auto', timeout: 10)
       command = [RbConfig.ruby, '--disable=gems,rubyopt', '-e', fake, mode, record]
-      described_class.new(Puri::Core::Config::DictationTable.new(model:, language:), cache:, command:)
+      described_class.new(Puri::Core::Config::DictationTable.new(model:, language:), cache:, command:, timeout:)
     end
 
     it 'pipes the clip in as a WAV, on the model in the cache, and squeezes the text' do
@@ -198,6 +201,13 @@ RSpec.describe Puri::Core::Dictation do
       download
       err = assert_raises(described_class::Error) { whisper_cli('fail').transcribe(tone(1)) }
       assert_equal 'whisper-cli failed: error: failed to initialize whisper context', err.message
+    end
+
+    it 'kills a whisper-cli that takes too long, and says so' do
+      download
+      cli = whisper_cli('hang', timeout: 0.5)
+      err = assert_raises(described_class::Error) { cli.transcribe(tone(1)) }
+      assert_equal 'whisper-cli took over 0.5 s', err.message
     end
 
     it "says which model isn't downloaded, and where it looked, running nothing" do

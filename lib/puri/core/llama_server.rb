@@ -17,11 +17,11 @@ module Puri
     #   server.close
     #
     # A model missing from the {HubCache} fails without a child, saying what to download, since
-    # `--offline` alone says only "exactly one out metadata, path_model, and file must be defined";
-    # {#wait_ready} looks again, so a model downloaded since works. A crash restarts the child
-    # after {BACKOFF} seconds, doubling, and the {CRASHES}th within {CRASH_WINDOW} seconds gives
-    # up, the log's tail in the error. The log is `$XDG_STATE_HOME/puri/llama-server.log`, emptied
-    # at each {#start}.
+    # `--offline` alone says only "exactly one out metadata, path_model, and file must be defined".
+    # A crash restarts the child after {BACKOFF} seconds, doubling, and the {CRASHES}th within
+    # {CRASH_WINDOW} seconds gives up, the log's tail in the error. Either way the next
+    # {#wait_ready} starts over, so a model downloaded since, or memory freed since, works without
+    # restarting Puri. The log is `$XDG_STATE_HOME/puri/llama-server.log`, emptied at each {#start}.
     #
     # == Implementation details
     #
@@ -82,7 +82,6 @@ module Puri
         @changed = @lock.new_cond
         @state = :idle
         @error = nil
-        @missing = false
         @crashes = []
         @child = nil
         @watcher = nil
@@ -100,8 +99,7 @@ module Puri
 
           unless @cache.gguf(@embedded.model)
             next failed("The model #{@embedded.model} isn't downloaded: it isn't in #{@cache.root}. " \
-                        "`llama-server -hf #{@embedded.model}` downloads it; stop that server once it's listening.",
-                        missing: true)
+                        "`llama-server -hf #{@embedded.model}` downloads it; stop that server once it's listening.")
           end
           FileUtils.mkdir_p(File.dirname(@log))
           File.write(@log, '')
@@ -119,14 +117,15 @@ module Puri
       # @return [Boolean] whether `/health` has answered since the child last started
       def ready? = @lock.synchronize { @state == :ready }
 
-      # Blocks until the model is loaded, starting over a server that failed for a model missing.
+      # Blocks until the model is loaded, starting over a server that failed: Puri is resident, and
+      # a cause gone since must not need its restart.
       #
       # @param timeout [Numeric] seconds
       # @return [void]
       # @raise [Error] when the model isn't downloaded, the child keeps crashing, Puri is
       #   quitting, or the model still loads after `timeout`
       def wait_ready(timeout: READY_TIMEOUT)
-        start if @lock.synchronize { @state == :failed && @missing }
+        start if @lock.synchronize { @state == :failed }
         deadline = clock + timeout
         @lock.synchronize do
           until %i[ready failed closed].include?(@state)
@@ -237,12 +236,9 @@ module Puri
       # Under the lock.
       #
       # @param error [String]
-      # @param missing [Boolean] whether it failed for the model missing, which {#wait_ready} looks
-      #   for again
       # @return [void]
-      def failed(error, missing: false)
+      def failed(error)
         LOGGER.error(error)
-        @missing = missing
         @state = :failed
         @error = error
         @changed.broadcast

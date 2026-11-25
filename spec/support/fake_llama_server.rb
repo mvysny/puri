@@ -11,8 +11,8 @@ require 'socket'
 #   FakeLlamaServer.download(cache)
 #   server = Puri::Core::LlamaServer.new(FakeLlamaServer.embedded, cache:, command: FakeLlamaServer.command)
 #
-# Its modes: `serve` loads for `load` seconds; `crash` says why and exits 1; `crash-once` crashes
-# while `marker` names no file, creating it, then serves.
+# Its modes: `serve` loads for `load` seconds; `crash` says why and exits 1; `crash-while` crashes
+# while `marker` names no file; `crash-once` does too, creating it, so the next one serves.
 module FakeLlamaServer
   # @return [String] what {download} puts in the cache
   MODEL = 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M'
@@ -23,7 +23,8 @@ module FakeLlamaServer
     mode, marker, load, *args = ARGV
     $stdout.sync = true
     puts "pid #{Process.pid}", "args #{args.join(' ')}", "key #{ENV.fetch('LLAMA_API_KEY', '')}"
-    if mode == 'crash' || (mode == 'crash-once' && !File.exist?(marker) && File.write(marker, ''))
+    if mode == 'crash' || (mode == 'crash-while' && !File.exist?(marker)) ||
+       (mode == 'crash-once' && !File.exist?(marker) && File.write(marker, ''))
       puts 'error: the model failed to load'
       exit 1
     end
@@ -40,8 +41,8 @@ module FakeLlamaServer
     end
   RUBY
 
-  # @param mode [String] `serve`, `crash` or `crash-once`
-  # @param marker [String] the file `crash-once` creates
+  # @param mode [String] `serve`, `crash`, `crash-while` or `crash-once`
+  # @param marker [String] the file `crash-while` waits for and `crash-once` creates
   # @param load [Float] seconds `serve` answers 503
   # @return [Array<String>] a {Puri::Core::LlamaServer} `command:`
   def self.command(mode = 'serve', marker: '', load: 0.3)

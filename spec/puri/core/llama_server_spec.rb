@@ -89,6 +89,17 @@ RSpec.describe Puri::Core::LlamaServer do
     assert_equal 3, pids(s).size
   end
 
+  it 'starts over at the next wait once it gave up, so Puri needs no restart once the cause is gone' do
+    FakeLlamaServer.download(cache)
+    s = server('crash-while')
+    s.start
+    assert_raises(described_class::Error) { s.wait_ready(timeout: 10) }
+    File.write(File.join(@dir, 'crashed'), '')
+    s.wait_ready(timeout: 10)
+    assert s.ready?
+    assert_equal 1, pids(s).size, 'the log starts afresh'
+  end
+
   it 'stops the child when closed, and a wait after says Puri is quitting' do
     FakeLlamaServer.download(cache)
     s = server
