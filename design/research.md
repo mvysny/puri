@@ -211,6 +211,26 @@ cache. The VM's memory ballooned from 7 to 15 GiB during the run.
 - Its RSS is 6.8 GiB once loaded and 7.1 GiB after that prompt, the mapped weights included.
   **[verified 2026-11-25]**
 
+## R_qwen_npu — Qwen 3.5 4B on the NPU, through Lemonade and FastFlowLM
+
+The owner's host: Lemonade's snap, its FastFlowLM 1.0.11 backend serving `qwen3.5:4b` (Q4_K, per
+FastFlowLM's model card) on the HX 370's XDNA 2 NPU at `--ctx-len 65536`, against llama-server
+b10438 on the 890M; one script drives both from the VM. Puri's shape is a 10.3K-token system
+prompt and a tool, then a short question.
+
+- A load takes 4.8–5.5 s and an unload 2.1–2.6 s; on the 890M, 1.9–2.5 s and 0.1–0.2 s.
+  **[verified 2026-11-25]**
+- A cold 10K-token prompt reads as fast as on the 890M: 17.9 s (565 tok/s) against 17.8 s
+  (568 tok/s). **[verified 2026-11-25]**
+- It writes 15.6 tok/s after a short prompt and 13.0 after the 10K one; the 890M, 20.8 and 19.3.
+  **[verified 2026-11-25]**
+- Its prefix cache saves the state at the end of the system prompt and tools, and at the end of
+  the prompt, so an identical repeat resumes only from the first. **[docs]** A 10K-token user
+  message sent twice took 17.9 s both times. **[verified 2026-11-25]**
+- In Puri's shape the first question's first token comes after 20.4 s (the 890M: 19.9 s) and the
+  next questions' after 1.4 s (0.6 s), 10,270 tokens cached. **[verified 2026-11-25]**
+- Its power draw against the 890M's: not measured. **[unverified]**
+
 ## R_gnome_maps — GNOME Maps 49.3 answers no queries
 
 Ubuntu 26.04's package, its JavaScript read out of the GResource.

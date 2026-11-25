@@ -68,5 +68,7 @@ definitions + memory). That last number is what a smaller model will pay for eve
 - `Q_npu`: repeat the owner's NPU experiment on today's Lemonade: which of `model-eval.md`'s small
   tier it carries, their tokens/s and prompt tokens/s against llama.cpp on the iGPU, and the
   watts of both (`model-eval.md`'s `Q_power`). Worth it only if a small model passes the eval.
+  Qwen 3.5 4B measured 2026-11-25 (`R_qwen_npu`): it reads as fast as the 890M and writes 1.3–1.5×
+  slower, no longer half; the watts are still open.
 - `Q_hosted_tier`: is there an opt-in hosted tier at all, and is a query that quotes a note allowed
   to go there? That's an egress leg like the search engine's, with the same confirm question.
