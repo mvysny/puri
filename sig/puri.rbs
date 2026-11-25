@@ -5337,6 +5337,36 @@ module Puri
       def command: (Symbol method, *::Array[Object] args) -> void
     end
 
+    # What the shortcut shows in place of the popup when Puri can't start: the error, and the
+    # config to fix.
+    # 
+    #   FailureDialog.new(app, 'no [titler] names the connection that writes titles',
+    #                     config: '/home/me/.config/puri/config.toml').present
+    # 
+    # It is the app's only window, and closing it ends Puri, so the next press of the shortcut
+    # starts a fresh one, which reads the config again: fix the file, press the shortcut.
+    class FailureDialog < Adw::AlertDialog
+      # _@param_ `app`
+      # 
+      # _@param_ `message` — what went wrong, as Core words it
+      # 
+      # _@param_ `config` — the file to fix, which a button opens; nil offers none
+      def initialize: (Adw::Application app, String message, ?config: String?) -> void
+
+      # Shows it in a window of its own, the app's: no popup is there to hold it.
+      def present: () -> void
+
+      # Unfocusable, or it opens with all its text selected; selectable, for a search or a bug
+      # report.
+      # 
+      # _@param_ `message`
+      def message_label: (String message) -> Gtk::Label
+
+      # In the user's editor. Puri is held until the launch is through: the dialog closes on the
+      # click, and with it would go Puri, the launch half done.
+      def open_config: () -> void
+    end
+
     # Every earlier conversation, newest first, with a search over the titles. It fills itself
     # from Core and stays current through {Protocol::ConversationsChanged}.
     # 

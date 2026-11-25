@@ -152,7 +152,7 @@
 <span class="p">$ </span><span class="cmd">gnome-text-editor ~/.config/puri/config.toml</span></pre>
         </div>
         <p>Everything in it is on, except web search. It has Puri run the two models from step 3 itself. Places and the weather send what you ask about to public services, as the file says; to turn one off, put a <code>#</code> before its lines. You can also <a href="https://github.com/mvysny/puri/blob/master/docs/config.toml">read the file here</a> before you install.</p>
-        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> <code>~/puri/exe/puri</code> opens Puri's search bar. If the config has a mistake, the terminal says what and where. Then press <kbd>Ctrl</kbd>+<kbd>Q</kbd> to quit this Puri: from now on, <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> starts it.</span></p>
+        <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens Puri's search bar. If the config has a mistake, a dialog says what, and its button opens the file: fix it, close the dialog, and press the shortcut again.</span></p>
       </section>
 
       <section class="step" id="step-index">
@@ -312,7 +312,7 @@ brave_key = "your key"</pre>
       <h2>When something doesn't work</h2>
       <p><code>~/puri/bin/setup</code>, run in a terminal, checks each step of this guide and says what's missing. It asks before it fixes anything, such as a model to download, and never uses <code>sudo</code>.</p>
       <div class="list faq">
-        <details><summary><kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> does nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Start Puri in a terminal, where it says what's wrong: <code>~/puri/exe/puri</code>. A mistake in the config is the usual one.</p></details>
+        <details><summary><kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> does nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>A mistake in the config shows in a dialog of its own. With no dialog either, start Puri in a terminal, where it says what's wrong: <code>~/puri/exe/puri</code>; <code>~/puri/bin/setup</code> checks the rest.</p></details>
         <details><summary>Puri says the model isn't downloaded, or won't start<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>It names the model it looked for: <code>~/puri/bin/setup</code> downloads it, as does <a href="#step-models">step 3</a>; let the download finish. When the model is there and still won't start, its log, <code>~/.local/state/puri/llama-server.log</code>, says why; too little memory is the usual reason. Once that's fixed, ask again: Puri starts the model over without a restart.</p></details>
         <details><summary>The first answer takes long<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Before its first answer, Puri loads the model, and the model reads Puri's instructions, about 10,000 tokens: up to half a minute on integrated graphics, less on a graphics card. Later questions start sooner.</p></details>
         <details><summary>Mail search finds nothing<svg class="ic" aria-hidden="true"><use href="icons.svg#i-chev"/></svg></summary><p>Thunderbird's global search is off, or still indexing your mail: see <a href="#step-thunderbird">step 1</a>.</p></details>

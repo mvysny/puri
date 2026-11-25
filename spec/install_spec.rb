@@ -130,27 +130,38 @@ RSpec.describe 'rake install' do
     assert File.exist?(service)
   end
 
+  connection = <<~TOML
+    [[server]]
+    id  = "local"
+    url = "http://localhost:8080"
+
+    [[llm]]
+    name   = "Local"
+    server = "local"
+    model  = "qwen"
+  TOML
+
   # The whole path a shortcut takes, on a private session bus that reads the services from the
   # scratch home: `gapplication launch` with no Puri running makes the bus start one. The bus
   # starts before the install, as the login session's does, so the install has one to reload,
-  # though dbus-daemon would find the file without it (`R_gnome_activation`). It starts the real
-  # backend, so it needs a config; nothing asks, so nothing dials the server.
-  it 'lets the session bus start Puri on `gapplication launch`, and its quit action end it' do
-    Broadway.start
-    FileUtils.mkdir_p("#{@home}/config/puri")
-    File.write("#{@home}/config/puri/config.toml", <<~TOML)
-      [[server]]
-      id  = "local"
-      url = "http://localhost:8080"
+  # though dbus-daemon would find the file without it (`R_gnome_activation`). A config starts the
+  # real backend; nothing asks, so nothing dials the server. A broken one, with no `[titler]`,
+  # starts none: Puri stays up for its failure dialog rather than exiting unseen.
+  { 'a config' => "#{connection}\n[titler]\nllm = \"Local\"\n", 'a broken config' => connection }.each do |what, toml|
+    it "lets the session bus start Puri on `gapplication launch` with #{what}, and its quit action end it" do
+      Broadway.start
+      FileUtils.mkdir_p("#{@home}/config/puri")
+      File.write("#{@home}/config/puri/config.toml", toml)
+      launch_and_quit(app_id)
+    end
+  end
 
-      [[llm]]
-      name   = "Local"
-      server = "local"
-      model  = "qwen"
-
-      [titler]
-      llm = "Local"
-    TOML
+  # Installs Puri on a bus of its own, launches it as the shortcut does, and quits it as Ctrl+Q
+  # does, failing unless it ran in between and ended after.
+  #
+  # @param app_id [String]
+  # @return [void]
+  def launch_and_quit(app_id)
     # The bus hands its own environment to the Puri it starts. Local GIO, or that Puri asks the bus
     # for gvfs, which can't mount here; err: quiets the bus's activation log.
     bus = IO.popen([env('GIO_USE_VFS' => 'local'), 'dbus-daemon', '--session', '--nofork', '--print-address'],

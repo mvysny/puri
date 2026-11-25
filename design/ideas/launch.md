@@ -22,9 +22,6 @@ policies are already in `R_osm_services` and `R_open_meteo`; what a launch chang
 
 ## Open questions
 
-- `Q_startup_error`: started from the shortcut, Puri prints a config error to stderr and exits,
-  so the press does nothing. *Easy, the Apple way* settles it: the error shows in the window
-  (owner, 2026-11-25). Not built yet.
 - `Q_packaging`: one day `apt install puri`? git clone and `bin/setup` do for the early adopters
   a launch reaches. Options: a Launchpad PPA, which builds from source with the gems vendored;
   Debian packages for pikuri's gems, slow; or Flatpak, whose sandbox would need holes for the

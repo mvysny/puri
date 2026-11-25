@@ -17,7 +17,7 @@ start quickly, the model server itself.
 ## Promises
 
 - **Private first.** What Puri reads reaches nobody the user didn't choose. Its tools break the lethal trifecta by design: the model chooses what to ask, never where it goes. *Search, never fetch*: the agent talks only to the configured search engines and the map and weather services, and opens no URL; every leg to a person or a page — a mail, an invite, a place opened from the map — waits on the user's click. No telemetry, no account.
-- **Easy, the Apple way.** One shortcut and one window: the popup, the running conversation and every earlier one. A desktop app, never a terminal or a browser tab, so whatever the user must see, an error included, shows in the window. It works before the user configures anything; each upgrade, a smarter model or a server of their own, waits until they want it. The model stays loaded, for speed (`D_model_resident`).
+- **Easy, the Apple way.** One shortcut and one main window: the popup, the running conversation and every earlier one; a dialog, never another layout of it, when something goes badly wrong, such as Puri unable to start. A desktop app, never a terminal or a browser tab, so whatever the user must see, an error included, shows on screen. It works before the user configures anything; each upgrade, a smarter model or a server of their own, waits until they want it. The model stays loaded, for speed (`D_model_resident`).
 - **Yours, local first.** The source is open, the model runs on hardware the user owns, and their conversations and notes are plain files on their disk. No cloud by default: a hosted model is the user's conscious choice, and Puri says plainly that their conversations then leave.
 
 ## Design docs

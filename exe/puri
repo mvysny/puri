@@ -27,9 +27,18 @@ dummy = ARGV.include?('--dummy')
 # Single-instance on the session bus: a second launch only activates this one, which is how the
 # global shortcut brings the window back.
 client = nil
+# What stopped Core from starting, and the config to fix; the shortcut shows them in a dialog.
+failure = nil
+failed_config = nil
 app = Adw::Application.new('io.github.mvysny.Puri', :default_flags)
 app.signal_connect('activate') do |a|
-  (a.active_window || Puri::Desktop::PopupWindow.new(a, client)).present
+  if a.active_window
+    a.active_window.present
+  elsif failure
+    Puri::Desktop::FailureDialog.new(a, failure, config: failed_config).present
+  else
+    Puri::Desktop::PopupWindow.new(a, client).present
+  end
 end
 # Resident: a hidden window, or none yet, never lets the process exit. The way out is Ctrl+Q, or
 # `gapplication action io.github.mvysny.Puri quit` from a terminal, say after editing the config.
@@ -65,12 +74,27 @@ core =
   else
     begin
       config = Puri::Core::Config.load
+      Puri::Core::PikuriCore.register_extractors
+      Puri::Core::PikuriCore.from_config(config, store: Puri::Core::PikuriCore.store, &listener)
     rescue Puri::Core::Config::Error => e
-      abort "puri: #{e.message}"
+      failure = e.message
+      failed_config = Puri::Core::Config.user_path.then { File.file?(_1) ? _1 : nil }
+      nil
+    rescue StandardError => e
+      failure = "#{e.class}: #{e.message}"
+      warn e.full_message
+      nil
     end
-    Puri::Core::PikuriCore.register_extractors
-    Puri::Core::PikuriCore.from_config(config, store: Puri::Core::PikuriCore.store, &listener)
   end
+
+# Started from the shortcut, stderr reaches no one. A broken Puri isn't resident: the dialog's
+# window holds it while it shows, and the next press starts a fresh one, reading the config again.
+if failure
+  warn "puri: #{failure}"
+  app.release
+  exit app.run(argv)
+end
+
 client = Puri::Desktop::BackendClient.new(core)
 
 # However the main loop ends: closing stops the llama-server Puri runs.
