@@ -1,0 +1,42 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Installs Puri for the user who runs it, from this checkout, and, run again, is its doctor: each
+# check in the install guide's order, a fix for each that needs no sudo once the user says yes,
+# and the rest printed for the user to do. Never sudo, never a download it doesn't ask about.
+#
+#   bin/setup    # exits 0 once Puri is ready, 1 while something needs the user
+#
+# Ruby's standard library alone until `bundle install`, one of its fixes; the rest runs under the
+# bundle, in a process of its own, since this one has loaded the standard library's json and
+# net-http, older than the bundle's. `Puri::Setup` has the checks.
+
+require 'rbconfig'
+require_relative '../lib/puri/setup'
+require_relative '../lib/puri/setup/terminal'
+require_relative '../lib/puri/setup/packages'
+require_relative '../lib/puri/setup/bundle'
+
+unless ARGV.empty?
+  warn 'usage: bin/setup, no arguments: it checks what Puri needs, and asks before it fixes anything'
+  exit 2
+end
+
+root = File.expand_path('..', __dir__)
+terminal = Puri::Setup::Terminal.new
+terminal.say("Puri's setup checks what Puri needs, and asks before it fixes anything. It never uses sudo.")
+terminal.say('')
+begin
+  exit 1 unless Puri::Setup::Packages.new.check(terminal) && Puri::Setup::Bundle.new(root:).check(terminal)
+rescue Interrupt
+  terminal.say("\nStopped. Run bin/setup again to carry on.")
+  exit 130
+end
+
+$stdout.flush # exec drops what's still buffered
+exec({ 'BUNDLE_GEMFILE' => File.join(root, 'Gemfile') }, RbConfig.ruby, '-e', <<~RUBY, File.join(root, 'lib'))
+  require 'bundler/setup'
+  $LOAD_PATH.unshift(ARGV.first)
+  require 'puri'
+  exit Puri::Setup::Doctor.new.run
+RUBY

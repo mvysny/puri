@@ -1,167 +1,25 @@
 # frozen_string_literal: true
 
-require 'open3'
+# `Puri::Setup::Install` from the command line, as the install guide and `bin/setup` run it. The
+# shortcut is Super+Alt+Space unless `HOTKEY` names another (`HOTKEY='<Super>p'`) or none
+# (`HOTKEY=`); `AUTOSTART=1` also starts Puri hidden at login.
 
-# Installs Puri for the current user, running from this checkout: no root, no copy, so a
-# `git pull` updates it. The session bus starts Puri on the first `gapplication launch`, the
-# command the global shortcut runs; `AUTOSTART=1` also starts it hidden at login.
-#
-# The shortcut is a GNOME custom keybinding, Super+Alt+Space unless `HOTKEY` names another
-# (`HOTKEY='<Super>p'`) or none (`HOTKEY=`).
-
-# @return [String] the D-Bus name, and the base name of every installed file
-INSTALL_APP_ID = 'io.github.mvysny.Puri'
-
-# @return [String] what Puri is bound to when `HOTKEY` is unset
-INSTALL_DEFAULT_HOTKEY = '<Super><Alt>space'
-
-# @return [String] GNOME's custom keybindings, the ones Settings → Keyboard lists
-INSTALL_MEDIA_KEYS = 'org.gnome.settings-daemon.plugins.media-keys'
-
-# @return [String] Puri's own entry among them, at a fixed path so a reinstall finds it
-INSTALL_KEYBINDING = "/#{INSTALL_MEDIA_KEYS.tr('.', '/')}/custom-keybindings/puri/".freeze
-
-# @return [String] where the user's `applications/` and `dbus-1/services/` live
-def install_data_home = ENV.fetch('XDG_DATA_HOME', File.expand_path('~/.local/share'))
-
-# @return [Hash{Symbol => String}] each installed file, by role
-def install_paths
-  config_home = ENV.fetch('XDG_CONFIG_HOME', File.expand_path('~/.config'))
-  {
-    desktop: "#{install_data_home}/applications/#{INSTALL_APP_ID}.desktop",
-    service: "#{install_data_home}/dbus-1/services/#{INSTALL_APP_ID}.service",
-    autostart: "#{config_home}/autostart/#{INSTALL_APP_ID}.desktop"
-  }
-end
-
-# `exe/puri` in quotes, as both a desktop entry's and a D-Bus service's `Exec=` take it. A path
-# that would need escaping inside the quotes is refused rather than escaped.
-#
-# @return [String]
-def install_exec
-  exe = File.expand_path('../exe/puri', __dir__)
-  raise "can't install from #{exe.inspect}: quote, backslash, $, ` or newline in the path" if exe.match?(/["\\$`\n]/)
-
-  %("#{exe}")
-end
-
-# @param path [String]
-# @param content [String]
-# @return [void]
-def install_write(path, content)
-  mkdir_p File.dirname(path), verbose: false
-  File.write(path, content)
-  puts "wrote #{path}"
-end
-
-# @param args [Array<String>] gsettings' arguments, one per word
-# @return [String] its stdout
-def install_gsettings(*args)
-  out, err, status = Open3.capture3('gsettings', *args)
-  raise "gsettings #{args.join(' ')} failed: #{err}" unless status.success?
-
-  out
-end
-
-# @param schema [String]
-# @param key [String] a key of type `as`
-# @return [Array<String>]
-def install_strv(schema, key) = install_gsettings('get', schema, key).scan(/'([^']*)'/).flatten
-
-# @param schema [String]
-# @param key [String] a key of type `as`
-# @param list [Array<String>] none may hold a quote
-# @return [void]
-def install_set_strv(schema, key, list)
-  install_gsettings('set', schema, key, list.empty? ? '@as []' : "[#{list.map { "'#{_1}'" }.join(', ')}]")
-end
-
-# Makes the session bus re-read its service files, or `gapplication launch` may find Puri "not
-# activatable" until the next login (`R_gnome_activation`).
-#
-# @return [void]
-def install_reload_bus
-  _, err, status = Open3.capture3('gdbus', 'call', '--session', '--dest', 'org.freedesktop.DBus',
-                                  '--object-path', '/org/freedesktop/DBus',
-                                  '--method', 'org.freedesktop.DBus.ReloadConfig')
-  return if status.success?
-
-  warn "The session bus didn't reload (#{err.strip}); log out and back in before the shortcut starts Puri"
-end
-
-# @return [String, nil] the accelerator to bind, nil for none
-def install_hotkey
-  hotkey = ENV.fetch('HOTKEY', INSTALL_DEFAULT_HOTKEY)
-  return nil if hotkey.empty?
-  raise "HOTKEY=#{hotkey.inspect} isn't an accelerator like '<Super>p'" unless hotkey.match?(/\A(<\w+>)*\w+\z/)
-
-  hotkey
-end
-
-# Binds Puri's custom keybinding to `hotkey`, or removes it.
-#
-# @param hotkey [String, nil] nil removes it
-# @return [void]
-def install_keybinding(hotkey)
-  list = install_strv(INSTALL_MEDIA_KEYS, 'custom-keybindings')
-  entry = "#{INSTALL_MEDIA_KEYS}.custom-keybinding:#{INSTALL_KEYBINDING}"
-  if hotkey
-    install_gsettings('set', entry, 'name', "'Puri'")
-    install_gsettings('set', entry, 'command', "'gapplication launch #{INSTALL_APP_ID}'")
-    install_gsettings('set', entry, 'binding', "'#{hotkey}'")
-    install_set_strv(INSTALL_MEDIA_KEYS, 'custom-keybindings', list | [INSTALL_KEYBINDING])
-  else
-    install_set_strv(INSTALL_MEDIA_KEYS, 'custom-keybindings', list - [INSTALL_KEYBINDING])
-    %w[name command binding].each { install_gsettings('reset', entry, _1) }
-  end
+# @return [Puri::Setup::Install]
+def install_setup
+  $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+  require 'puri'
+  Puri::Setup::Install.new
 end
 
 desc "Install Puri for this user, run from this checkout; HOTKEY='<Super>p' (default Super+Alt+Space), AUTOSTART=1"
 task :install do
-  hotkey = install_hotkey # first, so a bad HOTKEY writes nothing
-  paths = install_paths
-  install_write(paths[:desktop], <<~DESKTOP)
-    [Desktop Entry]
-    Type=Application
-    Name=Puri
-    Comment=Ask Puri: a desktop assistant on your own machine
-    Exec=#{install_exec}
-    DBusActivatable=true
-    Terminal=false
-    Categories=Utility;
-  DESKTOP
-  install_write(paths[:service], <<~SERVICE)
-    [D-BUS Service]
-    Name=#{INSTALL_APP_ID}
-    Exec=#{install_exec} --gapplication-service
-  SERVICE
-
-  # Declarative: a plain install turns off an earlier AUTOSTART=1, and the same goes for HOTKEY.
-  if ENV['AUTOSTART'] == '1'
-    install_write(paths[:autostart], <<~AUTOSTART)
-      [Desktop Entry]
-      Type=Application
-      Name=Puri
-      Exec=#{install_exec} --gapplication-service
-      NoDisplay=true
-      X-GNOME-Autostart-enabled=true
-    AUTOSTART
-  else
-    rm_f paths[:autostart]
-  end
-
-  install_reload_bus
-  install_keybinding(hotkey)
-  if hotkey
-    puts "#{hotkey} opens Puri"
-  else
-    puts "No shortcut bound; bind one to: gapplication launch #{INSTALL_APP_ID}"
-  end
+  install = install_setup
+  hotkey = Puri::Setup::Install.hotkey(ENV.fetch('HOTKEY', Puri::Setup::Install::DEFAULT_HOTKEY))
+  install.write(hotkey:, autostart: ENV['AUTOSTART'] == '1').each { puts "wrote #{_1}" }
+  puts hotkey ? "#{hotkey} opens Puri" : "No shortcut bound; bind one to: gapplication launch #{Puri::Setup::Install::APP_ID}"
 end
 
 desc 'Remove what `rake install` wrote'
 task :uninstall do
-  install_paths.each_value { |path| rm_f path }
-  install_reload_bus
-  install_keybinding(nil)
+  install_setup.remove
 end

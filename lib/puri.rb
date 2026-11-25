@@ -22,6 +22,12 @@ module Puri
   # @return [String]
   USER_AGENT = 'Puri (+https://github.com/mvysny/puri)'
 
+  # The setup that is also the doctor, in this checkout, which Puri always runs from: what an error
+  # names when the fix is a download or a step of the install ({Setup}).
+  #
+  # @return [String]
+  SETUP = File.expand_path('../bin/setup', __dir__)
+
   # Loads GTK4, libadwaita and libshumate, the map widget. Neither of the last two has a Ruby
   # package, so each comes through GObject Introspection, which is not a Zeitwerk-shaped file.
   # Safe to call twice.

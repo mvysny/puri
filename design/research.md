@@ -484,6 +484,41 @@ unpacked `.deb`s. **[verified 2026-11-25]**
   `HF_HUB_DISABLE_UPDATE_CHECK` is set. **[src]**
 - apt installs it with some 110 packages, matplotlib, scipy and pandas among them; with
   `--no-install-recommends`, 10. (`apt-get -s`)
+- `resolve/<commit>/<file>` answers 302 to a CDN (`us.aws.cdn.hf.co/xet-bridge-us/…`), with
+  `X-Repo-Commit`, and `X-Linked-Etag` and `X-Linked-Size` for the file; the CDN answers a
+  `Range` with 206. A blob `Puri::Setup::HubDownload` wrote, stopped at 40 MB and resumed,
+  loaded in `llama-server -hf ggml-org/SmolLM2-135M-GGUF:Q4_K_M --offline`. **[verified
+  2026-11-25]**
+- `hf download` fetches into `blobs/<sha256>.<8 hex>.incomplete`, a name of its own per
+  process, deleted when the download fails, so a stopped one starts over. It holds
+  `.locks/models--<org>--<repo>/<sha256>.lock` meanwhile, `flock`ed through `filelock`. **[src,
+  `file_download.py` and `utils/_fixes.py` of the 1.23.0 `.deb`]**
+
+## R_llama_list_devices — What `llama-server --list-devices` prints
+
+b10438 on the owner's VM, no GPU backend installed. **[verified 2026-11-25]**
+
+- "Available devices:", then one line per device, `  %s: %s (%zu MiB, %zu MiB free)` (the
+  format string in `libllama-common.so`): its name, its description, its memory in all and
+  free. `Vulkan0: AMD Radeon 890M Graphics (RADV …) (… MiB, … MiB free)` is the shape.
+- With no device but the CPU, "  (none)": the CPU is never listed.
+- Unverified: what an integrated GPU's total reads, the firmware's share or what the kernel
+  lends it besides, and whether Mesa's lavapipe is listed as a device.
+
+## R_localsearch_cli — localsearch 3.11's command line, as the setup asks it
+
+localsearch 3.11.2 on the owner's VM. **[verified 2026-11-25]**
+
+- `localsearch info FILE` exits 0 for an indexed file, printing its properties, and 1 for one it
+  doesn't hold, with "No metadata available for that URI".
+- `localsearch status` ends "Indexer is idle" once it has read everything; its words follow the
+  locale, so `LC_ALL=C.UTF-8` reads them in English.
+- `org.freedesktop.Tracker3.Miner.Files index-recursive-directories` holds the Search Locations:
+  paths, `$HOME`, and `&DOCUMENTS`-style names for the desktop's own folders.
+- `localsearch reset --file FILE` erases what the index holds of FILE, recursively, and asks for
+  it to be read again at once; plain `reset` erases the whole index. **[docs, its man page]**
+  Unverified: that the folder's office files then come back with their text, once
+  `localsearch-extractor-office` is installed.
 
 ## R_tailscale_serve — Tailscale Serve in front of llama-server and whisper-server
 

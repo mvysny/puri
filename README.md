@@ -26,7 +26,8 @@ play your music in Rhythmbox. The plan lives in `design/ideas/`.
 ## Install
 
 To use Puri, follow the [install guide](https://puri-ai.de/install.html): the packages, the two
-models, Puri, and its config, with a check after each step.
+models, Puri, and its config, with a check after each step. In a clone, `bin/setup` does each
+step that needs no `sudo`, asking first, and, run again, checks them all and says what's missing.
 [Choose a model](https://puri-ai.de/models.html) covers a smarter model than the guide's, which
 computer runs which, and a home server over Tailscale. The rest of this README is for working on
 Puri.
@@ -48,7 +49,7 @@ exe/puri --dummy
 question walk the paths the tools will take. Plain `exe/puri` runs the real one, which needs
 `~/.config/puri/config.toml`: copy `docs/config.toml`, whose comments say what each part does.
 As shipped, it has Puri run `llama-server` and `whisper-cli` itself, on models already in
-`~/.cache/huggingface/hub` (the install guide's step 3); a `url` under `[[server]]` or
+`~/.cache/huggingface/hub`, which `bin/setup` downloads; a `url` under `[[server]]` or
 `[dictation]` points it at a server instead. Escape hides the window, running `exe/puri` again
 brings it back, and Ctrl+Q quits it, as does `gapplication action io.github.mvysny.Puri quit`.
 

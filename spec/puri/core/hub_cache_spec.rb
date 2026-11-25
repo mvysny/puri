@@ -66,6 +66,15 @@ RSpec.describe Puri::Core::HubCache do
     end
   end
 
+  describe '.pick_gguf' do
+    it "picks among a repo's files as #gguf does in the cache, never a README" do
+      names = %w[README.md mmproj-Qwen3.5-4B-Q4_K_M.gguf Qwen3.5-4B-Q8_0.gguf Qwen3.5-4B-Q4_K_M.gguf]
+      assert_equal 'Qwen3.5-4B-Q4_K_M.gguf', described_class.pick_gguf(names, nil)
+      assert_equal 'Qwen3.5-4B-Q8_0.gguf', described_class.pick_gguf(names, 'q8_0')
+      assert_nil described_class.pick_gguf(names, 'Q2_K')
+    end
+  end
+
   describe '#file' do
     it 'finds a file of the repo by its name' do
       dir = download('ggerganov/whisper.cpp', 'ggml-small.bin')

@@ -12,6 +12,7 @@ RSpec.describe 'namespace boundaries' do
     'lib/puri/core' => gui,
     'lib/puri/protocol' => Regexp.union(gui, /Pikuri|Puri::Core|\bCore::/),
     'lib/puri/desktop' => /Pikuri|Puri::Core|\bCore::/,
+    'lib/puri/setup' => gui,
     'dev/puri/dummy' => gui
   }
 

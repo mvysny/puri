@@ -8,6 +8,7 @@
 module Puri
   LOADER: Zeitwerk::Loader
   USER_AGENT: String
+  SETUP: String
 
   # Loads GTK4, libadwaita and libshumate, the map widget. Neither of the last two has a Ruby
   # package, so each comes through GObject Introspection, which is not a Zeitwerk-shaped file.
@@ -576,6 +577,16 @@ module Puri
 
       # _@return_ — where conversations run: the first `[[llm]]`
       def primary_llm: () -> Puri::Core::Config::Llm
+
+      # _@param_ `env` — see {.load}
+      # 
+      # _@return_ — the user's own file, `~/.config/puri/config.toml`, perhaps missing
+      def self.user_path: (?env: untyped) -> String
+
+      # _@param_ `env` — see {.load}
+      # 
+      # _@return_ — whether any layer has a file, so that {.load} doesn't fail for want of one
+      def self.exists?: (?env: untyped) -> bool
 
       # _@param_ `env`
       # 
@@ -2816,9 +2827,20 @@ module Puri
       # _@param_ `env`
       def self.root: (untyped env) -> String
 
-      # The GGUF file `-hf model` loads: the first whose path in the snapshot holds the quant, case
-      # aside, never a vision projector. A big model's split parts may sit in a folder named for
-      # the quant, `UD-Q4_K_XL/…-00001-of-00003.gguf`.
+      # Which of a repo's files `-hf org/repo:quant` loads: the first GGUF, sorted, whose path holds
+      # the quant, case aside, never a vision projector. A big model's split parts may sit in a
+      # folder named for the quant, `UD-Q4_K_XL/…-00001-of-00003.gguf`.
+      # 
+      #   HubCache.pick_gguf(%w[mmproj-Q4_K_M.gguf Qwen-Q4_K_M.gguf Qwen-Q8_0.gguf], 'q4_k_m')   # => "Qwen-Q4_K_M.gguf"
+      # 
+      # _@param_ `paths` — the repo's files, relative to it
+      # 
+      # _@param_ `quant` — nil for {DEFAULT_QUANT}
+      # 
+      # _@return_ — one of `paths`; nil when none fits
+      def self.pick_gguf: (::Array[String] paths, String? quant) -> String?
+
+      # The GGUF file `-hf model` loads, by {.pick_gguf}.
       # 
       # _@param_ `model` — matching {GGUF_MODEL}
       # 
@@ -2829,6 +2851,11 @@ module Puri
       # 
       # _@return_ — its path; nil when it isn't downloaded
       def file: (String model) -> String?
+
+      # _@param_ `repo` — `org/repo`
+      # 
+      # _@return_ — the repo's folder in the cache, perhaps missing
+      def repo_dir: (String repo) -> String
 
       # _@param_ `repo` — `org/repo`
       # 
@@ -4001,6 +4028,801 @@ module Puri
       # 
       # _@return_ — `12_453` → `"12.2k"`
       def k: (Integer tokens) -> String
+    end
+  end
+
+  # `bin/setup`, the one command that installs Puri and, run again, is its doctor: each check in
+  # the install guide's order, a fix for each that needs no sudo once the user says yes, and the
+  # rest printed for the user to do.
+  # 
+  #   ✓ The packages from Ubuntu's archive          {Packages}, then stop if any is missing
+  #   ✓ Puri's Ruby libraries                       {Bundle}: `bundle install`
+  #   ✓ Puri is on your desktop: Super+Alt+Space    {Install}, what `rake install` writes
+  #   ✓ The config, ~/.config/puri/config.toml      written only when there is none
+  #   ✓ The model, ggml-org/Qwen3.5-4B-GGUF:Q4_K_M  {HubDownload}, after {Hardware}'s warning
+  #   ✗ Thunderbird's global search is off: …       {Calendars} too, printed as where to click
+  #   ✓ Your documents, ~/Documents, are indexed    {SearchLocations}, {FileIndex}
+  # 
+  # Two processes: `bin/setup` runs the first two on Ruby's standard library alone, since the
+  # gems are one of its fixes, then hands over to {Doctor} under the bundle. The checks never
+  # write the config but when it is missing, and never run sudo.
+  module Setup
+    # Puri's Ruby libraries, the Gemfile's, which Bundler fetches into the checkout:
+    # 
+    #   Bundle.new(root: '/home/u/puri').check(terminal)   # => true once `bundle check` passes
+    # 
+    # Missing, they are installed once the user says yes, into `vendor/bundle` unless Bundler
+    # already has a path, as the install guide's `bundle config set --local path` sets it.
+    # 
+    # Ruby's standard library only: `bin/setup` loads it before `bundle install`.
+    class Bundle
+      # _@param_ `root` — the checkout, which holds the Gemfile
+      def initialize: (root: String) -> void
+
+      # _@param_ `terminal`
+      # 
+      # _@return_ — whether the bundle is complete now
+      def check: (Puri::Setup::Terminal terminal) -> bool
+
+      # _@param_ `args`
+      # 
+      # _@return_ — whether `bundle` succeeded, quietly
+      def bundle?: (*::Array[String] args) -> bool
+
+      # _@return_ — whether Bundler has a path to install into, from any of its settings
+      def path?: () -> bool
+    end
+
+    # The checks `bin/setup` runs once the packages and the gems are in, each with its fix:
+    # 
+    #   ✓ Puri is on your desktop: Super+Alt+Space opens it
+    #   ✓ The config, ~/.config/puri/config.toml
+    #   ✓ The model, ggml-org/Qwen3.5-4B-GGUF:Q4_K_M
+    #   ✓ Dictation's model, ggerganov/whisper.cpp:ggml-small.bin
+    #   ✗ Thunderbird's global search is off, so Puri finds no mail: in Thunderbird, …
+    #   ✓ Your documents, ~/Documents, in GNOME's file index
+    # 
+    #   One thing above, marked ✗, needs you. Run bin/setup again once it's done.
+    # 
+    #   exit Doctor.new.run
+    # 
+    # The config decides the rest: the models are the ones it names, downloaded where it runs them
+    # here, and Thunderbird and the documents are checked where it turns them on. A broken config
+    # stops the checks after it. The config is written only when there is none, the install guide's
+    # `docs/config.toml` as it is.
+    class Doctor
+      SITE: String
+      QWEN: String
+      ROOT: String
+
+      # _@param_ `terminal`
+      # 
+      # _@param_ `env` — where the XDG folders, `HOME`, the hub cache's and `HF_ENDPOINT` come from
+      def initialize: (?terminal: Puri::Setup::Terminal, ?env: untyped) -> void
+
+      # _@return_ — the exit status: 0 when nothing needs the user, 1 when something does,
+      # 130 after Ctrl+C
+      def run: () -> Integer
+
+      def desktop: () -> void
+
+      # _@return_ — nil when it is broken
+      def config: () -> Puri::Core::Config?
+
+      # _@param_ `config`
+      def models: (Puri::Core::Config config) -> void
+
+      # _@return_ — nil when llama-server can't say
+      def probe: () -> Puri::Setup::Hardware?
+
+      # _@param_ `hardware`
+      def gpu: (Puri::Setup::Hardware? hardware) -> void
+
+      # _@param_ `title`
+      # 
+      # _@param_ `model`
+      # 
+      # _@param_ `path` — where the cache has it; nil when it hasn't
+      # 
+      # _@param_ `download`
+      def model: (
+                   String title,
+                   String model,
+                   String? path,
+                   Puri::Setup::HubDownload download
+                 ) ?{ () -> Puri::Setup::HubDownload::Plan } -> void
+
+      # _@param_ `hardware`
+      def ornith: (Puri::Setup::Hardware? hardware) -> void
+
+      # _@param_ `table`
+      def mail: (Puri::Core::Config::ThunderbirdTable table) -> void
+
+      # _@param_ `folder` — the config's documents folder
+      def documents: (String folder) -> void
+
+      # _@param_ `index`
+      # 
+      # _@param_ `folder`
+      def index_text: (Puri::Setup::FileIndex index, String folder) -> void
+
+      # _@return_ — the exit status
+      def finish: () -> Integer
+
+      # _@param_ `path`
+      def tilde: (String path) -> String
+    end
+
+    # Puri on the user's desktop, run from this checkout: no root, no copy, so a `git pull`
+    # updates it. The session bus starts Puri on the first `gapplication launch`, the command the
+    # global shortcut runs; with `autostart:`, the session also starts it hidden at login.
+    # 
+    #   install = Install.new
+    #   install.write(hotkey: Install::DEFAULT_HOTKEY, autostart: true)   # => the files it wrote
+    #   install.installed?    # => true: the entry and the service run this checkout's exe/puri
+    #   install.hotkey        # => "<Super><Alt>space", what the shortcut is bound to now
+    #   install.remove
+    # 
+    # Declarative: {#write} sets everything from its arguments, so `autostart: false` removes an
+    # earlier autostart entry, and `hotkey: nil` the shortcut. The shortcut is a GNOME custom
+    # keybinding at a fixed path, so a reinstall finds it.
+    class Install
+      APP_ID: String
+      DEFAULT_HOTKEY: String
+      MEDIA_KEYS: String
+      KEYBINDING: String
+      EXE: String
+
+      # _@param_ `value` — an accelerator such as `<Super>p`, or empty for none
+      # 
+      # _@return_ — `value`; nil for none
+      def self.hotkey: (String value) -> String?
+
+      # _@param_ `hotkey` — an accelerator
+      # 
+      # _@return_ — as a person reads it: `<Super><Alt>space` is "Super+Alt+Space"
+      def self.label: (String hotkey) -> String
+
+      # _@param_ `env` — where `HOME`, `XDG_DATA_HOME` and `XDG_CONFIG_HOME` come from
+      def initialize: (?env: untyped) -> void
+
+      # _@return_ — each file {#write} may write, by role
+      def paths: () -> ::Hash[Symbol, String]
+
+      # _@param_ `hotkey` — see {.hotkey}; nil binds none
+      # 
+      # _@param_ `autostart`
+      # 
+      # _@return_ — the files it wrote, each in full
+      def write: (hotkey: String?, autostart: bool) -> ::Array[String]
+
+      # Removes every file {#write} wrote, and the shortcut.
+      def remove: () -> void
+
+      # _@return_ — whether the desktop entry and the D-Bus service run this checkout
+      def installed?: () -> bool
+
+      # _@return_ — whether a desktop entry or a service is there, perhaps another checkout's
+      def present?: () -> bool
+
+      # _@return_ — whether Puri starts at login
+      def autostart?: () -> bool
+
+      # _@return_ — what Puri's shortcut is bound to; nil for none
+      def hotkey: () -> String?
+
+      # `exe/puri` in quotes, as both a desktop entry's and a D-Bus service's `Exec=` take it. A path
+      # that would need escaping inside the quotes is refused rather than escaped.
+      def exec_line: () -> String
+
+      # _@param_ `path`
+      # 
+      # _@param_ `content`
+      # 
+      # _@return_ — `path`
+      def file: (String path, String content) -> String
+
+      # _@param_ `path`
+      # 
+      # _@return_ — its content; empty when it's missing
+      def read: (String path) -> String
+
+      # _@return_ — the schema and path of Puri's keybinding
+      def entry: () -> String
+
+      # Binds Puri's custom keybinding to `hotkey`, or removes it.
+      # 
+      # _@param_ `hotkey`
+      def bind: (String? hotkey) -> void
+
+      # Makes the session bus re-read its service files, or `gapplication launch` may find Puri "not
+      # activatable" until the next login (`R_gnome_activation`).
+      def reload_bus: () -> void
+    end
+
+    # What the model would run on here, as llama.cpp sees it, for the setup's two words of advice:
+    # a warning where there's no GPU, and where Ornith fits, the hint that it does
+    # (`docs/models.html`, "Which computer runs which").
+    # 
+    #   hardware = Hardware.probe
+    #   hardware.gpu?             # => false: the model runs on the processor alone
+    #   hardware.ornith?          # => true where a GPU has the memory for Ornith
+    #   hardware.ornith_share     # => 48, the GB integrated Radeon graphics may be lent for it, or nil
+    # 
+    # A GPU is a device `llama-server --list-devices` lists (`R_llama_list_devices`), never a
+    # software one such as Mesa's lavapipe, which runs on the processor too.
+    # 
+    # Immutable.
+    class Hardware
+      ORNITH_MIB: Integer
+      ORNITH_RAM_GB: Integer
+      DESKTOP_GB: Integer
+      SOFTWARE: Regexp
+
+      # _@param_ `command` — what runs `llama-server`; specs run a stand-in
+      # 
+      # _@param_ `meminfo`
+      # 
+      # _@param_ `cmdline`
+      def self.probe: (?command: ::Array[String], ?meminfo: String, ?cmdline: String) -> Puri::Setup::Hardware
+
+      # _@param_ `output` — `llama-server --list-devices`'s, log lines and all
+      def self.parse: (String output) -> ::Array[Puri::Setup::Hardware::Gpu]
+
+      # _@param_ `gpus`
+      # 
+      # _@param_ `ram_gb`
+      # 
+      # _@param_ `ttm`
+      def initialize: (gpus: ::Array[Puri::Setup::Hardware::Gpu], ram_gb: Integer, ?ttm: bool) -> void
+
+      # _@return_ — whether the model runs on anything but the processor
+      def gpu?: () -> bool
+
+      # _@return_ — whether a GPU has the memory to hold Ornith
+      def ornith?: () -> bool
+
+      # _@return_ — the GB integrated Radeon graphics would need lent before they run
+      # Ornith, the rest of the RAM bar the desktop's; nil when they hold it already, when there's
+      # too little RAM, or no such graphics
+      def ornith_share: () -> Integer?
+
+      # _@param_ `gigabytes`
+      # 
+      # _@return_ — the kernel options that lend AMD's graphics that much RAM, as
+      # `docs/models.html` has them: 4 KiB pages
+      def self.ttm_options: (Integer gigabytes) -> String
+
+      # _@return_ — never a software device
+      attr_reader gpus: ::Array[Puri::Setup::Hardware::Gpu]
+
+      # _@return_ — GB of RAM, rounded up to the next 8 as it is sold: `MemTotal` misses
+      # what the firmware keeps
+      attr_reader ram_gb: Integer
+
+      # _@return_ — whether the kernel's command line sets `ttm.pages_limit` already
+      attr_reader ttm: bool
+
+      # One device llama.cpp runs a model on, as `--list-devices` prints it:
+      # 
+      #   Vulkan0: AMD Radeon 890M Graphics (RADV STRIX1) (32768 MiB, 31000 MiB free)
+      # 
+      # @!attribute [r] name
+      #   @return [String] `Vulkan0`
+      # @!attribute [r] description
+      #   @return [String] `AMD Radeon 890M Graphics (RADV STRIX1)`
+      # @!attribute [r] mib
+      #   @return [Integer] its memory in all, in MiB: an integrated GPU's share of the RAM
+      class Gpu
+        # _@return_ — whether it is AMD graphics built into the processor, whose share of the
+        # RAM the kernel's `ttm` options set: "AMD Radeon 890M Graphics", "AMD Radeon Graphics",
+        # never a card's "AMD Radeon RX 7900 XTX"
+        def integrated_radeon?: () -> bool
+
+        # _@return_ — `Vulkan0`
+        attr_reader name: String
+
+        # _@return_ — `AMD Radeon 890M Graphics (RADV STRIX1)`
+        attr_reader description: String
+
+        # _@return_ — its memory in all, in MiB: an integrated GPU's share of the RAM
+        attr_reader mib: Integer
+      end
+    end
+
+    # The packages from Ubuntu's archive that Puri runs on, the install guide's `apt install` line:
+    # 
+    #   Packages.new.missing                # => ["whisper.cpp", "rhythmbox"]
+    #   Packages.new.check(terminal)        # => false, printing the `sudo apt install` line
+    # 
+    # Only checked, never installed: that needs sudo, which the setup leaves to the user.
+    # 
+    # Ruby's standard library only: `bin/setup` loads it before `bundle install`.
+    class Packages
+      LIST: ::Array[String]
+
+      # _@param_ `list`
+      # 
+      # _@param_ `command` — what runs `dpkg-query`; specs run a stand-in
+      def initialize: (?list: ::Array[String], ?command: ::Array[String]) -> void
+
+      # _@return_ — those of the list not installed, in its order
+      def missing: () -> ::Array[String]
+
+      # _@param_ `terminal`
+      # 
+      # _@return_ — whether every package is installed
+      def check: (Puri::Setup::Terminal terminal) -> bool
+    end
+
+    # What `bin/setup` prints and asks, a line per check, marked:
+    # 
+    #   ✓ The packages from Ubuntu's archive
+    #   ! No graphics for the model to run on, so it runs on the processor alone …
+    #   → This computer's graphics have the memory for Ornith 1.5, a smarter model …
+    #   ✗ Thunderbird's global search is off, so Puri finds no mail: in Thunderbird, …
+    #   ? Download it from Hugging Face, 3.0 GB? [Y/n]
+    #     [=============                 ]  42 %  1.3 of 3.0 GB  11 MB/s
+    # 
+    #   terminal.done("The packages from Ubuntu's archive")
+    #   terminal.note('No graphics …')       # a warning that needs nothing of the user
+    #   terminal.tip('This computer …')      # a way to more, for the user to take or not
+    #   terminal.todo('Thunderbird's …')     # needs the user; counted in #todos
+    #   terminal.ask?('Download it?')        # => true for Enter, y or yes; false at end of input
+    #   bar = terminal.progress(total, already)
+    #   bar.update(fetched)
+    #   bar.finish
+    # 
+    # A message wraps at the terminal's width, at most {WIDTH}, its later lines indented under the
+    # mark; a line that starts with spaces, such as a command to copy, is never wrapped. The bar
+    # draws only on a terminal.
+    # 
+    # Ruby's standard library only: `bin/setup` loads it before `bundle install`.
+    class Terminal
+      WIDTH: Integer
+
+      # _@param_ `input` — where answers come from
+      # 
+      # _@param_ `output`
+      def initialize: (?input: IO, ?output: IO) -> void
+
+      # _@param_ `text`
+      def say: (String text) -> void
+
+      # _@param_ `text` — a check that passed
+      def done: (String text) -> void
+
+      # _@param_ `text` — a warning the user may act on, or not
+      def note: (String text) -> void
+
+      # _@param_ `text` — a way to more, which the user may take
+      def tip: (String text) -> void
+
+      # _@param_ `text` — what the user must do before Puri works fully
+      def todo: (String text) -> void
+
+      # Asks until the answer is yes or no.
+      # 
+      # _@param_ `question`
+      # 
+      # _@param_ `default` — what Enter alone answers
+      # 
+      # _@return_ — false at the end of input, whatever the default, so a script piping
+      # nothing in agrees to nothing
+      def ask?: (String question, ?default: bool) -> bool
+
+      # _@param_ `total` — bytes
+      # 
+      # _@param_ `start` — bytes already there, a download that stopped halfway
+      def progress: (Integer total, ?Integer start) -> Puri::Setup::Terminal::Progress
+
+      # _@param_ `path`
+      # 
+      # _@return_ — `path` with the home folder as `~`
+      def self.tilde: (String path) -> String
+
+      # _@param_ `bytes`
+      # 
+      # _@return_ — in decimal units, as the site states sizes: "3.0 GB", "488 MB"
+      def self.size: (Integer bytes) -> String
+
+      # _@param_ `mark` — one character, or '' for none
+      # 
+      # _@param_ `text` — perhaps several lines
+      def emit: (String mark, String text) -> void
+
+      # _@param_ `text` — one paragraph
+      # 
+      # _@param_ `columns`
+      # 
+      # _@return_ — never empty
+      def wrap: (String text, Integer columns) -> ::Array[String]
+
+      def width: () -> Integer
+
+      # _@return_ — how many {#todo}s were printed
+      attr_reader todos: Integer
+
+      # A download's bar, redrawn in place at most five times a second.
+      class Progress
+        BAR: Integer
+
+        # _@param_ `output`
+        # 
+        # _@param_ `total` — bytes
+        # 
+        # _@param_ `start` — bytes there before this run
+        def initialize: (IO output, Integer total, Integer start) -> void
+
+        # _@param_ `fetched` — bytes there now, {#initialize}'s `start` included
+        def update: (Integer fetched) -> void
+
+        def finish: () -> void
+
+        # Ends the bar's line where the download stopped short.
+        def stop: () -> void
+
+        # _@param_ `fetched`
+        def draw: (Integer fetched) -> void
+
+        def clock: () -> Float
+      end
+    end
+
+    # Thunderbird's calendars, as its `prefs.js` registers them, for the one thing Puri needs of
+    # each: a copy on disk, which only Offline Support keeps of a calendar on a server or in a file.
+    # 
+    #   user_pref("calendar.registry.3f2a….name", "Work");
+    #   user_pref("calendar.registry.3f2a….type", "caldav");
+    #   user_pref("calendar.registry.3f2a….cache.enabled", true);
+    # 
+    #   Calendars.uncached(profile.prefs_path)   # => ["Holidays"]
+    # 
+    # A local calendar, Thunderbird's own `storage`, always has its copy, and a disabled one is
+    # skipped.
+    module Calendars
+      # _@param_ `prefs` — a profile's `prefs.js`
+      # 
+      # _@return_ — the names of the calendars Puri can't read, in the file's order;
+      # empty when there is no file
+      def self.uncached: (String prefs) -> ::Array[String]
+
+      # _@param_ `prefs`
+      # 
+      # _@return_ — each calendar's properties, by its id
+      def self.registry: (String prefs) -> ::Hash[String, ::Hash[String, Object]]
+
+      # _@param_ `literal` — a pref's value as `prefs.js` writes it
+      # 
+      # _@return_ — a String, a Boolean or an Integer; the literal itself when it is none
+      def self.value: (String literal) -> Object
+    end
+
+    # GNOME's file index, localsearch, asked what the setup needs to know of the documents folder:
+    # 
+    #   index = FileIndex.new
+    #   index.unavailable_reason('/home/u/Documents')   # => nil once anything under it is indexed
+    #   index.idle?                                     # => false while it reads files
+    #   index.office_without_text('/home/u/Documents')  # => ".../lease.docx": indexed, no text
+    #   index.reindex('/home/u/Documents')              # reads the folder anew, office text and all
+    # 
+    # An office file indexed without its text is what `localsearch-extractor-office` installed
+    # after the index read it leaves: localsearch never reads it again by itself.
+    class FileIndex
+      OFFICE: ::Array[String]
+      SAMPLE: Integer
+
+      # _@param_ `backend` — answers `unavailable_reason(folders:)` and `read_text(path)`, as pikuri-fileindex's do; specs pass a fake
+      # 
+      # _@param_ `command` — what runs `localsearch`; specs run a stand-in
+      def initialize: (?backend: Module, ?command: ::Array[String]) -> void
+
+      # _@param_ `folder` — absolute
+      # 
+      # _@return_ — why a search there finds nothing, for the user; nil when it can
+      def unavailable_reason: (String folder) -> String?
+
+      # _@return_ — whether localsearch has read every file it knows of
+      def idle?: () -> bool
+
+      # _@param_ `folder` — absolute
+      # 
+      # _@return_ — an office file under it that the index holds without its text; nil
+      # when one of the newest has its text, or none is indexed
+      def office_without_text: (String folder) -> String?
+
+      # _@param_ `folder` — absolute
+      # 
+      # _@return_ — whether localsearch took the request
+      def reindex: (String folder) -> bool
+
+      # In English whatever the desktop's language, since {#idle?} reads its words.
+      # 
+      # _@param_ `args`
+      # 
+      # _@return_ — stdout and stderr, and how it ended
+      def localsearch: (*::Array[String] args) -> [String, Process::Status]
+    end
+
+    # The `gsettings` command, for the keys the setup reads and writes, the GNOME shortcut and
+    # localsearch's folders:
+    # 
+    #   GSettings.strv('org.freedesktop.Tracker3.Miner.Files', 'index-recursive-directories')
+    #   # => ["&DOCUMENTS", "/home/u/My 'Papers'"]
+    #   GSettings.set_strv(schema, key, [*list, '/home/u/Papers'])
+    #   GSettings.string("#{schema}.custom-keybinding:#{path}", 'binding')   # => "<Super>p", or nil for ''
+    # 
+    # Values cross in GVariant's text form, which quotes a string in single quotes, or in double
+    # ones when it holds a single quote.
+    module GSettings
+      # _@param_ `args` — gsettings' arguments
+      # 
+      # _@return_ — its stdout
+      def self.run: (*::Array[String] args) -> String
+
+      # _@param_ `schema`
+      # 
+      # _@param_ `key` — of type `as`
+      def self.strv: (String schema, String key) -> ::Array[String]
+
+      # _@param_ `schema`
+      # 
+      # _@param_ `key` — of type `as`
+      # 
+      # _@param_ `list`
+      def self.set_strv: (String schema, String key, ::Array[String] list) -> void
+
+      # _@param_ `schema`
+      # 
+      # _@param_ `key` — of type `s`
+      # 
+      # _@return_ — nil for the empty string
+      def self.string: (String schema, String key) -> String?
+
+      # _@param_ `schema`
+      # 
+      # _@param_ `key` — of type `s`
+      # 
+      # _@param_ `value`
+      def self.set_string: (String schema, String key, String value) -> void
+
+      # _@param_ `schema`
+      # 
+      # _@param_ `key`
+      def self.reset: (String schema, String key) -> void
+
+      # _@param_ `value`
+      # 
+      # _@return_ — a GVariant string
+      def self.quote: (String value) -> String
+
+      # _@param_ `text` — a GVariant string or array of strings, as `gsettings get` prints it
+      # 
+      # _@return_ — every string in it, in order
+      def self.parse: (String text) -> ::Array[String]
+
+      # Raised when `gsettings` fails, its message gsettings' own: a schema that isn't installed,
+      # or a key it lacks.
+      class Error < StandardError
+      end
+    end
+
+    # Downloads a model from Hugging Face into the {Core::HubCache}, laid out as `hf download` and
+    # llama-server's `-hf` lay it out, so each finds what the others fetched (`R_hub_cache`):
+    # 
+    #   download = HubDownload.new(Core::HubCache.new)
+    #   plan = download.gguf('ggml-org/Qwen3.5-4B-GGUF:Q4_K_M')   # or .file('ggerganov/whisper.cpp:ggml-small.bin')
+    #   plan.size        # => 3032091584
+    #   plan.fetched     # => what an earlier run left, complete or not
+    #   download.fetch(plan) { |fetched| bar.update(fetched) }
+    # 
+    # {#gguf} picks the file `-hf` would ({Core::HubCache.pick_gguf}), a split model's every part;
+    # {#file} takes one file by name. `HF_ENDPOINT`, as `hf` reads it, moves the server.
+    # 
+    # == Implementation details
+    # 
+    # The API lists the repo's commit and each file's size and SHA-256 (`?blobs=true`); a file comes
+    # from `resolve/<commit>/<file>`, which redirects to a CDN. It goes to
+    # `blobs/<sha256>.incomplete`, so a download that stopped halfway resumes with a `Range`
+    # request, which `hf` doesn't do; it becomes `blobs/<sha256>` once its SHA-256 checks out, and
+    # a blob already there is only linked. Then `snapshots/<commit>/<file>` links to it and
+    # `refs/main` names the commit. Each file is `flock`ed at `hf`'s own lock path, so the two
+    # never download one file at once.
+    class HubDownload
+      ENDPOINT: String
+      REDIRECTS: Integer
+
+      # _@param_ `cache`
+      # 
+      # _@param_ `env` — where `HF_ENDPOINT` comes from
+      def initialize: (Puri::Core::HubCache cache, ?env: untyped) -> void
+
+      # _@param_ `model` — `org/repo:quant`, matching {Core::HubCache::GGUF_MODEL}
+      def gguf: (String model) -> Puri::Setup::HubDownload::Plan
+
+      # _@param_ `model` — `org/repo:file`, matching {Core::HubCache::FILE_MODEL}
+      def file: (String model) -> Puri::Setup::HubDownload::Plan
+
+      # Downloads what isn't in the cache yet, then links the snapshot to it.
+      # 
+      # _@param_ `plan`
+      def fetch: (Puri::Setup::HubDownload::Plan plan) ?{ (Integer fetched) -> void } -> void
+
+      # _@param_ `repo`
+      # 
+      # _@return_ — the API's answer
+      def api: (String repo) -> ::Hash[String, Object]
+
+      # _@param_ `first` — a GGUF of the repo
+      # 
+      # _@param_ `names` — the repo's files
+      # 
+      # _@return_ — `first`, or every part of the split model it starts
+      def parts: (String first, ::Array[String] names) -> ::Array[String]
+
+      # _@param_ `repo`
+      # 
+      # _@param_ `info` — the API's answer
+      # 
+      # _@param_ `names`
+      def plan: (String repo, ::Hash[String, Object] info, ::Array[String] names) -> Puri::Setup::HubDownload::Plan
+
+      # _@param_ `blob`
+      # 
+      # _@return_ — bytes of it on disk, or of its `.incomplete` file
+      def on_disk: (String blob) -> Integer
+
+      # _@param_ `repo`
+      # 
+      # _@param_ `file`
+      def blob: (String repo, Puri::Setup::HubDownload::RepoFile file) -> String
+
+      # _@param_ `plan`
+      # 
+      # _@param_ `file`
+      def fetch_file: (Puri::Setup::HubDownload::Plan plan, Puri::Setup::HubDownload::RepoFile file) ?{ (Integer bytes) -> void } -> void
+
+      # Hashes what an earlier run left, so the download carries on from its end.
+      # 
+      # _@param_ `sink` — the `.incomplete` file
+      # 
+      # _@param_ `file`
+      # 
+      # _@param_ `digest`
+      # 
+      # _@return_ — bytes kept
+      def resume: (File sink, Puri::Setup::HubDownload::RepoFile file, Digest::SHA256 digest) -> Integer
+
+      # _@param_ `uri`
+      # 
+      # _@param_ `sink` — at its end
+      # 
+      # _@param_ `offset` — bytes in it
+      # 
+      # _@param_ `file`
+      # 
+      # _@param_ `digest` — of the bytes in it
+      def download: (
+                      URI::Generic uri,
+                      File sink,
+                      Integer offset,
+                      Puri::Setup::HubDownload::RepoFile file,
+                      Digest::SHA256 digest
+                    ) ?{ (Integer bytes) -> void } -> void
+
+      # Follows redirects, as `resolve/` sends a file to its CDN.
+      # 
+      # _@param_ `uri`
+      # 
+      # _@param_ `headers`
+      def get: (URI::Generic uri, ?::Hash[String, String] headers) ?{ (Net::HTTPResponse response) -> void } -> void
+
+      # _@param_ `repo`
+      # 
+      # _@param_ `file`
+      def locked: (String repo, Puri::Setup::HubDownload::RepoFile file) -> void
+
+      # _@param_ `plan`
+      def link: (Puri::Setup::HubDownload::Plan plan) -> void
+
+      # _@param_ `name` — a path in the repo
+      # 
+      # _@return_ — each segment escaped for a URL
+      def escape: (String name) -> String
+
+      # Raised when Hugging Face can't be reached, lacks the model, or sends a file that doesn't
+      # match its SHA-256; the message says which, for the user.
+      class Error < StandardError
+      end
+
+      # One file of a repo.
+      # 
+      # @!attribute [r] name
+      #   @return [String] its path in the repo
+      # @!attribute [r] size
+      #   @return [Integer] bytes
+      # @!attribute [r] sha256
+      #   @return [String] hex, which names its blob
+      class RepoFile
+        # _@return_ — its path in the repo
+        attr_reader name: String
+
+        # _@return_ — bytes
+        attr_reader size: Integer
+
+        # _@return_ — hex, which names its blob
+        attr_reader sha256: String
+      end
+
+      # What a model takes to download.
+      # 
+      # @!attribute [r] repo
+      #   @return [String] `org/repo`
+      # @!attribute [r] commit
+      #   @return [String] the revision every file comes from
+      # @!attribute [r] files
+      #   @return [Array<Puri::Setup::HubDownload::RepoFile>]
+      # @!attribute [r] fetched
+      #   @return [Integer] bytes in the cache already, a download stopped halfway included
+      class Plan
+        # _@return_ — bytes in all
+        def size: () -> Integer
+
+        # _@return_ — `org/repo`
+        attr_reader repo: String
+
+        # _@return_ — the revision every file comes from
+        attr_reader commit: String
+
+        attr_reader files: ::Array[Puri::Setup::HubDownload::RepoFile]
+
+        # _@return_ — bytes in the cache already, a download stopped halfway included
+        attr_reader fetched: Integer
+      end
+    end
+
+    # The folders GNOME's file index reads, which Settings → Search → Search Locations lists:
+    # 
+    #   locations = SearchLocations.new
+    #   locations.covers?('/home/u/Documents')   # => true under the default '&DOCUMENTS'
+    #   locations.add('/home/u/Papers')          # Puri's documents folder, indexed from now on
+    # 
+    # An entry is a path, `$HOME` or `~`, or the name of one of the desktop's own folders,
+    # `&DOCUMENTS`, as `~/.config/user-dirs.dirs` records it in the desktop's language.
+    class SearchLocations
+      SCHEMA: String
+      KEY: String
+
+      # _@param_ `env` — where `HOME` and `XDG_CONFIG_HOME` come from
+      def initialize: (?env: untyped) -> void
+
+      # _@param_ `folder` — absolute
+      # 
+      # _@return_ — whether the index reads it, being it or under one of its folders
+      def covers?: (String folder) -> bool
+
+      # Adds `folder`, as `&DOCUMENTS` when it is the desktop's own Documents folder, as Settings
+      # names it there.
+      # 
+      # _@param_ `folder` — absolute
+      def add: (String folder) -> void
+
+      # _@param_ `entry`
+      # 
+      # _@return_ — the folder it names; nil for a desktop folder that isn't set
+      def resolve: (String entry) -> String?
+
+      # _@param_ `name` — `DOCUMENTS`, `DOWNLOAD`, `PUBLICSHARE`, …
+      # 
+      # _@return_ — the folder `user-dirs.dirs` gives it; `~/Documents` for Documents
+      # when the file doesn't say, as for Puri's own default, and nil for another; nil, too, when
+      # it names the home, which is how a folder is switched off
+      def user_dir: (String name) -> String?
+
+      # _@param_ `path`
+      # 
+      # _@return_ — its real path when it exists, so a link to a folder counts as the folder
+      def real: (String path) -> String
     end
   end
 

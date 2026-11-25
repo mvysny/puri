@@ -99,7 +99,7 @@ module Puri
 
           unless @cache.gguf(@embedded.model)
             next failed("The model #{@embedded.model} isn't downloaded: it isn't in #{@cache.root}. " \
-                        "`llama-server -hf #{@embedded.model}` downloads it; stop that server once it's listening.")
+                        "#{Puri::SETUP}, run in a terminal, downloads it.")
           end
           FileUtils.mkdir_p(File.dirname(@log))
           File.write(@log, '')

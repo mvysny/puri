@@ -210,9 +210,10 @@ RSpec.describe Puri::Core::Dictation do
       assert_equal 'whisper-cli took over 0.5 s', err.message
     end
 
-    it "says which model isn't downloaded, and where it looked, running nothing" do
+    it "says which model isn't downloaded, where it looked and what downloads it, running nothing" do
       err = assert_raises(described_class::Error) { whisper_cli.transcribe(tone(1)) }
-      assert_equal "the model #{model} isn't downloaded: it isn't in #{cache.root}", err.message
+      assert_equal "the model #{model} isn't downloaded: it isn't in #{cache.root}; " \
+                   "#{Puri::SETUP}, run in a terminal, downloads it", err.message
       refute File.exist?(record)
     end
 

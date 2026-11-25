@@ -64,6 +64,11 @@ RSpec.describe 'the web page' do
     end
   end
 
+  it "has the install guide's apt line install what bin/setup checks for" do
+    line = commands(pages.fetch('install.html')).find { _1.start_with?('sudo apt install git ') }
+    assert_equal Puri::Setup::Packages::LIST.sort, line.split.reject { _1 == '\\' }.drop(3).sort
+  end
+
   it "shows on the front page only commands the install guide has, so the two can't drift" do
     guide = commands(pages.fetch('install.html'))
     commands(pages.fetch('index.html')).each { assert_includes guide, _1 }

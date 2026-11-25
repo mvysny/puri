@@ -49,7 +49,8 @@ module Puri
         # @raise [Error] saying why, the model's name and the cache's folder when it isn't there
         def transcribe(pcm)
           model = @cache.file(@model) or
-            raise Error, "the model #{@model} isn't downloaded: it isn't in #{@cache.root}"
+            raise Error, "the model #{@model} isn't downloaded: it isn't in #{@cache.root}; " \
+                         "#{Puri::SETUP}, run in a terminal, downloads it"
           out, err, status = run(model, Transcriber.wav(pcm))
           raise Error, "whisper-cli failed: #{last_line(err) || status}" unless status.success?
 

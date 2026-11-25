@@ -301,3 +301,16 @@ against 90 % on llama.cpp, looping on tool calls. The saving, 0.45 J a token, co
 a watt-hour per thousand, and only while it answers: a loaded model idles on either chip. And
 Lemonade comes as a snap and FastFlowLM runs on AMD alone, neither from apt. FastFlowLM 1.0.11
 kept a `think: false` across requests, so 1.0.13 might lift the 74 %, but not the first reason.
+
+## D_setup — Why one `bin/setup` that installs and is the doctor, downloading the models itself, rather than the guide's dozen commands, or `hf`?
+
+So a user who isn't a programmer gets Puri running with nothing to understand (owner,
+2026-11-25): the apt line, `git clone`, `bin/setup`, the shortcut. Run again, it checks each piece
+the long guide sets up and fixes what needs no sudo once the user says yes; sudo it only prints,
+and it sits in the clone, read before it runs, never `curl | sh`. Ruby's stdlib until `bundle
+install`, one of its fixes, then a process of its own under the bundle, which pins newer json and
+net-http than the ones already loaded. The config decides the models (owner): written only when
+missing, `docs/config.toml` as it is, so Qwen; switching to Ornith is an edit and a rerun, and
+where Ornith fits the setup says so. It downloads them itself, resuming and checking each SHA-256
+(`R_hub_cache`), where `hf` would cost an apt line, its warnings, and a restart from zero after a
+stop. `bin/setup` is Rails' name for this job; `rake setup` can't run before the gems.

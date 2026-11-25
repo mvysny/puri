@@ -1,51 +1,29 @@
-# Quick install: one setup script
+# Quick install: the site leads with `bin/setup`
 
 Goal: a privacy-minded user who isn't a programmer gets Puri running in a few commands, with
 nothing to configure and no moving parts to understand (owner, 2026-11-25). Two paths: the quick
 one, for whoever just wants it running, and today's `install.html`, the long one, for the power
 user who wants every setting.
 
-Built (2026-11-25): Puri runs `llama-server` and `whisper-cli` itself when the config gives no
-`url` (`D_embedded`, `R_llama_server_embedded`, `R_whisper_cli`, `R_hub_cache`), and that is the
-default: `docs/config.toml` gives no `url`, and the long guide downloads both models with apt's
-`hf`, `--no-install-recommends`, the service files kept for the home server in `models.html`
-(owner, 2026-11-25). Left: the setup script, and the site leading with it.
+Built (2026-11-25): `bin/setup`, the setup that is also the doctor (`D_setup`, `Puri::Setup`),
+and the embedded `llama-server` and `whisper-cli` it sets up (`D_embedded`). The install guide's
+troubleshooting and Puri's "isn't downloaded" errors name it. Left: the site leading with it.
 
-## Decided (owner, 2026-11-25)
+## The site
 
-- **A server the user runs is the user's to secure;** the guides offer Puri's own two, a key and
-  `--cors-origins localhost`, as tips.
-- **A machine without a GPU:** the setup script warns that answers will be very slow, links to a
-  page of the site with the other options, and lets the user carry on.
-- **A setup script, plain CLI** (no Tuile, a progress bar at most). It checks everything, fixes
-  what needs no sudo once the user says yes, and prints what needs sudo for the user to run. The
-  big fix is the downloads: Qwen or Ornith, and the Whisper model.
-- **It writes the config only when there is none**, the long guide's `docs/config.toml`
-  verbatim, both models embedded there already.
-
-## The setup script, sketched
-
-- **One idempotent command:** the first run installs, and any later run is the doctor. Ruby's
-  stdlib only, since `bundle install` is one of its fixes. Never sudo, never `curl | sh`: it sits
-  in the clone, readable before it runs.
-- **In order, each check with its fix:**
-  - apt packages: one `sudo apt install` line of what's missing, then stop;
-  - `bundle install`, then `rake install AUTOSTART=1`;
-  - the models: asks which, and downloads into the hub cache with a progress bar, resuming with
-    `Range` and checking the SHA-256 that Hugging Face's API lists (`R_hub_cache`): Qwen or
-    Ornith, `-hf`'s `org/repo:quant`, and Whisper's `ggerganov/whisper.cpp:ggml-small.bin`. Ornith
-    only where `llama-server --list-devices` and the RAM say it fits (`models.html`'s rule); the
-    `ttm` kernel parameters printed, never applied. Or it runs the long guide's `hf download`,
-    which resumes and writes the cache already, for one more line of apt packages;
-  - the config, written when missing, never edited;
-  - Thunderbird's global search and the calendar's Offline Support, printed as where to click;
-  - localsearch: its status, the office extractor, `localsearch reset` after asking, Documents in
-    Search Locations.
-- The quick path is then: the apt line, `git clone`, the setup script, the shortcut.
-- Once it exists, the "isn't downloaded" errors of `LlamaServer` and `WhisperCli` name it, in
-  place of `llama-server -hf` and the cache's folder.
-- A home server's `llama-server` service, `-hf`, reads the same cache, so switching between it
-  and embedded downloads nothing twice.
+- **The quick path:** the apt line, `git clone`, `bin/setup`, the shortcut. Its apt line is
+  `Puri::Setup::Packages::LIST`, which `spec/site_spec.rb` already holds the long guide's first
+  line to; no `hf` line, since the setup downloads the models itself.
+- **The funnel** (owner, 2026-11-25): a user who tried Puri locally and got hooked is the one who
+  later sets up a desktop PC or a home server for a smarter model. The quick install is the hook,
+  so it comes before new tools. The site then leads with the quick path, and `models.html`
+  becomes the upgrade story: Ornith, a home server over Tailscale, the laptop's battery spared.
+  It can also say what Siri can't: no account, no subscription, no server of ours.
+- **`models.html`'s switch to Ornith** then reads: edit the config, run `bin/setup`, which
+  downloads it; the `hf download` line stays for the long path. The setup's tip points at
+  `#ornith`, and, on integrated Radeon graphics, `#igpu` with the `ttm` options worked out.
+- **The "why there's no one-line installer" box** gains the setup: one command, but one in the
+  clone, read before it runs, that asks before each fix and never uses `sudo`.
 
 ## Changes to what `launch.md` decided
 
@@ -54,20 +32,16 @@ default: `docs/config.toml` gives no `url`, and the long guide downloads both mo
 - *Both servers run as per-user systemd services* holds for the home server alone; the long
   guide runs embedded too (owner, 2026-11-25).
 
-## The site
+## Untested
 
-- **The funnel** (owner, 2026-11-25): a user who tried Puri locally and got hooked is the one who
-  later sets up a desktop PC or a home server for a smarter model. The quick install is the hook,
-  so it comes before new tools. The site then leads with the quick path, and `models.html`
-  becomes the upgrade story: Ornith, a home server over Tailscale, the laptop's battery spared.
-  It can also say what Siri can't: no account, no subscription, no server of ours.
-- The CPU-only warning links to `models.html#no-gpu`.
-- Untested: the install guide's own setup on a computer with no graphics card. It installs
-  `libggml0-backend-vulkan`, and with Mesa's software Vulkan (lavapipe) beside it, llama.cpp may
-  take lavapipe for a GPU (`launch.md`'s *lavapipe*). The numbers on the page are llama.cpp's CPU
-  backend with no GPU backend installed. Testing it on the owner's VM needs that package
-  installed there.
-
-## Open questions
-
-- `Q_setup_name`: `bin/setup`, `exe/puri-setup` or `rake setup`?
+- **`localsearch reset --file ~/Documents`** brings the office files' text back once
+  `localsearch-extractor-office` is in, as the setup assumes; the guide's step 6 resets the whole
+  index instead (`R_localsearch_cli`). Check on the VM: install the extractor, run `bin/setup`,
+  say yes, wait, run it again.
+- **What `llama-server --list-devices` reads on the 890M** (`R_llama_list_devices`): the
+  firmware's share or what the kernel lends, with and without the owner's `ttm` options. The
+  setup's Ornith tip assumes a GPU reporting 30 GiB or more holds it.
+- **lavapipe:** a computer with no graphics card, `libggml0-backend-vulkan` and Mesa's software
+  Vulkan beside it. Does `--list-devices` list lavapipe, and does llama.cpp then run on it? The
+  setup counts it as no GPU and warns; llama.cpp may still pick it (`launch.md`'s *lavapipe*).
+- **The quick path, top to bottom,** on a clean 26.04 VM.

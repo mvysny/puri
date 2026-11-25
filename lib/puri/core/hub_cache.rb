@@ -52,20 +52,32 @@ module Puri
         File.join(cache, 'huggingface', 'hub')
       end
 
-      # The GGUF file `-hf model` loads: the first whose path in the snapshot holds the quant, case
-      # aside, never a vision projector. A big model's split parts may sit in a folder named for
-      # the quant, `UD-Q4_K_XL/…-00001-of-00003.gguf`.
+      # Which of a repo's files `-hf org/repo:quant` loads: the first GGUF, sorted, whose path holds
+      # the quant, case aside, never a vision projector. A big model's split parts may sit in a
+      # folder named for the quant, `UD-Q4_K_XL/…-00001-of-00003.gguf`.
+      #
+      #   HubCache.pick_gguf(%w[mmproj-Q4_K_M.gguf Qwen-Q4_K_M.gguf Qwen-Q8_0.gguf], 'q4_k_m')   # => "Qwen-Q4_K_M.gguf"
+      #
+      # @param paths [Array<String>] the repo's files, relative to it
+      # @param quant [String, nil] nil for {DEFAULT_QUANT}
+      # @return [String, nil] one of `paths`; nil when none fits
+      def self.pick_gguf(paths, quant)
+        quant = (quant || DEFAULT_QUANT).downcase
+        paths.sort.find do |path|
+          lower = path.downcase
+          lower.end_with?('.gguf') && lower.include?(quant) && !File.basename(lower).include?('mmproj')
+        end
+      end
+
+      # The GGUF file `-hf model` loads, by {.pick_gguf}.
       #
       # @param model [String] matching {GGUF_MODEL}
       # @return [String, nil] its path; nil when it isn't downloaded
       def gguf(model)
         repo, quant = model.split(':', 2)
-        quant = (quant || DEFAULT_QUANT).downcase
         dir = snapshot(repo) or return nil
-        name = Dir.glob('**/*.gguf', File::FNM_CASEFOLD, base: dir).sort.find do |path|
-          lower = path.downcase
-          lower.include?(quant) && !File.basename(lower).include?('mmproj') && File.file?(File.join(dir, path))
-        end
+        files = Dir.glob('**/*.gguf', File::FNM_CASEFOLD, base: dir).select { File.file?(File.join(dir, _1)) }
+        name = HubCache.pick_gguf(files, quant)
         name && File.join(dir, name)
       end
 
@@ -78,12 +90,16 @@ module Puri
         File.file?(path) ? path : nil
       end
 
+      # @param repo [String] `org/repo`
+      # @return [String] the repo's folder in the cache, perhaps missing
+      def repo_dir(repo) = File.join(@root, "models--#{repo.sub('/', '--')}")
+
       private
 
       # @param repo [String] `org/repo`
       # @return [String, nil] the snapshot `refs/main` names, when it exists
       def snapshot(repo)
-        base = File.join(@root, "models--#{repo.sub('/', '--')}")
+        base = repo_dir(repo)
         dir = File.join(base, 'snapshots', File.read(File.join(base, 'refs', 'main')).strip)
         File.directory?(dir) ? dir : nil
       rescue Errno::ENOENT, Errno::ENOTDIR

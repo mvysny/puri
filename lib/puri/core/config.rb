@@ -534,6 +534,14 @@ module Puri
       # @return [Puri::Core::Config::Llm] where conversations run: the first `[[llm]]`
       def primary_llm = @llms.first
 
+      # @param env [#[]] see {.load}
+      # @return [String] the user's own file, `~/.config/puri/config.toml`, perhaps missing
+      def self.user_path(env: ENV) = candidate_paths(env).last
+
+      # @param env [#[]] see {.load}
+      # @return [Boolean] whether any layer has a file, so that {.load} doesn't fail for want of one
+      def self.exists?(env: ENV) = candidate_paths(env).any? { File.file?(_1) }
+
       # @param env [#[]]
       # @return [Array<String>] the files to read, lowest priority first
       def self.candidate_paths(env)
@@ -782,7 +790,7 @@ module Puri
       # @param env [#[]]
       # @return [String] the commands that copy {EXAMPLE} to where Puri reads it
       def self.copy_example(env)
-        target = candidate_paths(env).last
+        target = user_path(env:)
         "Puri has no built-in connection; copy the example, which says what each part does:\n\n  " \
           "mkdir -p #{File.dirname(target).shellescape}\n  cp #{EXAMPLE.shellescape} #{target.shellescape}"
       end
