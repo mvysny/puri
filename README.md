@@ -1,18 +1,18 @@
 # Puri
 
-A Siri-style desktop assistant for Linux and GNOME, on top of [pikuri](https://github.com/mvysny/pikuri).
+A privacy-first, Siri-style desktop assistant for Linux and GNOME.
 A global shortcut pops up a search bar; you type, and the bar grows into a streamed conversation,
 with every earlier conversation one click away in the same window.
 It reads your Thunderbird mail and calendar and your documents, keeps notes, drafts a mail or an
-event for you to send, and can search the web, but never opens a URL, and the model runs on your
-own machine whenever it can.
+event for you to send, and can search the web, but never opens a URL, and the model runs on
+hardware you own.
 
 The web page, [puri-ai.de](https://puri-ai.de), shows it at work and lists everything that
 leaves your computer.
 
-Pikuri owns the agent loop, the tools, the prompts and the LLM transport. This project owns the
-popup window, the conversation history beside it, and the resident process that keeps the agent
-warm.
+[Pikuri](https://github.com/mvysny/pikuri) owns the agent loop, the LLM transport and most tools.
+Puri adds what it takes to run it on a desktop and serve you there: the popup window, the
+conversation history beside it, and the resident process that keeps the agent warm.
 
 The name is *pikuri* with the middle dropped; it rhymes with Siri and with Kuri, pikuri's pika
 mascot. "Ask Puri."

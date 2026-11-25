@@ -63,6 +63,11 @@ user who wants every setting.
     Search Locations.
 - The quick path is then: the apt line, `git clone`, the setup script, the shortcut.
 
+## On graduation
+
+- `AGENTS.md`'s and the README's *What this is* gain the model server: "…and the resident process
+  that keeps the agent warm, and, to start quickly, the model server itself" (owner, 2026-11-25).
+
 ## Changes to what `launch.md` decided
 
 - *The user walks the path, every download a command the user types* holds for the long guide
