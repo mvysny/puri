@@ -306,17 +306,114 @@ RSpec.describe Puri::Core::Config do
       assert_nil load.dictation
     end
 
-    it 'takes the URL, on whisper-1 with no key by default' do
+    it 'takes the URL, on whisper-1 with no key by default, leaving the language to the server' do
       write(@home, %(#{minimal}[dictation]\nurl = "http://127.0.0.1:8081"\n))
       assert_equal Puri::Core::Config::DictationTable.new(url: 'http://127.0.0.1:8081', api_key: nil,
-                                                          model: 'whisper-1'), load.dictation
+                                                          model: 'whisper-1', language: 'auto'), load.dictation
     end
 
     it 'requires an http(s) URL' do
-      write(@home, %(#{minimal}[dictation]\n))
-      assert_rejected('dictation.url')
       write(@home, %(#{minimal}[dictation]\nurl = "127.0.0.1:8081"\n))
       assert_rejected('dictation.url: .* is no http\(s\) URL')
+    end
+
+    it 'runs whisper-cli without a url, on the file of a repo the model names' do
+      write(@home, %(#{minimal}[dictation]\nmodel = "ggerganov/whisper.cpp:ggml-small.bin"\n))
+      dictation = load.dictation
+      assert_nil dictation.url
+      assert_equal 'ggerganov/whisper.cpp:ggml-small.bin', dictation.model
+      assert_equal 'auto', dictation.language
+    end
+
+    it 'needs, without a url, the model whisper-cli loads, and no key' do
+      write(@home, %(#{minimal}[dictation]\n))
+      assert_rejected('dictation.model: without a url, Puri runs whisper-cli')
+      write(@home, %(#{minimal}[dictation]\nmodel = "whisper-1"\n))
+      assert_rejected('dictation.model: .*org/repo:file')
+      File.chmod(0o600, write(@home, %(#{minimal}[dictation]\nmodel = "a/b:c.bin"\napi_key = "k"\n)))
+      assert_rejected('dictation.api_key: a key goes with a url')
+    end
+
+    it 'takes a language code, and nothing else' do
+      write(@home, %(#{minimal}[dictation]\nmodel = "a/b:c.bin"\nlanguage = "sk"\n))
+      assert_equal 'sk', load.dictation.language
+      write(@home, %(#{minimal}[dictation]\nmodel = "a/b:c.bin"\nlanguage = "Slovak"\n))
+      assert_rejected('dictation.language: "Slovak" is no language code')
+    end
+  end
+
+  describe 'a [[server]] with no url' do
+    let(:embedded) do
+      <<~TOML
+        [[server]]
+        id = "local"
+
+        [[llm]]
+        name   = "Qwen"
+        server = "local"
+        model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+
+        [[llm]]
+        name   = "Qwen, no thinking"
+        server = "local"
+        model  = "ggml-org/Qwen3.5-4B-GGUF:Q4_K_M"
+        params = { chat_template_kwargs = { enable_thinking = false } }
+
+        [titler]
+        llm = "Qwen, no thinking"
+      TOML
+    end
+
+    it 'is the llama-server Puri runs on loopback, its key fresh at every load' do
+      write(@home, embedded)
+      config = load
+      server = config.embedded_server
+      assert_equal ['local', 'ggml-org/Qwen3.5-4B-GGUF:Q4_K_M'], [server.id, server.model]
+      assert_equal "http://127.0.0.1:#{server.port}", server.url
+      assert_equal [server.url] * 2, config.llms.map(&:server)
+      assert_equal [server.api_key] * 2, config.llms.map(&:api_key)
+      assert_equal [server.url], config.servers.map(&:url)
+      refute_equal server.api_key, load.embedded_server.api_key
+      refute_includes server.inspect, server.api_key
+    end
+
+    it 'lives beside a server of the user own, each [[llm]] on its own' do
+      home = %([[server]]\nid  = "home"\nurl = "http://homebox:8080"\n)
+      write(@home, "#{embedded.sub('server = "local"', 'server = "home"')}#{home}")
+      config = load
+      assert_equal ['http://homebox:8080', config.embedded_server.url], config.llms.map(&:server)
+    end
+
+    it 'is nil with every [[server]] on a url' do
+      write(@home, minimal)
+      assert_nil load.embedded_server
+    end
+
+    it 'runs nothing when no [[llm]] names it' do
+      write(@home, %(#{minimal}[[server]]\nid = "spare"\n))
+      config = load
+      assert_nil config.embedded_server
+      assert_equal %w[local], config.servers.map(&:id)
+    end
+
+    it 'is one at most' do
+      write(@home, %(#{embedded}[[server]]\nid = "other"\n))
+      assert_rejected('server "local" and server "other" have no url')
+    end
+
+    it 'takes no key: Puri makes its own' do
+      File.chmod(0o600, write(@home, embedded.sub('id = "local"', %(id = "local"\napi_key = "k"))))
+      assert_rejected('server "local": an api_key goes with a url')
+    end
+
+    it 'runs one model' do
+      write(@home, embedded.sub(/(no thinking"\nserver = "local"\nmodel  = )".*?"/, '\1"ggml-org/other:Q8_0"'))
+      assert_rejected('llm "Qwen", llm "Qwen, no thinking": server "local" .* name the same model')
+    end
+
+    it 'takes only a model -hf can download' do
+      write(@home, embedded.gsub('ggml-org/Qwen3.5-4B-GGUF:Q4_K_M', 'qwen'))
+      assert_rejected('llm "Qwen": "qwen" is no Hugging Face repo')
     end
   end
 

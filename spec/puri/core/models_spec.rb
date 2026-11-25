@@ -21,6 +21,17 @@ RSpec.describe Puri::Core::Models do
     assert_nil models.saved(entry.with(server: 'http://elsewhere'))
   end
 
+  it "resumes one saved on Puri's own llama-server by its model, the port being new each run" do
+    own = Pikuri::Agent::ChatTransport.from_openai_server(server: 'http://127.0.0.1:41235', model: 'q')
+    with_own = described_class.new([*models.names.map { models.find(_1) },
+                                    described_class::Choice.new(name: 'Q', transport: own, embedded: true)])
+    entry = Pikuri::Conversations::Store::Entry.new(id: 'c1', dir: '/x', title: 't', created_at: Time.now,
+                                                    supported: true, model: 'q', server: 'http://127.0.0.1:39999/v1')
+    assert_equal 'Q', with_own.saved(entry).name
+    assert_nil with_own.saved(entry.with(model: 'other'))
+    assert_nil models.saved(entry), 'a server of the user own matches by its URL alone'
+  end
+
   it 'finds by name, and refuses one it lacks' do
     assert_same quiet, models.find('M, quiet').transport
     assert_raises(ArgumentError) { models.find('nope') }

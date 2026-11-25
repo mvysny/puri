@@ -11,6 +11,7 @@ $LOAD_PATH.unshift File.expand_path('../lib', __dir__), File.expand_path('../dev
 require 'puri'
 require 'puri/dummy'
 require_relative 'support/fake_index'
+require_relative 'support/fake_llama_server'
 require_relative 'support/fake_osm'
 require_relative 'support/fake_rhythmbox'
 

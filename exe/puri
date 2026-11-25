@@ -73,6 +73,10 @@ core =
   end
 client = Puri::Desktop::BackendClient.new(core)
 
-status = app.run(argv)
-core.close
+# However the main loop ends: closing stops the llama-server Puri runs.
+status = begin
+  app.run(argv)
+ensure
+  core.close
+end
 exit status

@@ -34,6 +34,8 @@ module Puri
         def initialize(table, faraday_adapter: nil)
           @url = table.url
           @model = table.model
+          # Auto sends none, so a server's own `-l` decides; OpenAI's would refuse "auto".
+          @language = table.language == Config::DictationTable::AUTO ? {} : { language: table.language }
           @context = RubyLLM.context do |config|
             config.openai_api_base = "#{table.url.chomp('/').delete_suffix('/v1')}/v1"
             config.openai_api_key = table.api_key || 'not-needed'
@@ -50,11 +52,11 @@ module Puri
         def transcribe(pcm)
           clip = RubyLLM::Attachment.new(StringIO.new(Transcriber.wav(pcm)), filename: 'clip.wav',
                                                                              mime_type: 'audio/wav')
-          text = @context.transcribe(clip, model: @model, provider: :openai, assume_model_exists: true).text
+          text = @context.transcribe(clip, model: @model, provider: :openai, assume_model_exists: true,
+                                           **@language).text
           raise Error, "#{@url} answered no text" unless text
 
-          squeezed = text.split.join(' ')
-          squeezed.gsub(/\[[^\]]*\]/, '').strip.empty? ? '' : squeezed
+          Dictation.squeeze(text)
         rescue RubyLLM::Error, Faraday::Error => e
           raise Error, "#{@url}: #{e.message}"
         end
