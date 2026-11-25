@@ -2,6 +2,8 @@
 // wording Puri uses for its steps (dev/puri/dummy/script.rb), and thickens a diagram line while
 // its table row is pointed at. copy.js, beside it, does the terminal's Copy button.
 //
+// The replay is the page's whole demo: there's no video (owner, 2026-11-25).
+//
 // The popup opens on the first conversation finished, so the page reads complete before anything
 // moves, and stays there under reduced motion.
 //

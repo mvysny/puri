@@ -13,7 +13,9 @@ module Puri
     #
     # Ruby's standard library only: `bin/setup` loads it before `bundle install`.
     class Packages
-      # `spec/site_spec.rb` holds the install guide's line to it.
+      # `spec/site_spec.rb` holds the install guide's line to it. `llama.cpp-tools`, not the
+      # `llama.cpp` metapackage, which also recommends `-tools-extra` and `python3-gguf`; Vulkan,
+      # the one GPU backend the archive has for AMD, Intel and NVIDIA alike (`R_llama_cpp_apt`).
       #
       # @return [Array<String>]
       LIST = %w[git ruby ruby-bundler ruby-dev build-essential ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0

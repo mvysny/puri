@@ -180,8 +180,11 @@ It isn't a competitor, since it runs only on Apple hardware, but it is the bar f
   third-party skills. It wants 64K+ context and a strong model, so in practice it runs on cloud
   models. ([MindStudio](https://www.mindstudio.ai/blog/what-is-openclaw-ai-agent))
   **[unverified]**
-- It is known for its security record, including an inbox it began deleting.
-  ([Built In](https://builtin.com/articles/what-is-openclaw)) **[unverified]**
+- It is known for its security record: leaked credentials, and an inbox it began deleting.
+  ([Built In](https://builtin.com/articles/what-is-openclaw),
+  [NYU Shanghai RITS](https://rits.shanghai.nyu.edu/ai/openclaw-the-open-source-ai-agent-you-can-run-locally-but-beware-the-risks/),
+  [HackerNoon](https://hackernoon.com/openclaw-is-a-security-nightmare-here-are-the-alternatives-to-use-instead))
+  **[unverified]**
 - Its own docs say local models lack hosted providers' safety filters, so tool permissions and
   prompt-injection defences need care.
   ([docs](https://docs.openclaw.ai/gateway/local-models)) **[docs]**

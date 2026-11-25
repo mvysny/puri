@@ -1,4 +1,6 @@
 /* puri-ai.de — its pages in libadwaita's own look, so a GNOME user sees one of theirs.
+   Kuri is the logo, not the look: a gold, mascot-led page read too cute for a first visit that
+   must earn trust. Nor is the what-leaves diagram the whole page, which sold safety before use.
    Everything is served from this folder: no font host, no CDN, no analytics. The footer says
    so, so keep it true. Adwaita Sans is subset to Latin from Ubuntu's fonts-adwaita-sans; Ubuntu
    ships no Adwaita Mono, so code falls back to the visitor's own monospace. */

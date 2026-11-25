@@ -21,13 +21,6 @@ is gone (owner, 2026-11-25). Left: `models.html`.
   `hf download` line stays for the step-by-step path. The setup's tip points at `#ornith`, and,
   on integrated Radeon graphics, `#igpu` with the `ttm` options worked out.
 
-## Changes to what `launch.md` decided
-
-- *The user walks the path, every download a command the user types* holds for the long guide
-  only; the quick path's script downloads.
-- *Both servers run as per-user systemd services* holds for the home server alone; the long
-  guide runs embedded too (owner, 2026-11-25).
-
 ## Untested
 
 - **`localsearch reset --file ~/Documents`** brings the office files' text back once
@@ -38,6 +31,9 @@ is gone (owner, 2026-11-25). Left: `models.html`.
   firmware's share or what the kernel lends, with and without the owner's `ttm` options. The
   setup's Ornith tip assumes a GPU reporting 30 GiB or more holds it.
 - **lavapipe:** a computer with no graphics card, `libggml0-backend-vulkan` and Mesa's software
-  Vulkan beside it. Does `--list-devices` list lavapipe, and does llama.cpp then run on it? The
-  setup counts it as no GPU and warns; llama.cpp may still pick it (`launch.md`'s *lavapipe*).
-- **The quick path, top to bottom,** on a clean 26.04 VM.
+  Vulkan beside it. Does `--list-devices` list lavapipe, and does llama.cpp then run on it,
+  slower than on the CPU alone? The setup counts it as no GPU and warns; llama.cpp may still
+  pick it.
+- **Both paths, top to bottom,** on a clean 26.04 VM: the quick one, and the long guide, whose
+  calendar click path (right-click the calendar → Properties → Offline Support) was written from
+  memory; check it in Thunderbird.

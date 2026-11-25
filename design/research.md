@@ -488,6 +488,20 @@ whisper.cpp 1.9.2, `ggml-small.bin`, a 3 s clip, `-l en`. **[verified 2026-11-25
 - `-np` hides the reason for a failure too: a missing model says only "error: failed to
   initialize whisper context", exit 3.
 
+## R_llama_cpp_apt — What Ubuntu 26.04's llama.cpp packages ship
+
+`llama.cpp-tools` 8681+dfsg-1 and `libggml0` 0.9.11-1, read with `apt-cache` and `dpkg-deb`,
+nothing installed or run. **[verified 2026-11-23]**
+
+- `llama.cpp-tools` ships a system service, `llama-server.service`, off until enabled: it runs as
+  `_llama-server`, caches in `/var/cache/llama-server`, and reads `/etc/default/llama-server`,
+  which documents `LLAMA_ARG_HF_REPO` (one model, from Hugging Face), `LLAMA_ARG_CTX_SIZE` and
+  `LLAMA_API_KEY`.
+- The `llama.cpp` metapackage also recommends `llama.cpp-tools-extra` and `python3-gguf`.
+- The GPU backends are packages of their own, which `libggml0` only suggests: BLAS, CUDA, HIP and
+  Vulkan. The archive has `libggml0-backend-vulkan` (55 MB installed; it suggests
+  `mesa-vulkan-drivers` and `nvidia-vulkan-icd`) and `-hip`, but no `-cuda`.
+
 ## R_llama_server_embedded — `llama-server` as another program's child
 
 Ubuntu 26.04's llama.cpp b10438. **[verified 2026-11-25]**

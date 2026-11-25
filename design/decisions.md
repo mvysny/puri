@@ -90,6 +90,17 @@ runs, so it is hard to change once installed. Reverse-DNS on the GitHub repo: Fl
 `com.github.*` ids. Why not Codeberg's `page.codeberg.*`: its Terms of Use §2.7, a July 2026
 member vote, bar mostly-AI-written projects, and it goes down often.
 
+## D_domain — Why `puri-ai.de` for the web page, rather than Puri's name alone?
+
+"Puri" alone is a city in Odisha and a fried bread, so the domain carries a qualifier, as the
+page's title does: read one way it's "Puri aide", the other "Puri AI". It is in every link to the
+page, so it is hard to change once shared. Registered at Hetzner (owner, 2026-11-24), its zone on
+Hetzner's DNS, the page GitHub Pages' from `docs/` through its `CNAME`. A `.de` asks no
+residency: a holder abroad names an authorised recipient in Germany only when DENIC asks, and it
+asks only when someone wants to serve papers in a dispute over the domain
+([DENIC's terms](https://www.denic.de/en/domain-terms-and-conditions/) §3(4), read 2026-11-24 in
+the English translation, which isn't binding).
+
 ## D_whole_reply — Why does Core re-send the whole `Reply` per delta, rather than only what changed?
 
 Because the bytes are not the cost. A 10 KB reply crosses `Protocol.round_trip` in 0.05 ms,
@@ -261,7 +272,9 @@ behind a hidden window.
 So a new user gets answers without running a server (owner, 2026-11-25): a `[[server]]` with no
 `url` is a `llama-server` Puri runs as its child, and a `[dictation]` with none runs `whisper-cli`
 per clip, apt's binaries both, beside any server of the user's, which Puri knows by URL alone.
-llama-server lets any web page use the model by default (`R_llama_server_embedded`), so the child
+Why not apt's own `llama-server.service` (`R_llama_cpp_apt`): a system unit holds the model from
+boot, for every user, several GB of an 8 GB laptop gone all day, where Puri's child holds it from
+login and quitting Puri gives it back. llama-server lets any web page use the model by default (`R_llama_server_embedded`), so the child
 gets a key and a free loopback port, kept for the whole run so a restart after a crash strands no
 open conversation; with the port new each run, a saved conversation resumes on it by model.
 `--offline` loads what the setup downloaded into the hub cache (`R_hub_cache`); Puri checks the
