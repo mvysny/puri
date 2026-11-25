@@ -59,7 +59,7 @@
             <tr><td>Download</td><td>3–4 GB</td><td>about 23 GB</td></tr>
             <tr><td>Memory, with Puri's 64K context</td><td>most of an 8 GB card</td><td>about 32 GB</td></tr>
             <tr><td>A turn on integrated graphics (Radeon 890M), median</td><td>33 s</td><td>24 s</td></tr>
-            <tr><td>Speed on an 8 GB card (RTX 4060)</td><td>50–60 tokens a second</td><td>doesn't fit</td></tr>
+            <tr><td>Speed on an 8 GB card (RTX 4060)</td><td>2.5–3× faster than integrated graphics (50–60 tokens a second)</td><td>doesn't fit</td></tr>
           </tbody>
         </table>
       </div>
@@ -146,10 +146,10 @@ llm = "Ornith 1.5, no thinking"</pre>
 
     <section id="no-gpu">
       <h2>A computer with no graphics card</h2>
-      <p>With no graphics to run on, the model runs on the processor alone. Everything stays just as private, but it is slow. This is Qwen 3.5 4B on eight cores of an AMD Ryzen AI 9 HX 370, a fast laptop processor, with its graphics left out:</p>
+      <p>With no graphics to run on, the model runs on the processor alone. Everything stays just as private, but it is slow. This is Qwen 3.5 4B on eight cores of an AMD Ryzen AI 9 HX 370, a fast laptop processor, set against the same chip's integrated graphics, a Radeon 890M:</p>
       <ul class="needs">
-        <li><strong>Over three minutes before the first answer</strong> after the model starts, while it reads Puri's instructions. The same processor's integrated graphics take 16 seconds. Later questions start sooner, since the model keeps what it has read.</li>
-        <li><strong>About 9 tokens a second</strong> as it writes, against 50–60 on an 8 GB card. Qwen thinks before it answers, so one answer can take a minute or more, and each mail or document it reads slows it down again.</li>
+        <li><strong>12× slower to start</strong> (over three minutes, where the graphics take 16 seconds): before its first answer after the model starts, it reads Puri's instructions. Later questions start sooner, since the model keeps what it has read.</li>
+        <li><strong>2.5× slower as it writes</strong> (about 9 tokens a second). Qwen thinks before it answers, so one answer can take a minute or more, and each mail or document it reads slows it down again.</li>
         <li><strong>About 7 GB of memory</strong> for as long as it runs, so a computer with 8 GB has almost nothing left for your desktop.</li>
       </ul>
       <p>A slower processor takes longer still. For a Puri that answers in seconds, run the model on another computer of yours that has a graphics card, a desktop PC or a home server, and Puri on this one, as below.</p>

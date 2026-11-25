@@ -206,7 +206,8 @@ cache. The VM's memory ballooned from 7 to 15 GiB during the run.
 - A load takes 2.9–4.5 s from the page cache. **[verified 2026-11-25]**
 - A cold 10,108-token prompt, the size of Puri's prefix, prefills in 198 s (51 tok/s); cached,
   0.3 s. **[verified 2026-11-25]**
-- It generates 8.6 tok/s. **[verified 2026-11-25]**
+- It generates 8.6 tok/s; the same prompt on the 890M, through the router of
+  `R_llama_server_reload`, 21.0–21.2 tok/s. **[verified 2026-11-25]**
 - Its RSS is 6.8 GiB once loaded and 7.1 GiB after that prompt, the mapped weights included.
   **[verified 2026-11-25]**
 
