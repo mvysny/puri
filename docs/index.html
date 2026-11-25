@@ -51,7 +51,7 @@
       <h1>Ask your desktop.</h1>
       <p class="lead">Puri is an assistant for GNOME. Press the shortcut, ask, and it answers from <strong>your mail, your calendar, your documents</strong> and the web. The model runs on your own machine.</p>
       <div class="cta">
-        <a class="btn suggested" href="install.html">Install Puri</a>
+        <a class="btn suggested" href="#install">Install Puri</a>
         <a class="btn" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-code"/></svg>Source code</a>
       </div>
       <p class="meta">Free and open source, MIT · Ubuntu 26.04 with GNOME</p>
@@ -169,17 +169,17 @@
     <div class="wrap install">
       <div>
         <div class="sec-head" style="margin-bottom:0">
-          <h2>Install</h2>
-          <p>GTK, libadwaita, Ruby, llama.cpp and whisper.cpp come from apt, Puri itself is a git clone, and the models come from Hugging Face. No npm, no Electron, and <a href="install.html#why">no <code>curl | sh</code></a>.</p>
+          <h2>Install (Super-Quick)</h2>
+          <p>Everything comes from Ubuntu's archive, Puri's own source and Hugging Face: no npm, no Electron. Three commands do it: the packages, Puri, and its setup, which asks before each of these and never uses <code>sudo</code>:</p>
         </div>
         <ol class="steps">
-          <li>Install the packages: Puri's, llama.cpp's and whisper.cpp's, and Hugging Face's download tool.</li>
-          <li>Download the two models, Qwen 3.5 4B and Whisper, 3.5 GB. Puri runs both itself.</li>
-          <li>Clone Puri and install it for your user. This binds the shortcut and starts Puri at login.</li>
-          <li>Copy the config, which turns on everything but web search and says what each part sends out.</li>
-          <li>Press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</li>
+          <li>Installs the Ruby libraries Puri needs.</li>
+          <li>Binds <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>, and starts Puri when you log in.</li>
+          <li>Writes the config, which turns on everything but web search and says what each part sends out.</li>
+          <li>Downloads the two models, Qwen 3.5 4B and Whisper, 3.5 GB. Puri runs both itself.</li>
         </ol>
-        <p class="more"><a class="btn suggested" href="install.html">The install guide</a><span>Every step, with a check after each.</span></p>
+        <p class="after-steps">Then press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>. To run each command yourself instead, the install guide below has them all.</p>
+        <p class="more"><a class="btn suggested" href="install.html">The install guide</a><span>Every command, with a check after each.</span></p>
       </div>
       <div class="term">
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
@@ -187,16 +187,8 @@
     ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
     llama.cpp-tools libggml0-backend-vulkan whisper.cpp \
     localsearch-extractor-office rhythmbox</span>
-<span class="p">$ </span><span class="cmd">sudo apt install --no-install-recommends python3-huggingface-hub</span>
-<span class="p">$ </span><span class="cmd">hf download ggml-org/Qwen3.5-4B-GGUF Qwen3.5-4B-Q4_K_M.gguf</span>
-<span class="p">$ </span><span class="cmd">hf download ggerganov/whisper.cpp ggml-small.bin</span>
-<span class="p">$ </span><span class="cmd">cd ~</span>
-<span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri</span>
-<span class="p">$ </span><span class="cmd">cd puri</span>
-<span class="p">$ </span><span class="cmd">bundle config set --local path vendor/bundle</span>
-<span class="p">$ </span><span class="cmd">bundle install</span>
-<span class="p">$ </span><span class="cmd">bundle exec rake install AUTOSTART=1</span>
-<span class="c"># then the config: step 5</span></pre>
+<span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri ~/puri</span>
+<span class="p">$ </span><span class="cmd">~/puri/bin/setup</span></pre>
       </div>
     </div>
   </section>

@@ -6,24 +6,20 @@ one, for whoever just wants it running, and today's `install.html`, the long one
 user who wants every setting.
 
 Built (2026-11-25): `bin/setup`, the setup that is also the doctor (`D_setup`, `Puri::Setup`),
-and the embedded `llama-server` and `whisper-cli` it sets up (`D_embedded`). The install guide's
-troubleshooting and Puri's "isn't downloaded" errors name it. Left: the site leading with it.
+and the embedded `llama-server` and `whisper-cli` it sets up (`D_embedded`). The site leads with
+it: the front page's "Install (Super-Quick)", its three commands and the setup's four actions,
+and the guide's "Super-quick" above "Step by step". The "why there's no one-line installer" box
+is gone (owner, 2026-11-25). Left: `models.html`.
 
-## The site
+## `models.html`
 
-- **The quick path:** the apt line, `git clone`, `bin/setup`, the shortcut. Its apt line is
-  `Puri::Setup::Packages::LIST`, which `spec/site_spec.rb` already holds the long guide's first
-  line to; no `hf` line, since the setup downloads the models itself.
 - **The funnel** (owner, 2026-11-25): a user who tried Puri locally and got hooked is the one who
-  later sets up a desktop PC or a home server for a smarter model. The quick install is the hook,
-  so it comes before new tools. The site then leads with the quick path, and `models.html`
-  becomes the upgrade story: Ornith, a home server over Tailscale, the laptop's battery spared.
-  It can also say what Siri can't: no account, no subscription, no server of ours.
-- **`models.html`'s switch to Ornith** then reads: edit the config, run `bin/setup`, which
-  downloads it; the `hf download` line stays for the long path. The setup's tip points at
-  `#ornith`, and, on integrated Radeon graphics, `#igpu` with the `ttm` options worked out.
-- **The "why there's no one-line installer" box** gains the setup: one command, but one in the
-  clone, read before it runs, that asks before each fix and never uses `sudo`.
+  later sets up a desktop PC or a home server for a smarter model. `models.html` is the upgrade
+  story: Ornith, a home server over Tailscale, the laptop's battery spared. It can also say what
+  Siri can't: no account, no subscription, no server of ours.
+- **Its switch to Ornith** then reads: edit the config, run `bin/setup`, which downloads it; the
+  `hf download` line stays for the step-by-step path. The setup's tip points at `#ornith`, and,
+  on integrated Radeon graphics, `#igpu` with the `ttm` options worked out.
 
 ## Changes to what `launch.md` decided
 

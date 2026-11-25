@@ -128,7 +128,9 @@ the README cut down to the developer setup.
   `models.html`, the model choice (owner). No site generator (owner): the pages share little beyond
   `style.css`, so each copies the `<head>`, header and footer, a spec checks they match, and the
   icon sprite moves to `icons.svg`.
-- **On top, why there's no `curl | bash`** (owner): a piped script runs before you've read it, as
+- **On top, why there's no `curl | bash`** (owner; dropped for now, 2026-11-25, since beside
+  `bin/setup`, one command too, it read oddly, and the end section says where each piece comes
+  from, the setup included): a piped script runs before you've read it, as
   you and often with sudo, and a server may send a pipe something other than what a browser shows.
   Every step here is a command you read first. A section at the end says where each piece comes
   from: GTK, Ruby, llama.cpp, whisper.cpp and localsearch from Ubuntu's archive; Puri a git clone

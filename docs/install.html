@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Install Puri: a desktop AI assistant for GNOME</title>
-<meta name="description" content="Install Puri on Ubuntu with GNOME: a dozen short commands, every one from apt or Puri's own source, and a check after each step.">
+<meta name="description" content="Install Puri on Ubuntu with GNOME: three commands, or a dozen with a check after each, every piece from apt or Puri's own source.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://puri-ai.de/install.html">
 <meta property="og:title" content="Install Puri: a desktop AI assistant for GNOME">
-<meta property="og:description" content="Install Puri on Ubuntu with GNOME: a dozen short commands, every one from apt or Puri's own source, and a check after each step.">
+<meta property="og:description" content="Install Puri on Ubuntu with GNOME: three commands, or a dozen with a check after each, every piece from apt or Puri's own source.">
 <meta property="og:image" content="https://puri-ai.de/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="kuri.svg" type="image/svg+xml">
@@ -34,7 +34,8 @@
     <p class="toc-head">On this page</p>
     <ol>
       <li><a href="#before">Before you start</a></li>
-      <li><a href="#quickstart">Quickstart</a>
+      <li><a href="#super-quick">Super-quick</a></li>
+      <li><a href="#step-by-step">Step by step</a>
         <ol>
           <li><a href="#step-thunderbird">Thunderbird's search</a></li>
           <li><a href="#step-packages">The packages</a></li>
@@ -57,13 +58,7 @@
 
   <article class="doc">
     <h1>Install Puri</h1>
-    <p class="lead">A dozen short commands in Ubuntu's Terminal. At the end, Puri answers from your mail, calendar and documents, finds places and the weather, plays your music and takes dictation. Web search waits for a key of your own.</p>
-
-    <aside class="callout" id="why">
-      <h2>Why there's no one-line installer</h2>
-      <p>Plenty of apps install with one line that downloads a script and runs it at once, <code>curl … | bash</code>. That script runs as you, often with <code>sudo</code>, before you've read a line of it, and the server can hand the pipe something other than what your browser shows you.</p>
-      <p>Puri is meant to be safe to point at your real inbox, and asking you to run code you haven't seen would be a poor start. So this guide is a dozen short commands instead of one, each one yours to read before you run it. The only <code>sudo</code> is <code>apt install</code>, and <a href="#sources">where each piece comes from</a> is at the end.</p>
-    </aside>
+    <p class="lead">Three commands in Ubuntu's Terminal, or a dozen if you'd rather run each step yourself. At the end, Puri answers from your mail, calendar and documents, finds places and the weather, plays your music and takes dictation. Web search waits for a key of your own.</p>
 
     <section id="before">
       <h2>Before you start</h2>
@@ -76,9 +71,26 @@
       </ul>
     </section>
 
-    <section id="quickstart">
-      <h2>Quickstart</h2>
-      <p>Eight steps, each ending in a check. The models' download is the slow part, so it starts early and runs while you do the rest.</p>
+    <section id="super-quick">
+      <h2>Super-quick</h2>
+      <p>The packages from Ubuntu's archive, then Puri, cloned into <code>~/puri</code>, which it runs from, and its setup:</p>
+      <div class="term">
+        <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
+<pre><span class="p">$ </span><span class="cmd">sudo apt install git ruby ruby-bundler ruby-dev build-essential \
+    ruby-gtk4 gir1.2-adw-1 gir1.2-shumate-1.0 libgtk-4-bin ripgrep \
+    llama.cpp-tools libggml0-backend-vulkan whisper.cpp \
+    localsearch-extractor-office rhythmbox</span>
+<span class="p">$ </span><span class="cmd">git clone https://github.com/mvysny/puri ~/puri</span>
+<span class="p">$ </span><span class="cmd">~/puri/bin/setup</span></pre>
+      </div>
+      <p>The setup asks before each thing it does, and never uses <code>sudo</code>. It installs the Ruby libraries Puri needs into <code>~/puri</code>, binds <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and starts Puri when you log in, writes the config, and downloads the two models, 3.5 GB, carrying on where it stopped if you run it again. Where Thunderbird or GNOME's file index needs a setting, it says where to click, or offers to make it.</p>
+      <p>Run it again whenever something doesn't work: it checks each step below and says what's missing.</p>
+      <p class="check"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-check"/></svg><span><strong>Check:</strong> its last line says Puri is ready. Then <a href="#step-try">try it</a>, and add <a href="#step-search">a search key</a> for web search.</span></p>
+    </section>
+
+    <section id="step-by-step">
+      <h2>Step by step</h2>
+      <p>The same, a command at a time: eight steps, each ending in a check. The models' download is the slow part, so it starts early and runs while you do the rest.</p>
 
       <section class="step" id="step-thunderbird">
         <h3><span class="n">1</span>Check Thunderbird's search</h3>
@@ -270,7 +282,7 @@ brave_key = "your key"</pre>
         <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
 <pre><span class="p">$ </span><span class="cmd">cd ~/puri</span>
 <span class="p">$ </span><span class="cmd">git pull</span>
-<span class="p">$ </span><span class="cmd">bundle install</span></pre>
+<span class="p">$ </span><span class="cmd">bin/setup</span></pre>
       </div>
       <p>Then quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>. A new feature may bring a new part to <code>~/puri/docs/config.toml</code>: compare it with yours.</p>
     </section>
@@ -318,8 +330,9 @@ brave_key = "your key"</pre>
         <li><strong>From Ubuntu's archive,</strong> signed and updated by apt with the rest of Ubuntu: GTK, libadwaita, Ruby, llama.cpp, whisper.cpp, Hugging Face's <code>hf</code>, localsearch and Rhythmbox.</li>
         <li><strong>Puri,</strong> a git clone of its source: plain Ruby you can read, with nothing compiled.</li>
         <li><strong>Its Ruby libraries,</strong> from rubygems.org through Bundler. Puri's <code>Gemfile.lock</code> pins each one's version and SHA-256, so <code>bundle install</code> refuses one that changed; pikuri's libraries come from GitHub, pinned to one commit. A few compile some C on your computer, which is why apt installs <code>build-essential</code>.</li>
-        <li><strong>The two models,</strong> from Hugging Face, fetched by <code>hf</code>. Both are weights, files of numbers that llama.cpp and whisper.cpp read, not programs.</li>
-        <li><strong><code>rake install</code></strong> writes three files under your home, a desktop entry, a D-Bus service and an autostart entry, and sets one GNOME shortcut. It prints each file, never uses <code>sudo</code>, and <code>rake uninstall</code> removes them all.</li>
+        <li><strong>The two models,</strong> from Hugging Face, fetched by Puri's setup, which checks each against the SHA-256 Hugging Face lists, or by <code>hf</code>. Both are weights, files of numbers that llama.cpp and whisper.cpp read, not programs.</li>
+        <li><strong>Puri's setup,</strong> <code>bin/setup</code> in the clone: plain Ruby, like the rest, which you can read before you run it. It asks before each change it makes, never uses <code>sudo</code>, and does nothing the steps on this page don't.</li>
+        <li><strong><code>rake install</code></strong>, or the setup, writes three files under your home, a desktop entry, a D-Bus service and an autostart entry, and sets one GNOME shortcut. It prints each file, never uses <code>sudo</code>, and <code>rake uninstall</code> removes them all.</li>
       </ul>
     </section>
   </article>

@@ -133,7 +133,7 @@ llm = "Ornith 1.5, no thinking"</pre>
       <p class="hint"><strong>Experimental.</strong> Nobody has run Puri this way at its full context yet.</p>
       <p><a href="https://github.com/niko1221/strata">Strata</a> runs large models on graphics cards too small to hold them. On it, Qwen 3.6 35B, a model of Ornith's size, has done well in pikuri's own apps, which Puri is built on; Strata probably has no Ornith.</p>
       <p>The catch is the context. Puri's instructions alone are about 10,000 tokens. An 8 GB card held an 8K context through Strata, too small; a 12 GB card may hold 32K or even 64K, but that hasn't been checked.</p>
-      <p>Strata comes from its own releases, not from Ubuntu's archive: an AppImage that downloads its engine for your card, or an install script. That's the kind of install <a href="install.html#why">the install guide avoids</a>, so it's your call, and this page doesn't vouch for it. Its own instructions cover setting it up.</p>
+      <p>Strata comes from its own releases, not from Ubuntu's archive: an AppImage that downloads its engine for your card, or an install script. That's the kind of install <a href="install.html#sources">the install guide avoids</a>, so it's your call, and this page doesn't vouch for it. Its own instructions cover setting it up.</p>
       <p>It serves the same kind of API as <code>llama-server</code>. Put the address Strata gives in <code>url</code> under <code>[[server]]</code>, and its model's name in each <code>[[llm]]</code>'s <code>model</code>. With a <code>url</code> there, Puri runs no model of its own, so the card is Strata's alone.</p>
     </section>
 
