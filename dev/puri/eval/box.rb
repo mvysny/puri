@@ -13,6 +13,16 @@ module Puri
     #   box.metrics('Qwen3.5-4B')                 # => {"prompt_tokens_total" => 16.0, …}
     #   box.build                                 # => "b10438-Debian"
     class Box
+      # The box at `url`: a {Lemonade} when the server answers as one, else the router.
+      #
+      # @param url [String] the server's base URL
+      # @param api_key [String, nil]
+      # @return [Puri::Eval::Box, Puri::Eval::Lemonade]
+      def self.at(url:, api_key:)
+        lemonade = Lemonade.new(url:, api_key:)
+        lemonade.answers? ? lemonade : new(url:, api_key:)
+      end
+
       # @param url [String] the server's base URL, without `/v1`
       # @param api_key [String, nil]
       def initialize(url:, api_key:)

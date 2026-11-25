@@ -69,6 +69,8 @@ definitions + memory). That last number is what a smaller model will pay for eve
   tier it carries, their tokens/s and prompt tokens/s against llama.cpp on the iGPU, and the
   watts of both (`model-eval.md`'s `Q_power`). Worth it only if a small model passes the eval.
   Qwen 3.5 4B measured 2026-11-25 (`R_qwen_npu`): it reads as fast as the 890M and writes 1.3–1.5×
-  slower, no longer half, at 18.5 W above idle against the 890M's 35 W.
+  slower, no longer half, at 18.5 W above idle against the 890M's 35 W. But it passed 74 % of the
+  eval's first 14 tasks against llama.cpp's 90 %, calling tools in a loop: the same weights, not
+  the same model in practice. Worth a rerun once Lemonade ships FastFlowLM 1.0.13 or later.
 - `Q_hosted_tier`: is there an opt-in hosted tier at all, and is a query that quotes a note allowed
   to go there? That's an egress leg like the search engine's, with the same confirm question.

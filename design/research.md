@@ -234,6 +234,15 @@ prompt and a tool, then a short question.
   idle against 35 W. Under that load the NPU wrote 14.8 tok/s and read 547 tok/s, the 890M 20.4
   and 490, slower than it reads cool. So a token written costs 1.25 J against 1.7 J, and a cold
   10K-token prompt about 340 J against 720 J. **[verified 2026-11-25, the owner reading btop]**
+- Thinking is on unless a request says otherwise, switched by a top-level `think` or by
+  `chat_template_kwargs.enable_thinking`; in 1.0.11 a `think: false` sticks for later requests
+  from any client, and `enable_thinking: true` doesn't undo it, `think: true` does.
+  **[verified 2026-11-25]** 1.0.13's notes say settings no longer leak between requests. **[docs]**
+- Puri's eval with thinking on, the router preset's sampling sent whole, stopped after its first
+  14 tasks: 31 of 42 runs passed (74 %), where llama.cpp on the 890M passed 38 of 42 (90 %) the day
+  before. The gap is tool calls in a loop: `drive-tampere` failed all three runs, one calling
+  `place_search` over 30 times until the 600 s limit, where the 890M passed all three; 4 runs
+  timed out, none on the 890M. **[verified 2026-11-25]**
 
 ## R_gnome_maps — GNOME Maps 49.3 answers no queries
 

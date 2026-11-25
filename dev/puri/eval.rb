@@ -24,6 +24,7 @@ end
 require_relative 'eval/matcher'
 require_relative 'eval/recorder'
 require_relative 'eval/box'
+require_relative 'eval/lemonade'
 require_relative 'eval/world'
 require_relative 'eval/task'
 require_relative 'eval/grader'

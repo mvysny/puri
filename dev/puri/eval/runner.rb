@@ -28,15 +28,20 @@ module Puri
       # @!attribute [r] kwargs
       #   @return [Hash{String => Object}] the chat template's arguments, as the `[[llm]]`'s
       #     `params` sends them
-      # @!attribute [r] sampling
-      #   @return [Hash{String => Float}] sent with every request over the preset's own: the
-      #     card's values for this mode, where they differ from the preset's
-      class Configuration < Data.define(:name, :model, :kwargs, :sampling)
+      # @!attribute [r] params
+      #   @return [Hash{String => Object}] sent with every request over the preset's own: the
+      #     card's sampling for this mode, where it differs from the preset's, and whatever else
+      #     the server needs
+      # @!attribute [r] server
+      #   @return [String, nil] the id of the user's `[[server]]` it runs on; nil for the one
+      #     their first `[[llm]]` uses
+      class Configuration < Data.define(:name, :model, :kwargs, :params, :server)
         # @param name [String]
         # @param model [String]
         # @param kwargs [Hash{String => Object}]
-        # @param sampling [Hash{String => Float}]
-        def initialize(name:, model:, kwargs:, sampling: {}) = super
+        # @param params [Hash{String => Object}]
+        # @param server [String, nil]
+        def initialize(name:, model:, kwargs:, params: {}, server: nil) = super
 
         # @return [String] the configuration's name, as a file name
         def slug = name.downcase.gsub(/[^a-z0-9.]+/, '-').delete_suffix('-')
@@ -60,9 +65,16 @@ module Puri
         Configuration.new(name: 'gpt-oss-20b, low', model: 'gpt-oss-20b', kwargs: { 'reasoning_effort' => 'low' }),
         Configuration.new(name: 'Ornith-1.5, thinking', model: 'Ornith-1.5', kwargs: {}),
         Configuration.new(name: 'Qwen3.5-4B, thinking', model: 'Qwen3.5-4B', kwargs: ON,
-                          sampling: { 'temperature' => 1.0, 'top_p' => 0.95 }),
+                          params: { 'temperature' => 1.0, 'top_p' => 0.95 }),
         Configuration.new(name: 'Nemotron-3.5-Bolt-E4B, thinking', model: 'Nemotron-3.5-Bolt-E4B', kwargs: ON),
-        Configuration.new(name: 'Granite-4.2-3B, thinking', model: 'Granite-4.2-3B', kwargs: ON)
+        Configuration.new(name: 'Granite-4.2-3B, thinking', model: 'Granite-4.2-3B', kwargs: ON),
+        # Qwen on the NPU, through Lemonade's FastFlowLM, which has no preset: the router preset's
+        # sampling goes whole, and `think` too, since in FastFlowLM 1.0.11 an earlier request's
+        # `think: false` outlasts `enable_thinking`.
+        Configuration.new(name: 'Qwen3.5-4B on the NPU, thinking', model: 'qwen3.5-4b-FLM', kwargs: ON,
+                          server: 'lemonade',
+                          params: { 'temperature' => 1.0, 'top_p' => 0.95, 'top_k' => 20, 'min_p' => 0.0,
+                                    'presence_penalty' => 1.5, 'think' => true })
       ].freeze
 
       # @return [Integer] seconds a turn may take before it's cancelled
@@ -148,7 +160,7 @@ module Puri
       def start(configuration)
         config = config_for(configuration)
         llm = config.primary_llm
-        box = Box.new(url: llm.server, api_key: llm.api_key)
+        box = Box.at(url: llm.server, api_key: llm.api_key)
         presets = CONFIGURATIONS.map(&:model).uniq
         box.unload(configuration.model) unless box.status(configuration.model)['value'] == 'unloaded'
         loading = Time.now
@@ -390,9 +402,9 @@ module Puri
         dir = File.join(@day_dir, 'config', configuration.slug)
         FileUtils.mkdir_p(File.join(dir, 'puri'))
         own = Core::Config.load
-        server = own.servers.find { _1.url == own.primary_llm.server }.id
+        server = configuration.server || own.servers.find { _1.url == own.primary_llm.server }.id
         kwargs = configuration.kwargs.map { |k, v| "#{k} = #{v.inspect}" }.join(', ')
-        pairs = configuration.sampling.map { |k, v| "#{k} = #{v.inspect}" }
+        pairs = configuration.params.map { |k, v| "#{k} = #{v.inspect}" }
         pairs << "chat_template_kwargs = { #{kwargs} }" unless kwargs.empty?
         params = pairs.empty? ? '' : "params = { #{pairs.join(', ')} }"
         File.write(File.join(dir, 'puri', 'config.toml'), <<~TOML)
