@@ -52,8 +52,9 @@ Screenshots:
   found nobody, created the event without the guest, and said to add them in Calendar.
   **[verified 2026-11-26]**
 - A guest who is in Contacts it adds to the event it creates, on an iCloud calendar: the event's
-  only button is Delete, no Send, and the guest shows a question mark. No invitation mail reached
-  any guest, a Gmail address included, nor its spam folder. **[verified 2026-11-26]**
+  only button is Delete, no Send, and the guest shows a question mark; Control-click offers
+  "Resend invitation". The invitation mail did reach a work address, minutes later; none was seen
+  at a Gmail address, or at the owner's own iCloud domain. **[verified 2026-11-26]**
 - Asked for the private calendar, an unconfirmed create used the family one. **[verified 2026-11-11]**
 - Changing an event asks first: grey Cancel and red Update in the transcript, white text on both.
   Cancel answers "OK. I won't make any changes to your appointment". **[verified 2026-11-11]**

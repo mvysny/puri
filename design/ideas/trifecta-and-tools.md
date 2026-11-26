@@ -177,6 +177,9 @@ tools. If practice shows that hop is constant, v2 is worth building.
 - `Q_prompt_home`: where does the system prompt live upstream? A new gem, pikuri-assistant's
   `prompts/`, or beside pikuri-thunderbird. It carries the "for the machine, run
   pikuri-tui-computer" hand-off.
+- `Q_siri_invite`: Siri's event sent its guest an invitation (`R_siri_popup`); did Siri ask
+  before it went, beyond "Who else would you like to invite?", and does the Gmail guest's ever
+  arrive?
 - `Q_reminders_backend`: Thunderbird VTODO, EDS, or our own store with daemon notifications?
 - `Q_synced_folder`: detect a synced notes folder and treat writes as egress?
 - `Q_link_rendering`: only tool-result URLs clickable; is that enough, or show the full URL on
