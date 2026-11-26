@@ -34,6 +34,7 @@ module Puri
         @status.add_css_class('puri-status')
         [@level, @pulse, @status].each { append(_1) }
         self.visible = false
+        signal_connect('map') { pulsing(@pulse.visible?) }
         signal_connect('unmap') { pulsing(false) }
       end
 

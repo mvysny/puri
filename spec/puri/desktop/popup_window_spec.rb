@@ -166,6 +166,24 @@ RSpec.describe 'Puri::Desktop::PopupWindow' do
     assert_equal 'hi there', view.entry.text
   end
 
+  it 'comes to the front as it is when presented while showing, unfocused' do
+    window.present
+    ask('hi there')
+    wait_until('the answer is shown') { view.transcript.blocks.last.is_a?(p::Reply) && !view.activity.running? }
+    other = Gtk::Window.new
+    other.application = GTK_APP
+    other.present
+    wait_until('it loses focus') { !window.active? }
+    maps = 0
+    window.signal_connect('map') { maps += 1 }
+    window.present
+    assert_equal 1, maps, 'mapped afresh: GNOME focuses only a new window'
+    assert window.expanded?
+    assert_equal 'hi there', view.transcript.last_question
+  ensure
+    other&.destroy
+  end
+
   it 'leaves a running turn alone on ×' do
     window.present
     ask('reschedule the dentist in my calendar')

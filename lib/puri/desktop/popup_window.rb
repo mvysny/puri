@@ -60,7 +60,7 @@ module Puri
         @conversation_view.dictation_row.signal_connect('notify::visible') { resize unless @expanded }
 
         install_actions
-        signal_connect('notify::visible') { reset unless visible? }
+        signal_connect('notify::visible') { reset unless visible? || @remapping }
         # Only a mapped window knows its monitor; until then the size is a guess.
         signal_connect('map') { resize }
         signal_connect('notify::is-active') { focus_changed }
@@ -68,6 +68,24 @@ module Puri
           show_title(event.conversations) if event.is_a?(Protocol::ConversationsChanged)
         end
         reset
+      end
+
+      # Brings the window to the front, focused, as it is: a conversation on screen stays.
+      #
+      # == Implementation details
+      #
+      # Shown but out of focus, it is hidden and mapped afresh: GNOME's shortcut hands Puri no
+      # activation token, so a window already showing is refused focus, while a new one takes it
+      # (R_gnome_activation).
+      #
+      # @return [void]
+      def present
+        if visible? && !active?
+          @remapping = true
+          self.visible = false
+          @remapping = false
+        end
+        super
       end
 
       # @return [Boolean] false while it is the pill

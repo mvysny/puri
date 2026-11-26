@@ -5131,6 +5131,15 @@ module Puri
       # _@param_ `client`
       def initialize: (Adw::Application app, Puri::Desktop::BackendClient client) -> void
 
+      # Brings the window to the front, focused, as it is: a conversation on screen stays.
+      # 
+      # == Implementation details
+      # 
+      # Shown but out of focus, it is hidden and mapped afresh: GNOME's shortcut hands Puri no
+      # activation token, so a window already showing is refused focus, while a new one takes it
+      # (R_gnome_activation).
+      def present: () -> void
+
       # _@return_ — false while it is the pill
       def expanded?: () -> bool
 

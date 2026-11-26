@@ -143,6 +143,14 @@ from the server's send. `ruby-gtk4` 4.3.4, Ruby 3.3.8, on Broadway.
   GNOME on Ubuntu, owner's second machine]**
 - A Puri started that way from a custom shortcut gets the graphical session's environment, and
   its window comes up with keyboard focus. **[verified 2026-11-11, GNOME on Ubuntu 26.04]**
+- `gsd-media-keys` runs a custom shortcut's command on a bare GLib launch context, so no
+  activation token reaches it; `gapplication` would forward one, `XDG_ACTIVATION_TOKEN`, as the
+  `activation-token` GTK presents with. **[verified 2026-11-26, the binaries' strings,
+  gnome-settings-daemon 51.0, GLib 2.90]**
+- Activated that way, `gtk_window_present` leaves a window already showing, unfocused, where it
+  is: nothing visible happens. **[verified 2026-11-26, owner, GNOME Shell 51.0]**
+- The same window hidden and shown again comes up in front, focused, a new window to mutter.
+  **[unverified]**
 
 ## R_label_layout_cost — Re-laying out a wrapping `Gtk::Label` per update
 
