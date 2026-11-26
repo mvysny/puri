@@ -61,6 +61,19 @@ button. The three results and their prompt wording are pikuri's `Confirmer` (pik
 ours. The question names everything that matters, which calendar, which note, because Siri's
 unconfirmed create picked the wrong calendar.
 
+## D_send_in_thunderbird — Why does a mail leave from Thunderbird's compose window, rather than from Puri after a "Ready to send?", as Siri's does?
+
+Siri holds a send tool: it shows the draft in Mail, asks "Ready to send?" as a question with no
+buttons, and sends once the user types yes (`R_siri_popup`). A typed yes has to be read as one,
+and Siri reads it loosely, "Sure, fire away" sending too: as a model reads, likely the model
+whose context an injected mail shares. A button press reaches the
+harness straight, as a type the model can neither forge nor misread, which is why Puri's
+confirmations never take typed text as a yes (`D_confirmation_answers`). For mail Puri goes one
+step further and gives the model no send at all (owner, 2026-11-26): `mail_compose` opens
+Thunderbird's compose window, whose Send button is the only way the mail leaves, so not even a
+bug in Puri's own confirmation can send it. The user checks it, recipients and all, in the app
+that sends it, the one they already send from.
+
 ## D_port_pikuri_web — Why host conversations through pikuri-conversations rather than our own store, or pikuri?
 
 Puri is pikuri-web ported onto a backend that doesn't care what its frontend is, and both hosts

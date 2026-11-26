@@ -41,9 +41,13 @@ Screenshots:
   only. **[verified 2026-11-11]**
 - Expand opens the conversation in the Siri app and closes the popup; every popup conversation
   lands in the app's history too. **[verified 2026-11-11]**
-- Creating an event just does it and links to Calendar; a mail opens as a draft in Mail
+- Creating an event just does it and links to Calendar
   ([MacMost](https://macmost.com/getting-started-with-siri-ai-in-macos-golden-gate.html)).
   **[unverified]**
+- Asked to write a mail, it opens Mail's compose window on the draft, its Send button live, and
+  asks "Ready to send?" in the transcript, as a question with no buttons; a typed "Yes, send"
+  sends it, from Siri, and so does "Sure, fire away": the reply is read loosely, not matched.
+  **[verified 2026-11-26]**
 - Asked for the private calendar, an unconfirmed create used the family one. **[verified 2026-11-11]**
 - Changing an event asks first: grey Cancel and red Update in the transcript, white text on both.
   Cancel answers "OK. I won't make any changes to your appointment". **[verified 2026-11-11]**
@@ -94,6 +98,22 @@ Sources: [Apple's Siri AI announcement](https://www.apple.com/newsroom/2026/06/a
   downloaded to the device and run in the app's process. **[docs]**
 - Items donated before WWDC24 reach the semantic index by re-indexing, which Spotlight schedules
   "when the device is sleeping or idle"; whether new items wait for idle too is unsaid. **[docs]**
+
+## R_siri_guard — What Apple says Siri does against prompt injection
+
+Source: [WWDC26 session 347](https://developer.apple.com/videos/play/wwdc2026/347/), "Mitigate
+risks to agentic features", its transcript.
+
+- Before an App Intent runs, the system rates its risk from the intent's side effects, which its
+  schema assigns, and the system state, and asks the user when the risk is high; a decline blocks
+  it. The one high-risk example named is deleting device state. **[docs]**
+- A schema also sets the intent's default lock-screen authentication; an app may only make it
+  stricter. **[docs]**
+- Redacting personal data and "spotlighting" untrusted text in delimiters are taught as an app's
+  own Foundation Models `historyTransform`, spotlighting as "a probabilistic mitigation". The
+  session never says Siri does either, only "We've used some of these as we've designed Siri
+  AI". **[docs]**
+- It calls indirect prompt injection "an active research area". **[docs]**
 
 ## R_gtk4_binding_cost — Startup and memory of a GTK4 + libadwaita app, per binding
 

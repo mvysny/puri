@@ -16,20 +16,17 @@ Secondary sources, mostly beta-era, [unverified]. The owner has a Mac; each bull
   [MacStories review](https://www.macstories.net/stories/macos-27-the-macstories-review/6/)).
 - **Writes:** creates and modifies calendar events and reminders in natural language; gathers from
   several apps into a Note ([MacRumors](https://macrumors.com/2026/06/08/ios-27-calendar-reminders)).
-- **Mail: drafts, and hands the draft to Mail for review** rather than sending — one hands-on
-  anecdote ([TidBITS](https://tidbits.com/2026/09/17/siri-ai-hits-and-misses/)). Whether it can
-  ever send without a click is `Q_siri_send`.
+- **Mail: a draft in Mail's compose window, then a send of its own** once the user types yes to
+  "Ready to send?" (`R_siri_popup`).
 - **Third-party apps only through App Intents**; an app that hasn't adopted them is invisible.
 - **Quality:** one test has it pass 34 of 62 tasks on 27.2
   ([geeky-gadgets](https://www.geeky-gadgets.com/siri-ai-mac-test/)). The bar is not high.
 
-**How Siri defends against prompt injection**, as far as public reporting goes
-([NowSecure](https://www.nowsecure.com/blog/2026/06/11/ios-27-security-what-wwdc-2026s-ai-features-mean-for-mobile-app-risk/)):
-App Intents carry side-effect metadata, and a risky intent gets a confirmation; intents on the lock
-screen need authentication; untrusted input is "spotlighted" (wrapped in delimiters) and PII is
-redacted before it reaches the model. Spotlighting and redaction are filters, so they're
-probabilistic; Private Cloud Compute does nothing for injection. Apple's approach is *confirm
-the dangerous action*, not *make the dangerous combination impossible*. We do the second.
+**How Siri defends against prompt injection** (`R_siri_guard`): a risk check asks before an
+action it rates high, and the lock screen needs authentication. Redaction and spotlighting are what
+Apple teaches app developers; nothing says Siri does them. Private Cloud Compute does nothing for
+injection. Apple's approach is *confirm the dangerous action*, not *make the dangerous combination
+impossible*. We do the second.
 
 **Siri confirms an event update but not a create** (owner, 2026-11-11), and the create it didn't
 confirm went to the wrong place: asked for the private calendar, it used the family one. Our
@@ -106,7 +103,7 @@ accepted.
 | Arithmetic, dates | `calculator` | — | — |
 | System settings | not here: `pikuri-tui-computer` | — | — |
 
-Mail compose matches what Siri seems to do: a draft handed to the mail app, never a send.
+Siri sends a mail itself after its "Ready to send?"; Puri never does (`D_send_in_thunderbird`).
 pikuri-thunderbird's `mail_compose` already refuses a suspicious body and flags a recipient you've
 never mailed.
 
@@ -177,8 +174,8 @@ tools. If practice shows that hop is constant, v2 is worth building.
 
 ## Open questions
 
-- `Q_siri_send`: can Siri on the Mac send a mail or create an event *without* a click? Try
-  "email Alice that I'm late" and "add lunch with Bob tomorrow to my calendar".
+- `Q_siri_invite`: Siri creates an event without asking; does one with a guest send the
+  invitation unasked too? Try "add lunch with Bob tomorrow and invite him".
 - `Q_prompt_home`: where does the system prompt live upstream? A new gem, pikuri-assistant's
   `prompts/`, or beside pikuri-thunderbird. It carries the "for the machine, run
   pikuri-tui-computer" hand-off.

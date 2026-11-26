@@ -72,7 +72,8 @@ It isn't a competitor, since it runs only on Apple hardware, but it is the bar f
   per Federighi ([Macworld](https://www.macworld.com/article/3162330/how-much-gemini-is-really-in-the-new-siri-ai.html));
   the often-quoted 1.2-trillion-parameter Gemini is a pre-WWDC Bloomberg report neither company
   confirmed. **[unverified]**
-- It creates an event without asking, while a mail waits as a draft in Mail: `R_siri_popup`.
+- It creates an event without asking, and sends a mail itself once the user types yes to
+  "Ready to send?": `R_siri_popup`. Its guard against injection: `R_siri_guard`.
 - It is closed source and runs on Apple hardware only. **[docs]**
 
 ## On the Linux desktop
