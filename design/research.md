@@ -150,7 +150,7 @@ from the server's send. `ruby-gtk4` 4.3.4, Ruby 3.3.8, on Broadway.
 - Activated that way, `gtk_window_present` leaves a window already showing, unfocused, where it
   is: nothing visible happens. **[verified 2026-11-26, owner, GNOME Shell 51.0]**
 - The same window hidden and shown again comes up in front, focused, a new window to mutter.
-  **[unverified]**
+  **[verified 2026-11-26, owner, GNOME Shell 51.0]**
 
 ## R_label_layout_cost — Re-laying out a wrapping `Gtk::Label` per update
 
