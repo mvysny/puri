@@ -174,8 +174,6 @@ tools. If practice shows that hop is constant, v2 is worth building.
 
 ## Open questions
 
-- `Q_siri_invite`: Siri creates an event without asking; does one with a guest send the
-  invitation unasked too? Try "add lunch with Bob tomorrow and invite him".
 - `Q_prompt_home`: where does the system prompt live upstream? A new gem, pikuri-assistant's
   `prompts/`, or beside pikuri-thunderbird. It carries the "for the machine, run
   pikuri-tui-computer" hand-off.
