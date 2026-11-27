@@ -3,7 +3,7 @@
 # It lives at ~/.config/puri/config.toml, and Puri reads it when it starts. Every feature below
 # is on, except web search, which needs a key of your own. A line starting with # is off: remove
 # the # to turn it on. To turn a feature off, put a # before its [table] line and the lines under
-# it. What each feature sends out of your computer: https://puri-ai.de/#privacy
+# it. What each feature sends out of your computer: https://puri-ai.de/tools.html
 
 
 # ── The model ─────────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Puri's tools: what each one sends</title>
+<meta name="description" content="Every tool Puri's model can call: what it does, what it sends out of your computer, and the lines in config.toml that turn it off.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://puri-ai.de/tools.html">
+<meta property="og:title" content="Puri's tools: what each one sends">
+<meta property="og:description" content="Every tool Puri's model can call: what it does, what it sends out of your computer, and the lines in config.toml that turn it off.">
+<meta property="og:image" content="https://puri-ai.de/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="kuri.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/AdwaitaSans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="wrap nav">
+  <a class="brand" href="./"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg>Puri</a>
+  <a class="nav-link" href="./#what">What it does</a>
+  <a class="nav-link" href="./#privacy">Privacy</a>
+  <a class="nav-link" href="install.html">Install</a>
+  <a class="btn small" href="https://github.com/mvysny/puri"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-code"/></svg>GitHub</a>
+  <button class="menu-btn" type="button" popovertarget="pages" aria-label="All pages"><svg class="ic" aria-hidden="true"><use href="icons.svg#i-menu"/></svg></button>
+  <nav class="menu" id="pages" popover aria-label="All pages">
+    <a href="./"><b>Puri</b><span>What it does, and what leaves your computer</span></a>
+    <a href="tools.html" aria-current="page"><b>Puri's tools</b><span>What each one sends, and how to turn it off</span></a>
+    <a href="install.html"><b>Install guide</b><span>Every command, with a check after each</span></a>
+    <a href="models.html"><b>Choose a model</b><span>A smarter one, or a server of your own</span></a>
+  </nav>
+</header>
+
+<main class="wrap guide">
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-head">On this page</p>
+    <ol>
+      <li><a href="#off">Turning a feature off</a></li>
+      <li><a href="#calculator">Arithmetic</a></li>
+      <li><a href="#mail">Mail, contacts and calendar</a></li>
+      <li><a href="#documents">Documents and notes</a></li>
+      <li><a href="#places">Places and routes</a></li>
+      <li><a href="#weather">Weather</a></li>
+      <li><a href="#music">Music</a></li>
+      <li><a href="#search">Web search</a></li>
+      <li><a href="#besides">Besides the tools</a></li>
+    </ol>
+  </nav>
+
+  <article class="doc">
+    <h1>Puri's tools</h1>
+    <p class="lead">The model can't open a file or reach the network on its own. Everything it does, it does by calling one of the tools below, and the conversation shows a line for each call, such as "📧&nbsp;Searched mail". Here is every tool, what it does, what it sends out of your computer, and how to turn it off.</p>
+
+    <div class="callout">
+      <h2>What no tool does</h2>
+      <p>No tool opens a URL, runs a command, or sends a mail or an invite. pikuri, which Puri is built on, has tools that fetch a web page and run commands; Puri doesn't give them to its model. So a mail written to trick the model has no way to send what it reads to whoever wrote it, and everything that does leave goes to a service you set up, listed below and drawn on the <a href="./#privacy">front page</a>.</p>
+    </div>
+
+    <section id="off">
+      <h2>Turning a feature off</h2>
+      <p>Each feature is a table in <code>~/.config/puri/config.toml</code>, and the tools below come in those same groups. To turn one off, put a <code>#</code> before its table's line and each line under it, quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd>, and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>. Its tools are then gone: the model isn't told of them, and can't call them. A feature is all or nothing; there's no switch for one tool alone. What each feature needs to work, and how to change it, is in the install guide's <a href="install.html#features">Each feature</a>.</p>
+    </section>
+
+    <section id="calculator">
+      <h2>Arithmetic</h2>
+      <p>Always there, since it reads nothing and sends nothing.</p>
+      <div class="list scroll-x">
+        <table class="tools">
+          <thead><tr><th>Tool</th><th>What it does</th><th>What it sends</th></tr></thead>
+          <tbody>
+            <tr><td><code>calculator</code><span class="shows">🧮 Calculated</span></td><td>Works out a sum, so the model doesn't guess at one.</td><td class="none">Nothing</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="mail">
+      <h2>Mail, contacts and calendar</h2>
+      <p>Read from your Thunderbird profile, snap or apt. Puri searches copies of Thunderbird's mail index and calendar in <code>~/.cache/puri</code>, and never writes to Thunderbird's own files. The mail and contact tools need Thunderbird's global search; without it, those four are left out.</p>
+      <div class="list scroll-x">
+        <table class="tools">
+          <thead><tr><th>Tool</th><th>What it does</th><th>What it sends</th></tr></thead>
+          <tbody>
+            <tr><td><code>thunderbird_<wbr>mail_<wbr>search</code><span class="shows">📧 Searched mail</span></td><td>Finds mails by what they say, who sent them, to whom, and when.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>thunderbird_<wbr>mail_<wbr>read</code><span class="shows">📧 Read a mail</span></td><td>Reads one mail the search found, and lists its attachments.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>thunderbird_<wbr>mail_<wbr>attachment_<wbr>read</code><span class="shows">📎 Read an attachment</span></td><td>Reads an attachment's text. A PDF or an office file is converted in a container with no network when podman is installed; without podman, only a PDF is read.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>thunderbird_<wbr>contact_<wbr>search</code><span class="shows">👤 Looked up</span></td><td>Finds a person's address among the people you've written to or heard from.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>thunderbird_<wbr>calendar_<wbr>search</code><span class="shows">📅 Searched the calendar</span></td><td>Finds events by what they say, where they are, and when.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>thunderbird_<wbr>calendar_<wbr>read</code><span class="shows">📅 Read an event</span></td><td>Reads one event in full, with who's coming.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>thunderbird_<wbr>mail_<wbr>compose</code><span class="shows">✉ Draft opened in Thunderbird</span></td><td>Opens a draft in Thunderbird's compose window, in plain text, with a recipient you've never written to flagged. Puri never sends.</td><td>Nothing, until you click Send in Thunderbird; the mail then goes to its recipients, as any mail of yours does.</td></tr>
+            <tr><td><code>thunderbird_<wbr>calendar_<wbr>create</code><span class="shows">📅 Event opened in Thunderbird</span></td><td>Opens an event in Thunderbird's import wizard, where you pick the calendar. It has no guests, so it invites nobody.</td><td>Nothing, until you confirm in Thunderbird; in a calendar on a server, the event then syncs there, as any event of yours does.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Turns off all eight:</p>
+<pre class="file toml">[thunderbird]
+enabled = false</pre>
+    </section>
+
+    <section id="documents">
+      <h2>Documents and notes</h2>
+      <p>Your Documents folder, whatever your desktop's language calls it, or the <code>folder</code> under <code>[documents]</code>. Puri reads all of it, and writes only in its Notes folder inside. What you ask it to remember is a note too: <code>Notes/PURI.md</code>, which the model reads at the start of each conversation.</p>
+      <div class="list scroll-x">
+        <table class="tools">
+          <thead><tr><th>Tool</th><th>What it does</th><th>What it sends</th></tr></thead>
+          <tbody>
+            <tr><td><code>fileindex_<wbr>search</code><span class="shows">🗂 Searched files</span></td><td>Finds files by the words in them, through GNOME's file index, which holds the text of PDFs and office files too.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>fileindex_<wbr>read</code><span class="shows">📄 Read</span></td><td>Reads a file's text as the index holds it.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>read</code><span class="shows">📄 Read</span></td><td>Reads a file from the disk, such as a note just written; a PDF or an office file is converted as an attachment is.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>glob</code><span class="shows">🗂 Looked for files</span></td><td>Finds files by their name.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>file_<wbr>list</code><span class="shows">🗂 Listed</span></td><td>Lists what's in a folder.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>write</code><span class="shows">📝 Wrote</span></td><td>Writes a note, inside Notes only.</td><td class="none">Nothing</td></tr>
+            <tr><td><code>edit</code><span class="shows">📝 Edited</span></td><td>Changes a note, inside Notes only.</td><td class="none">Nothing</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Turns off all seven, and what Puri remembers with them, since that's a note. Put the <code>#</code> before <code>folder</code> too, if you set one:</p>
+<pre class="file toml"># [documents]</pre>
+    </section>
+
+    <section id="places">
+      <h2>Places and routes</h2>
+      <p>From OpenStreetMap's public services, which GNOME Maps asks too, with no key and no account: the only name a request carries is Puri's own, as their terms ask. A tool takes a place in one of three ways. A number from an earlier answer sends nothing. Coordinates go to Nominatim, which names the address there. A name or an address goes to Photon, along with the point of the other place, when there is one, so that "Prisma" is found nearby and not in Bolivia.</p>
+      <div class="list scroll-x">
+        <table class="tools">
+          <thead><tr><th>Tool</th><th>What it does</th><th>What it sends</th></tr></thead>
+          <tbody>
+            <tr><td><code>place_<wbr>search</code><span class="shows">📍 Looked up</span></td><td>Finds a place by its name or address, or what's of one kind near a place, such as cafés: each with its distance by car, opening hours and website, on a map. For "near me", it asks your home address once, and remembers it in <code>Notes/PURI.md</code>.</td><td>First the place it searches near, as above. Then, for a name or an address, that name or address to Photon, and the places found to Nominatim, for their opening hours; for a kind of place, the kind and a box around that point to Nominatim. Last, the points to FOSSGIS's OSRM, for the drive to each.</td></tr>
+            <tr><td><code>route</code><span class="shows">🚗 Route</span></td><td>How far, and how long by car, from one place to another, with the road on a map.</td><td>Both places, as above; then to FOSSGIS's OSRM, their two points.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The map under an answer is drawn from tiles of the area on screen, which come from the server in <code>tiles</code> under <code>[maps]</code>, OpenStreetMap's own unless you change it. A click on a pin opens the place in GNOME Maps, or on openstreetmap.org when Maps isn't installed.</p>
+      <p>Turns off both. The weather finds its place here, so turn it off too:</p>
+<pre class="file toml"># [maps]
+# tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"</pre>
+    </section>
+
+    <section id="weather">
+      <h2>Weather</h2>
+      <div class="list scroll-x">
+        <table class="tools">
+          <thead><tr><th>Tool</th><th>What it does</th><th>What it sends</th></tr></thead>
+          <tbody>
+            <tr><td><code>weather</code><span class="shows">🌦 Weather from Open-Meteo</span></td><td>The weather now, and on the days asked, up to about two weeks ahead, in GNOME's units.</td><td>The place, found as <a href="#places">a route's</a> is. Then to Open-Meteo, its point rounded to about a kilometre, so a home's exact point never reaches it.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Open-Meteo's own server unless <code>url</code> under <code>[weather]</code> names one of yours. Turns it off:</p>
+<pre class="file toml"># [weather]</pre>
+    </section>
+
+    <section id="music">
+      <h2>Music</h2>
+      <div class="list scroll-x">
+        <table class="tools">
+          <thead><tr><th>Tool</th><th>What it does</th><th>What it sends</th></tr></thead>
+          <tbody>
+            <tr><td><code>play_<wbr>music</code><span class="shows">🎵 Music</span></td><td>Plays an artist, an album, a song or a genre from your Rhythmbox library, and starts Rhythmbox if it isn't running. It takes names, never a link.</td><td class="none">Nothing: it talks to Rhythmbox, on this computer.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>There's no switch: it's there whenever Rhythmbox is installed.</p>
+    </section>
+
+    <section id="search">
+      <h2>Web search</h2>
+      <p>Off until you add a key of your own, Brave Search's or Exa's, as the install guide's <a href="install.html#step-search">step 8</a> does.</p>
+      <div class="list scroll-x">
+        <table class="tools">
+          <thead><tr><th>Tool</th><th>What it does</th><th>What it sends</th></tr></thead>
+          <tbody>
+            <tr><td><code>web_<wbr>search</code><span class="shows">🔍 Searched: "what it searched for"</span></td><td>Searches the web, and keeps the engine's copy of each page it found.</td><td>The search query, which the model writes and may quote your mail, with your key: to Brave, which keeps its log of queries for up to 90 days and says it never trains on them, or to Exa, whose terms let it train on what you search for. With both keys, either one. Exa is asked for its stored copies only, so it doesn't visit a page on Puri's behalf.</td></tr>
+            <tr><td><code>web_<wbr>read_<wbr>cached</code><span class="shows">📄 Read a page the search found</span></td><td>Reads the engine's copy of a page the search found. It takes the label the search gave the page, never a URL, so it can't open a link, nor follow one inside the page.</td><td class="none">Nothing: the copy came with the search.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Turns off both:</p>
+<pre class="file toml"># [search]
+# brave_key = "…"
+# exa_key   = "…"</pre>
+    </section>
+
+    <section id="besides">
+      <h2>Besides the tools</h2>
+      <p>Three more things go somewhere, though the model calls none of them.</p>
+      <ul class="needs">
+        <li><strong>The model</strong> reads the whole conversation: what you ask, what each tool returned, and <code>Notes/PURI.md</code>. It runs in <code>llama-server</code> on this computer, unless the <code>[[server]]</code> it's on has a <code>url</code>: then all of it goes to that server, a home server of yours or a hosted one. <a href="models.html">Choose a model</a> has the choices.</li>
+        <li><strong>The title</strong> of each conversation comes from its first message, which goes to the model under <code>[titler]</code>, on the same server unless you change it.</li>
+        <li><strong>Dictation</strong> sends your voice, one clip at a time, to Whisper on this computer, unless <code>[dictation]</code> has a <code>url</code>.</li>
+      </ul>
+    </section>
+  </article>
+</main>
+
+<footer class="wrap footer">
+  <span class="grow"><svg aria-hidden="true"><use href="icons.svg#kuri-mark"/></svg><span>Puri is MIT licensed and built on <a href="https://github.com/mvysny/pikuri">pikuri</a>. Kuri the pika is pikuri's mascot.</span></span>
+  <span>This page sets no cookies and loads nothing from other sites.</span>
+</footer>
+
+</body>
+</html>

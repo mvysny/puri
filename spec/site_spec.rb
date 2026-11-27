@@ -39,6 +39,16 @@ RSpec.describe 'the web page' do
     end
   end
 
+  it 'names on tools.html every tool Puri wires, each with the line its call shows' do
+    page = pages.fetch('tools.html').gsub('<wbr>', '')
+    rows = page.scan(%r{<td><code>([a-z_]+)</code><span class="shows">(.*?)</span></td>})
+    wordings = Puri::Core::ToolWording::WORDINGS
+    assert_equal (wordings.keys + %w[web_search web_read_cached]).sort, rows.map(&:first).sort
+    rows.each do |name, shows|
+      assert_equal wordings[name].line, CGI.unescapeHTML(shows), name if wordings.key?(name)
+    end
+  end
+
   it 'draws only icons that icons.svg has' do
     ids = File.read(File.join(docs, 'icons.svg')).scan(/<symbol id="([^"]+)"/).flatten
     pages.each do |name, html|

@@ -327,6 +327,12 @@ pre.file { margin: 14px 0; padding: 16px 20px; overflow-x: auto; border-radius: 
 .compare td, .compare tr:last-child td:last-child { color: var(--fg); font-weight: 400; }
 .compare td:first-child { color: var(--dim); font-weight: 500; }
 .doc .list { margin: 16px 0; }
+/* tools.html: a tool's name over the line the conversation shows for its call. */
+.tools td, .tools tr:last-child td:last-child { color: var(--fg); font-weight: 400; }
+.tools td:first-child { width: 32%; }
+.tools td:first-child code { font-weight: 600; overflow-wrap: break-word; }
+.tools .shows { display: block; margin-top: 6px; color: var(--dim); font-size: .86rem; }
+.tools .none, .tools tr:last-child .none { color: var(--dim); }
 
 /* ── the Puri popup replay ───────────────────────────── */
 .puri { position: relative; color: var(--pw-fg); font: 14px/1.45 var(--sans); text-align: left; }
@@ -394,6 +400,17 @@ pre.file { margin: 14px 0; padding: 16px 20px; overflow-x: auto; border-radius: 
   .cap:nth-child(2) { border-top: 1px solid var(--edge); }
   .cap:nth-child(odd) { border-right: 0; }
   .desk { height: 450px; }
+  /* A tool a block, so what it sends never hides past a sideways scroll. */
+  .tools { min-width: 0; }
+  .tools thead { display: none; }
+  .tools tr, .tools td, .tools td:first-child { display: block; width: auto; }
+  .tools td { padding: 4px 18px; border-top: 0; }
+  .tools td:first-child { padding-top: 16px; border-top: 1px solid var(--edge); }
+  .tools tr:first-child td:first-child { border-top: 0; }
+  .tools td:last-child { padding-bottom: 16px; }
+  .tools td + td::before { display: block; margin-top: 8px; color: var(--dim); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .tools td:nth-child(2)::before { content: "What it does"; }
+  .tools td:nth-child(3)::before { content: "What it sends"; }
 }
 @media (max-width: 780px) {
   .legend .swipe { display: inline; }
