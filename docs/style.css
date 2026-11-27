@@ -54,6 +54,8 @@
   --pw-focus: rgba(53, 132, 228, .55);
   --pw-quote: #c4c3c9;
   --pw-btn: #e3e3e6;
+  --popover: #ffffff;
+  --wrap: 1160px;
 
   --sans: "Adwaita Sans", "Inter", "Cantarell", system-ui, sans-serif;
   --mono: "Adwaita Mono", "Source Code Pro", "DejaVu Sans Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -93,6 +95,7 @@
     --pw-focus: rgba(120, 174, 237, .6);
     --pw-quote: #5a5a61;
     --pw-btn: #3a3a40;
+    --popover: #36363a;
   }
 }
 
@@ -116,7 +119,7 @@ section[id] { scroll-margin-top: 16px; }
 .ic { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .scroll-x { overflow-x: auto; }
 .wrap {
-  max-width: 1160px;
+  max-width: var(--wrap);
   margin-inline: auto;
   padding-left: max(20px, env(safe-area-inset-left, 0px));
   padding-right: max(20px, env(safe-area-inset-right, 0px));
@@ -146,6 +149,23 @@ kbd.down { transform: translateY(2px); box-shadow: inset 0 0 0 var(--kbd-edge), 
 .btn:hover { filter: brightness(.96); }
 .btn.suggested { background: var(--accent-bg); color: #ffffff; }
 .btn.small { padding: 7px 14px; font-size: .88rem; }
+
+/* Every page, one click from any: libadwaita's primary menu, a native popover, so it closes on
+   Escape or a click outside with no script. The top layer places it against the document, so it
+   sits under the button by the same sums that place .wrap, and scrolls away with the header. */
+.menu-btn { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--edge); color: var(--fg); cursor: pointer; }
+.menu-btn:hover { filter: brightness(.96); }
+.menu {
+  position: absolute; inset: 56px calc(max(0px, (100% - var(--wrap)) / 2) + max(20px, env(safe-area-inset-right, 0px))) auto auto;
+  width: min(344px, calc(100% - 40px)); margin: 0; padding: 6px; border: 0; border-radius: 14px;
+  background: var(--popover); color: var(--fg); box-shadow: 0 0 0 1px var(--edge), 0 12px 32px -8px var(--shade), 0 2px 6px var(--shade);
+}
+.menu:popover-open { display: grid; gap: 2px; animation: fadein .15s ease both; }
+.menu a { display: grid; gap: 1px; padding: 9px 12px; border-radius: 8px; text-decoration: none; }
+.menu a:hover { background: var(--edge); }
+.menu b { font-weight: 700; font-size: .95rem; }
+.menu span { color: var(--dim); font-size: .86rem; line-height: 1.4; }
+.menu [aria-current] b { color: var(--accent); }
 
 .hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; padding-block: 40px 72px; }
 .keys { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: .9rem; font-weight: 600; }

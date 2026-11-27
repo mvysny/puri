@@ -21,10 +21,21 @@ RSpec.describe 'the web page' do
   # @return [Array<String>] the text of each command in its terminals, `&amp;` and all
   def commands(html) = html.scan(%r{<span class="cmd">(.*?)</span>}m).flatten
 
-  it 'gives every page the same header and footer' do
+  it 'gives every page the same header and footer, but for which page the menu marks' do
     assert_operator pages.size, :>=, 2
     %w[header footer].each do |tag|
-      assert_equal 1, pages.values.map { element(_1, tag) }.uniq.size, "the pages' <#{tag}>s differ"
+      shared = pages.values.map { element(_1, tag).sub(' aria-current="page"', '') }
+      assert_equal 1, shared.uniq.size, "the pages' <#{tag}>s differ"
+    end
+  end
+
+  it "lists every page in the header's menu, and marks the one it's on" do
+    pages.each do |name, html|
+      menu = html[%r{<nav class="menu".*?</nav>}m]
+      hrefs = menu.scan(/<a href="([^"]+)"/).flatten.map { _1 == './' ? 'index.html' : _1 }
+      assert_equal pages.keys, hrefs.sort, "#{name}'s menu"
+      current = menu.scan(/<a href="([^"]+)" aria-current="page"/).flatten
+      assert_equal [name == 'index.html' ? './' : name], current, "#{name}'s menu marks another page"
     end
   end
 
