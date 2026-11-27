@@ -212,40 +212,38 @@ brave_key = "your key"</pre>
 
     <section id="features">
       <h2>Each feature</h2>
-      <p>What each one needs, what it sends out, and how to change it. Puri reads its config when it starts, so after an edit, quit it with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</p>
+      <p>What each one needs, and how to change it; what each sends out, and how to turn it off, is on <a href="tools.html">Puri's tools</a>. Puri reads its config when it starts, so after an edit, quit it with <kbd>Ctrl</kbd>+<kbd>Q</kbd> and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</p>
 
       <section id="mail">
         <h3>Mail, contacts and calendar</h3>
-        <p>Puri reads your Thunderbird profile, snap or apt, which it finds on its own, and never writes there. A mail you ask it to write opens in Thunderbird's compose window, and an event in its import wizard; nothing leaves until you send or add it there.</p>
-        <p>Mail search needs Thunderbird's global search, and a calendar on a server its Offline Support (<a href="#step-thunderbird">step 1</a>). When Puri finds two profiles with mail, it names both: put the one you use in <code>profile_dir</code> under <code>[thunderbird]</code>. <code>enabled = false</code> there turns mail, contacts and calendar off.</p>
+        <p>Puri finds your Thunderbird profile, snap or apt, on its own. Mail search needs Thunderbird's global search, and a calendar on a server its Offline Support (<a href="#step-thunderbird">step 1</a>). When Puri finds two profiles with mail, it names both: put the one you use in <code>profile_dir</code> under <code>[thunderbird]</code>.</p>
       </section>
 
       <section id="documents">
         <h3>Documents and notes</h3>
-        <p>Puri searches your Documents folder, whatever your desktop's language calls it, and nothing else. It goes through GNOME's file index, which also holds the text of your PDFs and office files: <code>localsearch-extractor-office</code> (<a href="#step-packages">step 2</a>) adds DOCX, XLSX, PPTX, ODT, ODS, ODP and EPUB, and the older DOC, XLS and PPT need nothing extra.</p>
-        <p>A file the index doesn't hold, such as a mail attachment, is converted in a container with no network when podman is installed (<code>sudo apt install podman</code>). Without it, Puri reads only PDFs.</p>
-        <p>Puri writes only in the Notes folder inside Documents: its notes, and <code>Notes/PURI.md</code>, what you asked it to remember, a plain file you can edit. To use another folder than Documents, set <code>folder</code> under <code>[documents]</code>.</p>
+        <p>Puri searches your Documents folder through GNOME's file index, which also holds the text of your PDFs and office files: <code>localsearch-extractor-office</code> (<a href="#step-packages">step 2</a>) adds DOCX, XLSX, PPTX, ODT, ODS, ODP and EPUB, and the older DOC, XLS and PPT need nothing extra.</p>
+        <p>A file the index doesn't hold, such as a mail attachment, needs podman (<code>sudo apt install podman</code>) when it's an office file; Puri reads a PDF without it.</p>
+        <p>What you asked Puri to remember is <code>Notes/PURI.md</code>, a plain file you can edit. To use another folder than Documents, set <code>folder</code> under <code>[documents]</code>.</p>
       </section>
 
       <section id="places">
         <h3>Places and routes</h3>
-        <p>Where a place is, what's open nearby, and how far by car, from OpenStreetMap, with a map under the answer. The place you ask about goes to OpenStreetMap's public services: Photon finds it by name, Nominatim what's nearby, and FOSSGIS's OSRM the drive. Asked what's near you, Puri asks for your home address once, remembers it in <code>Notes/PURI.md</code>, and sends it to Photon. <a href="tools.html#places">Puri's tools</a> has what each request sends. A click on a pin opens the place in GNOME Maps, or on openstreetmap.org when Maps isn't installed.</p>
-        <p>The map's tiles come from the server in <code>tiles</code> under <code>[maps]</code>, OpenStreetMap's own unless you change it.</p>
+        <p>Nothing to set up: OpenStreetMap's public services take no key. For a map tile server of your own, put its address in <code>tiles</code> under <code>[maps]</code>.</p>
       </section>
 
       <section id="weather">
         <h3>Weather</h3>
-        <p>Open-Meteo's forecast, up to about two weeks ahead and in GNOME's units, for a place or for the trip in your calendar. Puri finds the place on OpenStreetMap, so the weather needs <code>[maps]</code> too, and sends Open-Meteo a point rounded to about a kilometre. Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>, under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p>
+        <p>Needs <code>[maps]</code> too, which finds the place. For an Open-Meteo server of your own, put its address in <code>url</code> under <code>[weather]</code>. Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>, under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p>
       </section>
 
       <section id="music">
         <h3>Music</h3>
-        <p>Puri plays an artist, an album, a song or a genre from your Rhythmbox library: "play some State Azure", or "play my favourite music" once you've told it your favourite. It starts Rhythmbox when it isn't running. An artist or a genre plays shuffled and replaces what you had queued; pause and skip with the media keys. It needs Rhythmbox's <em>D-Bus Media Server</em> plugin, which is on unless you switched it off.</p>
+        <p>Ask for an artist, an album, a song or a genre in your Rhythmbox library: "play some State Azure", or "play my favourite music" once you've told it your favourite. An artist or a genre plays shuffled and replaces what you had queued; pause and skip with the media keys. It needs Rhythmbox's <em>D-Bus Media Server</em> plugin, which is on unless you switched it off.</p>
       </section>
 
       <section id="dictation">
         <h3>Dictation</h3>
-        <p>Press <kbd>F5</kbd> or click the mic in the search bar, speak, and press <kbd>F5</kbd> again. The text lands at the cursor, for you to send with <kbd>Enter</kbd>; <kbd>Escape</kbd> drops it. Your voice stays on this computer: Puri runs Whisper on each clip, and nothing holds memory between clips. On a processor alone, <code>small</code> takes about 5 seconds for a short clip, and twice that while it works out which language you speak; <code>language = "de"</code>, or your own language's code, under <code>[dictation]</code> saves that. Integrated graphics take under a second. Your desktop's own dictation types into Puri too, as into any other field.</p>
+        <p>Press <kbd>F5</kbd> or click the mic in the search bar, speak, and press <kbd>F5</kbd> again. The text lands at the cursor, for you to send with <kbd>Enter</kbd>; <kbd>Escape</kbd> drops it. Puri runs Whisper on each clip, and nothing holds memory between clips. On a processor alone, <code>small</code> takes about 5 seconds for a short clip, and twice that while it works out which language you speak; <code>language = "de"</code>, or your own language's code, under <code>[dictation]</code> saves that. Integrated graphics take under a second. Your desktop's own dictation types into Puri too, as into any other field.</p>
         <p>Other models come from the <a href="https://huggingface.co/ggerganov/whisper.cpp">same place</a> as step 3's: <code>base</code> is smaller and faster and makes more mistakes, <code>medium</code> is slower and makes fewer. A model whose name ends in <code>.en</code> understands only English, and turns any other language into English gibberish. To switch, download one, then put its name in place of <code>ggml-small.bin</code> under <code>[dictation]</code>, quit Puri with <kbd>Ctrl</kbd>+<kbd>Q</kbd>, and press <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>:</p>
         <div class="term">
           <div class="term-head">Terminal<button class="copy" type="button">Copy</button></div>
@@ -255,7 +253,7 @@ brave_key = "your key"</pre>
 
       <section id="search">
         <h3>Web search</h3>
-        <p>Set up in <a href="#step-search">step 8</a>. With both keys, Puri picks an engine per query; <code>engines = ["brave"]</code> under <code>[search]</code> keeps it to one. DuckDuckGo isn't offered, because it returns no page text for Puri to read.</p>
+        <p>Set up in <a href="#step-search">step 8</a>. With both keys, <code>engines = ["brave"]</code> under <code>[search]</code> keeps Puri to one. DuckDuckGo isn't offered, because it returns no page text for Puri to read.</p>
       </section>
 
       <section id="shortcut">
